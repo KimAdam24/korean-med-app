@@ -16,8 +16,8 @@ import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Spacing } from '@/constants/theme';
 import {
-  captureTransiently,
   PhotoNotDiscardedError,
+  withTransientCapture,
 } from '@/features/capture/transient-capture';
 import { interpretBarcode } from '@/features/drugs/ndc';
 import { resolveNdcCandidates, type DrugIdentity } from '@/features/drugs/rxnorm';
@@ -165,12 +165,15 @@ export default function CameraScreen() {
     setTorchOn(false);
 
     try {
-      // The image stays in this local scope. It is never written to state, a
-      // ref, or a store, so it becomes unreachable as soon as this returns.
-      const image = await captureTransiently(camera);
-      setPhase({ kind: 'reading' });
+      // Recognition runs inside the capture window, while the file still
+      // exists. Nothing about the image escapes this callback — the photo is
+      // deleted before `withTransientCapture` returns, and only the extracted
+      // text survives.
+      const result = await withTransientCapture(camera, (image) => {
+        setPhase({ kind: 'reading' });
+        return recognizeLabel(image);
+      });
 
-      const result = await recognizeLabel(image);
       switch (result.status) {
         case 'recognized':
           setPhase({ kind: 'result', fields: result.fields });

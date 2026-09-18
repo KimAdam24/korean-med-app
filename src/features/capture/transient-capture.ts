@@ -8,23 +8,47 @@ import { Platform } from 'react-native';
  *
  * Worth being precise about what is and isn't achievable here. `expo-camera`
  * has no in-memory capture path on native — `takePictureAsync` always writes a
- * JPEG into the app's cache directory and hands back a `file://` URI, even when
- * `base64: true`. So "never saved to disk" cannot mean "never touches disk"; it
- * means the file's lifetime is bounded by this function, which deletes it
- * before returning and refuses to hand back pixels it could not delete.
+ * JPEG into the app's cache directory and hands back a `file://` URI. So "never
+ * saved to disk" cannot mean "never touches disk"; it means the file's lifetime
+ * is bounded, and that bound is enforced here rather than trusted to a caller.
  *
- * The other half of the guarantee is the caller's: a {@link TransientImage}
- * must never be written to storage, put in a global store, or logged.
+ * ## Why this is scoped rather than a plain function
+ *
+ * An earlier version deleted the file before returning, and handed back the
+ * pixels as base64. That was safe but unusable: every on-device text recognizer
+ * — Apple Vision, ML Kit — takes a file URI, and by the time the caller had the
+ * image there was no file left to point at.
+ *
+ * Inverting it fixes that without weakening anything. The caller's work runs
+ * *inside* the window, while the file still exists, and the `finally` below
+ * deletes it whether that work succeeded, failed, or threw. The guarantee is
+ * strictly stronger than before: there is now no way for a caller to hold the
+ * image at all, because the only reference it ever sees expires when its own
+ * callback returns.
+ *
+ * The one obligation left with the caller is not to squirrel the URI away and
+ * use it later. By then the file is gone, so the failure is loud rather than a
+ * silent privacy leak.
+ */
+
+/**
+ * A photograph that exists only for the duration of the callback it is passed to.
+ *
+ * Carries no pixel data. Holding this object after the callback returns is
+ * meaningless: `uri` will point at a deleted file.
  */
 export type TransientImage = {
-  /** Raw JPEG bytes, base64-encoded. Lives in JS memory only. */
-  readonly base64: string;
+  /**
+   * `file://` URI on native, a data URL on web. Valid only until the enclosing
+   * {@link withTransientCapture} callback settles.
+   */
+  readonly uri: string;
   readonly width: number;
   readonly height: number;
   readonly format: 'jpg' | 'png';
 };
 
-/** The photo was taken but no usable image data came back. */
+/** The photo was taken but no usable image came back. */
 export class CaptureFailedError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options);
@@ -34,8 +58,9 @@ export class CaptureFailedError extends Error {
 
 /**
  * The cache file outlived the capture. Thrown in preference to returning the
- * image, because a retained photo is a privacy failure and the user is entitled
- * to know the scan was abandoned rather than silently completed.
+ * recognition result, because a retained photo is a privacy failure and the
+ * user is entitled to know the scan was abandoned rather than silently
+ * completed.
  */
 export class PhotoNotDiscardedError extends Error {
   constructor(options?: { cause?: unknown }) {
@@ -45,7 +70,13 @@ export class PhotoNotDiscardedError extends Error {
 }
 
 const CAPTURE_OPTIONS = {
-  base64: true,
+  /**
+   * `base64` is deliberately *not* requested. It doubles peak memory for a
+   * large JPEG and produces a second copy of the photograph in the JS heap,
+   * which is exactly the kind of copy §4 exists to prevent. Recognizers read
+   * the file.
+   */
+  base64: false,
   /**
    * EXIF would carry GPS coordinates and a capture timestamp into the OCR
    * payload. Nothing downstream needs either, so it is never requested.
@@ -63,45 +94,53 @@ const CAPTURE_OPTIONS = {
    */
 } as const;
 
-export async function captureTransiently(camera: CameraView): Promise<TransientImage> {
+/**
+ * Takes a photograph, runs `use` against it, and deletes it.
+ *
+ * @param read Receives the image while its file exists. Must not retain the URI.
+ * @returns Whatever `read` returns.
+ *
+ * @throws CaptureFailedError if no usable photo came back.
+ * @throws PhotoNotDiscardedError if the file survived — which takes precedence
+ *   over an error from `read`, because an undeleted photo matters more than a
+ *   failed read.
+ *
+ * The callback is named `read` rather than the more natural `use` because
+ * React 19 exports a `use` hook, and the lint rule for hooks fires on any
+ * call to an identifier of that name — including one that is plainly a
+ * parameter. Not worth an eslint-disable.
+ */
+export async function withTransientCapture<T>(
+  camera: CameraView,
+  read: (image: TransientImage) => Promise<T>
+): Promise<T> {
   const picture = await camera.takePictureAsync(CAPTURE_OPTIONS);
 
   if (!picture) {
     throw new CaptureFailedError('The camera returned no picture.');
   }
+  if (!picture.uri) {
+    throw new CaptureFailedError('The camera returned a picture with no image data.');
+  }
 
-  // Read, then delete — but delete even if the read throws. If both fail the
-  // deletion error propagates, which is the correct precedence: an undeleted
-  // photo matters more than an unread one.
   try {
-    const base64 = extractBase64(picture);
-    if (!base64) {
-      throw new CaptureFailedError('The camera returned a picture with no image data.');
-    }
-    return {
-      base64,
+    return await read({
+      uri: picture.uri,
       width: picture.width,
       height: picture.height,
       format: picture.format ?? 'jpg',
-    };
+    });
   } finally {
+    // Runs on every path, including a throw from `read`. If deletion itself
+    // fails this throws out of the `finally` and replaces whatever `read` was
+    // propagating — deliberate, per the precedence noted above.
     discardCaptureFile(picture.uri);
   }
 }
 
-/**
- * On web there is no cache file: `uri` is itself the image, as a data URL.
- * Normalise both shapes down to bare base64 so callers never branch on platform.
- */
-function extractBase64(picture: { base64?: string; uri: string }): string | undefined {
-  const raw = picture.base64 ?? (Platform.OS === 'web' ? picture.uri : undefined);
-  if (!raw) return undefined;
-  const comma = raw.startsWith('data:') ? raw.indexOf(',') : -1;
-  return comma === -1 ? raw : raw.slice(comma + 1);
-}
-
 function discardCaptureFile(uri: string): void {
-  // Web never wrote a file, so there is nothing to delete.
+  // Web never wrote a file: `uri` is the image itself, as a data URL, and it
+  // becomes unreachable when the caller's reference goes out of scope.
   if (Platform.OS === 'web') return;
   if (!uri.startsWith('file://')) return;
 
