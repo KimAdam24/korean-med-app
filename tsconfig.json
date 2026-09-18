@@ -16,5 +16,18 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  // Tests run on Node, not in the app bundle, and are typechecked separately by
+  // tsconfig.test.json. Keeping them out here means `@types/node` never leaks
+  // its globals into the app's typecheck and mask a React Native mistake —
+  // `setTimeout` returning a Node `Timeout` instead of a number, for instance.
+  "exclude": [
+    "node_modules",
+    "babel.config.js",
+    "metro.config.js",
+    "android",
+    "ios",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

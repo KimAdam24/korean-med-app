@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Tests import `node:test`, `node:assert/strict` and use `Buffer` as the
+    // reference UTF-8 implementation, so they need Node's globals — which the
+    // app itself must never see.
+    "types": [
+      "node"
+    ],
+    // `node --experimental-strip-types` resolves the real `./utf8.ts` path, so
+    // the tests import it with its extension and tsc has to accept that.
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
+  ],
+  "exclude": []
+}

@@ -70,6 +70,83 @@ export const Strings = {
     needsCheck: { ko: '확인이 필요해요', en: 'Please check this' },
   },
 
+  /**
+   * The lock (spec §3.3).
+   *
+   * "잠금" (lock) is used rather than the English loanword, and the copy never
+   * names a technology the user has not already met on their own phone: the
+   * system prompt itself says Face ID or 지문, so these strings say "휴대폰
+   * 잠금 해제 방법" — the way you already unlock your phone.
+   */
+  lock: {
+    title: { ko: '약 정보를 보호하고 있어요', en: 'Your medicine information is protected' },
+    body: {
+      ko: '본인만 볼 수 있도록 잠겨 있어요. 잠금을 풀어 주세요.',
+      en: 'It is locked so that only you can see it. Please unlock it.',
+    },
+    unlock: { ko: '잠금 풀기', en: 'Unlock' },
+    /** Shown inside the OS dialog, so it must stand alone without our UI around it. */
+    prompt: { ko: '약 정보를 보려면 본인 확인이 필요해요', en: 'Please confirm it is you to see your medicine information' },
+    cancel: { ko: '취소', en: 'Cancel' },
+    usePin: { ko: '비밀번호로 열기', en: 'Use PIN instead' },
+    useDevice: { ko: '휴대폰 잠금으로 열기', en: 'Use phone unlock instead' },
+    checking: { ko: '확인하고 있어요', en: 'Checking' },
+    rejected: {
+      ko: '본인 확인이 되지 않았어요. 다시 해 보시거나 비밀번호를 쓰세요.',
+      en: 'We could not confirm it is you. Try again, or use your PIN.',
+    },
+    biometricUnavailable: {
+      ko: '지금은 지문이나 얼굴로 열 수 없어요. 비밀번호를 입력해 주세요.',
+      en: 'Fingerprint or face unlock is unavailable right now. Please enter your PIN.',
+    },
+  },
+
+  pin: {
+    enterTitle: { ko: '비밀번호를 입력해 주세요', en: 'Please enter your PIN' },
+    enterBody: { ko: '숫자 네 자리예요.', en: 'It is four digits.' },
+    createTitle: { ko: '비밀번호를 정해 주세요', en: 'Please choose a PIN' },
+    createBody: {
+      ko: '이 휴대폰에는 잠금이 설정되어 있지 않아요. 약 정보를 보호하려면 숫자 네 자리를 정해 주세요.',
+      en: 'This phone has no screen lock. To protect your medicine information, please choose four digits.',
+    },
+    confirmTitle: { ko: '한 번 더 입력해 주세요', en: 'Please enter it once more' },
+    mismatch: {
+      ko: '두 번 입력한 번호가 달라요. 처음부터 다시 정해 주세요.',
+      en: 'The two entries did not match. Please choose again.',
+    },
+    incorrect: { ko: '비밀번호가 맞지 않아요.', en: 'That PIN is not correct.' },
+    /** `{분}` is replaced with a whole number of minutes by `formatLockout`. */
+    lockedOut: {
+      ko: '여러 번 틀렸어요. {분}분 뒤에 다시 시도해 주세요.',
+      en: 'Too many wrong attempts. Please try again in {분} minutes.',
+    },
+    lockedOutSoon: {
+      ko: '여러 번 틀렸어요. 잠시 뒤에 다시 시도해 주세요.',
+      en: 'Too many wrong attempts. Please try again shortly.',
+    },
+    delete: { ko: '지우기', en: 'Delete' },
+    saved: { ko: '비밀번호를 저장했어요', en: 'Your PIN has been saved' },
+  },
+
+  vault: {
+    /**
+     * Shown when medication data exists but cannot be decrypted — almost always
+     * a restore onto a new phone. Deliberately explicit that the list is gone
+     * and must be re-scanned: an empty list shown without explanation could
+     * lead someone to believe they take no medicines.
+     */
+    unrecoverableTitle: { ko: '저장된 약 정보를 열 수 없어요', en: 'Your saved medicine information cannot be opened' },
+    unrecoverableBody: {
+      ko: '새 휴대폰에서는 예전에 저장한 약 정보를 열 수 없어요. 안전을 위해 이 휴대폰에서만 열리도록 되어 있어요. 약을 다시 찍어서 등록해 주세요.',
+      en: 'Medicine information saved on another phone cannot be opened here. For safety it can only be opened on the phone that saved it. Please scan your medicines again.',
+    },
+    startOver: { ko: '다시 등록하기', en: 'Start over' },
+    unsupported: {
+      ko: '이 휴대폰에서는 약 정보를 안전하게 저장할 수 없어요. 저장 기능은 휴대폰 앱에서 사용해 주세요.',
+      en: 'Medicine information cannot be stored securely here. Please use the phone app to save it.',
+    },
+  },
+
   problem: {
     captureFailed: {
       ko: '사진을 찍지 못했어요. 다시 해 볼까요?',
@@ -93,3 +170,17 @@ export const Strings = {
     },
   },
 } as const;
+
+/**
+ * Fills the `{분}` placeholder in a lockout message.
+ *
+ * Rounds up and floors at one: "0분 뒤에 다시 시도해 주세요" reads as broken,
+ * and a user told to wait zero minutes will simply retry and be refused again.
+ */
+export function formatLockout(template: Bilingual, remainingMs: number): Bilingual {
+  const minutes = Math.max(1, Math.ceil(remainingMs / 60_000));
+  return {
+    ko: template.ko.replace('{분}', String(minutes)),
+    en: template.en.replace('{분}', String(minutes)),
+  };
+}

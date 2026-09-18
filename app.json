@@ -40,6 +40,19 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "약 정보를 본인만 열어 볼 수 있도록 Face ID를 사용합니다."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "약 정보를 본인만 열어 볼 수 있도록 Face ID를 사용합니다."
+        }
       ]
     ],
     "experiments": {
