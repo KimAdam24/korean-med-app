@@ -1,18 +1,25 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { Strings } from '@/i18n/strings';
 
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
+export default function RootLayout() {
   const colorScheme = useColorScheme();
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
+      <Stack>
+        <Stack.Screen name="index" options={{ title: Strings.home.title.ko }} />
+        <Stack.Screen
+          name="camera"
+          options={{
+            // Full-screen and chrome-free: the capture UI supplies its own
+            // close affordance, sized for the target user.
+            headerShown: false,
+            presentation: 'fullScreenModal',
+          }}
+        />
+      </Stack>
     </ThemeProvider>
   );
 }
