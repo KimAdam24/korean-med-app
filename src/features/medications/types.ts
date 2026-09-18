@@ -29,6 +29,22 @@ export type MedicationRecord = {
   readonly addedAt: string;
   readonly source: MedicationSource;
   /**
+   * Present when the medicine was identified from a barcode against an
+   * authoritative reference, absent when it came from OCR or was typed.
+   *
+   * Stored because §3.4 interaction checking needs a stable handle, and
+   * `rxcui` is that handle — a name string is not. Its presence is also what
+   * separates "we know exactly which product this is" from "this is what the
+   * label appeared to say", which are different levels of confidence and
+   * should not be flattened into one.
+   */
+  readonly identity?: {
+    /** RxNorm concept unique identifier. */
+    readonly rxcui: string;
+    /** The 11-digit CMS code that resolved, unformatted. */
+    readonly ndc11: string;
+  };
+  /**
    * Set when a field arrived below the OCR confidence threshold and the user
    * has not confirmed it. Carried into storage rather than resolved at scan
    * time so the UI can keep flagging an unverified dose every time it is shown.
