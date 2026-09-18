@@ -51,7 +51,7 @@ src/i18n/strings.ts       all user-facing copy, Korean-first
 | --------------------------------------- | ------------------------------------------------- |
 | Camera capture, photo discarded         | Built                                             |
 | Barcode identification, NDC → RxNorm    | Built — the primary path (§3.1)                   |
-| OCR label reading (§3.1 fallback)       | Seam only — no provider wired in                  |
+| OCR label reading (§3.1 fallback)       | Custom native module — not yet verified on device  |
 | App lock, biometric + PIN (§3.3)        | Built                                             |
 | Encrypted medication storage (§3.3)     | Built                                             |
 | Korean translation (§3.2)               | Decided, not built                                |
@@ -92,21 +92,42 @@ the photograph itself; barcode-first sends eleven digits. If even that is
 unacceptable, the alternative is bundling an offline copy of the NDC directory,
 which is large but not impossible.
 
-### OCR is still not connected
+### OCR reads text but does not yet interpret it
 
-`recognizeLabel` returns `not-configured` rather than plausible-looking
-placeholder data, because a fake dose is indistinguishable from a real one once
-it reaches the profile. Barcode identification now covers the primary path, so
-OCR is only needed for cartons with no readable barcode.
+`modules/label-ocr` is a local Expo module: Apple Vision on iOS, ML Kit via Play
+Services on Android, both entirely on-device. It returns ordered lines of text.
 
-Wiring it needs a third-party on-device module (ML Kit / Apple Vision), and a
-change to `captureTransiently`: every candidate library takes a file URI, while
-capture currently deletes the file and returns base64. Recognition would have to
-happen inside the transient window, before the `finally` that deletes.
+It does **not** yet decide which line is the drug name and which is the dose.
+`recognizeLabel` returns those lines as `rawText` with no fields populated, and
+because `needsConfirmation` treats an absent field as unconfirmed, nothing can
+present a guess as a reading. Sig parsing is the next piece.
 
-Only the Latin script model is planned. ML Kit ships one model per script — at
-roughly 38 MB each — and our users read English labels, so Korean OCR is not
-worth the size. Korean remains the language of the guidance, not the input.
+We wrote this rather than taking a dependency because no community OCR library
+is both maintained and current: `expo-text-extractor`'s last substantive commit
+was ~4 months before we looked and it has no SDK 56/57 support, Infinite Red's
+text-recognition package is pinned two majors behind its own core, and
+`react-native-ml-kit` had not been pushed in over a year. On iOS, Vision is part
+of the OS, so the dependency count there is zero.
+
+Only Latin script is bundled. ML Kit ships one model per script at roughly 38 MB
+each, and these users read English labels — Korean is the language of the
+guidance, not of the input.
+
+### Android OCR reports no confidence at all
+
+Vision gives a real 0–1 confidence per line. ML Kit's documented `Text.Line`
+surface has none, so the module reports `null` there rather than inventing a
+number.
+
+`null` is treated as *unknown*, never as good, which in practice means every
+Android OCR result needs the user to confirm it. That is the honest reading of
+what we know, and it is the safe one — but it does mean the confirmation
+prompt will be far more common on Android than on iOS.
+
+### The native module has not been compiled or run
+
+Swift and Kotlin were written without a local Xcode or Android SDK, so they are
+reviewed but unbuilt. First `eas build` is where compile errors will surface.
 
 ### A scanned barcode cannot say which NDC segmentation it holds
 

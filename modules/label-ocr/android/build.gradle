@@ -1,0 +1,27 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.labelocr'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.labelocr"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  // Play Services variant, not 'com.google.mlkit:text-recognition'. Both run
+  // entirely on-device; this one shares the model with Google Play Services
+  // instead of adding roughly 38 MB of model to the APK. The trade is that the
+  // model downloads on first use, which the manifest meta-data asks Play
+  // Services to do at install time so the first scan is not the slow one.
+  implementation 'com.google.android.gms:play-services-mlkit-text-recognition:19.0.1'
+}
