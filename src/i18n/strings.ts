@@ -61,6 +61,60 @@ export const Strings = {
     done: { ko: '확인', en: 'Done' },
   },
 
+  /**
+   * Barcode identification (spec §3.1, primary path).
+   *
+   * The drug name itself is never translated — §3.2 settles on showing the
+   * printed English name so it can be matched against the box, with Korean
+   * guidance around it. So these strings are the frame, and the name sits
+   * inside them untouched.
+   */
+  scan: {
+    hint: {
+      ko: '약 상자에 있는 바코드를 네모 안에 비춰 주세요.',
+      en: 'Hold the barcode on the box inside the square.',
+    },
+    orPhoto: {
+      ko: '바코드가 없으면 아래 단추로 사진을 찍어 주세요.',
+      en: 'If there is no barcode, use the button below to take a photo.',
+    },
+    looking: { ko: '약을 찾고 있어요', en: 'Looking up the medicine' },
+    foundTitle: { ko: '이 약이 맞나요?', en: 'Is this the right medicine?' },
+    foundBody: {
+      ko: '약 상자에 적힌 이름과 같은지 확인해 주세요.',
+      en: 'Please check this matches the name printed on the box.',
+    },
+    codeLabel: { ko: '약 번호 (NDC)', en: 'Medicine code (NDC)' },
+    discontinued: {
+      ko: '지금은 판매하지 않는 포장이에요. 드시던 약이라면 그대로 등록해도 괜찮아요.',
+      en: 'This package is no longer sold. If it is the medicine you take, it is fine to add it.',
+    },
+    save: { ko: '내 약으로 등록하기', en: 'Add to my medicines' },
+    saved: { ko: '약 목록에 저장했어요', en: 'Saved to your medicine list' },
+    scanAgain: { ko: '다시 찍기', en: 'Scan again' },
+
+    ambiguousTitle: { ko: '비슷한 약이 여러 개 있어요', en: 'More than one medicine matches' },
+    ambiguousBody: {
+      ko: '바코드만으로는 구분할 수 없어요. 약 상자에 적힌 번호와 같은 것을 골라 주세요.',
+      en: 'The barcode alone cannot tell them apart. Please choose the one whose code matches your box.',
+    },
+
+    unrecognisedTitle: { ko: '등록된 약이 아니에요', en: 'This medicine is not in our reference' },
+    unrecognisedBody: {
+      ko: '바코드는 읽었지만 약 정보를 찾지 못했어요. 약 상자를 사진으로 찍어 볼까요?',
+      en: 'We read the barcode but could not find the medicine. Shall we try photographing the box?',
+    },
+
+    offlineTitle: { ko: '약 정보를 가져오지 못했어요', en: 'We could not fetch the medicine details' },
+    offlineBody: {
+      ko: '인터넷 연결을 확인하고 다시 시도해 주세요.',
+      en: 'Please check your internet connection and try again.',
+    },
+    retry: { ko: '다시 시도하기', en: 'Try again' },
+
+    saveFailedTitle: { ko: '저장하지 못했어요', en: 'We could not save it' },
+  },
+
   result: {
     title: { ko: '읽은 내용', en: 'What we read' },
     name: { ko: '약 이름', en: 'Medicine name' },

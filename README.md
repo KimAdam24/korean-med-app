@@ -47,14 +47,19 @@ src/i18n/strings.ts       all user-facing copy, Korean-first
 
 ## What is built
 
-| Area                                | State                                             |
-| ----------------------------------- | ------------------------------------------------- |
-| Camera capture, photo discarded     | Built                                             |
-| Label recognition (§3.1)            | Seam only — no provider wired in                  |
-| App lock, biometric + PIN (§3.3)    | Built                                             |
-| Encrypted medication storage (§3.3) | Built                                             |
-| Korean translation (§3.2)           | Decided, not built                                |
-| Interaction guidance (§3.4)         | Not started, by choice — needs authoritative data |
+| Area                                    | State                                             |
+| --------------------------------------- | ------------------------------------------------- |
+| Camera capture, photo discarded         | Built                                             |
+| Barcode identification, NDC → RxNorm    | Built — the primary path (§3.1)                   |
+| OCR label reading (§3.1 fallback)       | Seam only — no provider wired in                  |
+| App lock, biometric + PIN (§3.3)        | Built                                             |
+| Encrypted medication storage (§3.3)     | Built                                             |
+| Korean translation (§3.2)               | Decided, not built                                |
+| Interaction guidance (§3.4)             | Not started, by choice — needs authoritative data |
+
+Identification is US-first: NDC codes resolved against RxNorm. Korean products
+(식약처/KIMS) are not handled yet, and the Korean OCR script model is
+deliberately not bundled — see the limitations below.
 
 ## Known limitations
 
@@ -75,12 +80,41 @@ The cost is real: a phone upgrade costs a re-scan, for the users least likely to
 enjoy doing one. If that turns out to hurt in practice, the fix is a deliberate,
 user-initiated export — not loosening the keychain accessibility flag.
 
-### Label recognition is not connected
+### A lookup tells NLM which medicine was scanned
+
+Resolving an NDC means asking RxNav (National Library of Medicine) over the
+network. One NDC goes out per scan, over HTTPS, with no user or device
+identifier, no account, no cookie, and nothing from the medication profile — but
+NLM can still see that some IP address looked up a particular drug.
+
+This was the cheaper of the two disclosures available. Cloud OCR would have sent
+the photograph itself; barcode-first sends eleven digits. If even that is
+unacceptable, the alternative is bundling an offline copy of the NDC directory,
+which is large but not impossible.
+
+### OCR is still not connected
 
 `recognizeLabel` returns `not-configured` rather than plausible-looking
 placeholder data, because a fake dose is indistinguishable from a real one once
-it reaches the profile. `barcodeScannerEnabled` is `false` in `app.json` pending
-the OCR/barcode data-source decision, which blocks this.
+it reaches the profile. Barcode identification now covers the primary path, so
+OCR is only needed for cartons with no readable barcode.
+
+Wiring it needs a third-party on-device module (ML Kit / Apple Vision), and a
+change to `captureTransiently`: every candidate library takes a file URI, while
+capture currently deletes the file and returns base64. Recognition would have to
+happen inside the transient window, before the `finally` that deletes.
+
+Only the Latin script model is planned. ML Kit ships one model per script — at
+roughly 38 MB each — and our users read English labels, so Korean OCR is not
+worth the size. Korean remains the language of the guidance, not the input.
+
+### A scanned barcode cannot say which NDC segmentation it holds
+
+A 10-digit NDC is printed as 4-4-2, 5-3-2 or 5-4-1, and the barcode omits the
+hyphens that would say which. Each scan therefore yields up to three candidate
+11-digit codes, and RxNorm is asked about all of them. Usually exactly one
+exists. When more than one does, the app asks the user rather than picking —
+`src/features/drugs/ndc.ts` explains why at length.
 
 ### The PIN lockout can be shortened by changing the device clock
 

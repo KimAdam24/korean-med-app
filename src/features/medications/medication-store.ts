@@ -52,8 +52,22 @@ function isMedicationRecord(value: unknown): value is MedicationRecord {
     (record.source === 'label-scan' || record.source === 'manual') &&
     typeof record.needsReview === 'boolean' &&
     (record.dosage === undefined || typeof record.dosage === 'string') &&
-    (record.instructions === undefined || typeof record.instructions === 'string')
+    (record.instructions === undefined || typeof record.instructions === 'string') &&
+    isIdentity(record.identity)
   );
+}
+
+/**
+ * A partial identity is worse than none: a record carrying an `rxcui` but no
+ * `ndc11` would look authoritative to §3.4 while being untraceable back to the
+ * package it came from. Either both are present and well-formed, or the record
+ * is treated as having no identity at all.
+ */
+function isIdentity(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const identity = value as Record<string, unknown>;
+  return typeof identity.rxcui === 'string' && typeof identity.ndc11 === 'string';
 }
 
 export async function loadProfile(): Promise<ProfileLoadResult> {

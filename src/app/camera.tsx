@@ -1,4 +1,4 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
@@ -19,6 +19,9 @@ import {
   captureTransiently,
   PhotoNotDiscardedError,
 } from '@/features/capture/transient-capture';
+import { interpretBarcode } from '@/features/drugs/ndc';
+import { resolveNdcCandidates, type DrugIdentity } from '@/features/drugs/rxnorm';
+import { addMedication } from '@/features/medications/medication-store';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
 import {
   needsConfirmation,
@@ -30,20 +33,39 @@ import { Strings, type Bilingual } from '@/i18n/strings';
 /**
  * Medication capture (spec §3.1).
  *
- * The camera preview is torn down as soon as a capture succeeds or fails, so
- * the sensor is not live while the user reads a result.
+ * Two identification paths share one preview. The barcode is primary and runs
+ * continuously without the user doing anything beyond pointing the phone —
+ * which matters, because the target user should not have to understand the
+ * difference between the two. The shutter is the fallback for a carton with no
+ * readable barcode, and still routes to OCR.
+ *
+ * The camera preview is torn down as soon as either path produces a result, so
+ * the sensor is not live while the user reads it.
  */
 type Phase =
   | { kind: 'preview' }
   | { kind: 'capturing' }
   | { kind: 'reading' }
+  /** A drug barcode was seen and the reference lookup is in flight. */
+  | { kind: 'identifying' }
+  | { kind: 'identified'; drug: DrugIdentity; saving: boolean }
+  | { kind: 'ambiguous'; matches: readonly DrugIdentity[]; saving: boolean }
+  | { kind: 'saved' }
   | { kind: 'result'; fields: MedicationLabelFields }
   /**
    * `photoDiscarded` is carried explicitly rather than assumed: every failure
    * path deletes the capture file except `PhotoNotDiscardedError`, which is
    * precisely the case where we must not reassure the user.
    */
-  | { kind: 'problem'; message: Bilingual; photoDiscarded: boolean };
+  | { kind: 'problem'; message: Bilingual; photoDiscarded: boolean; retry?: () => void };
+
+/**
+ * The symbologies a US drug package actually carries: a linear UPC/EAN on the
+ * retail carton, and the GS1 DataMatrix that DSCSA serialisation mandates.
+ * Listing them explicitly stops the scanner burning effort on QR codes and
+ * postal symbols that cannot contain an NDC.
+ */
+const DRUG_BARCODE_TYPES = ['upc_a', 'ean13', 'datamatrix', 'code128'] as const;
 
 export default function CameraScreen() {
   const router = useRouter();
@@ -52,7 +74,88 @@ export default function CameraScreen() {
   const [phase, setPhase] = useState<Phase>({ kind: 'preview' });
   const [torchOn, setTorchOn] = useState(false);
 
+  /**
+   * `onBarcodeScanned` fires on every frame that contains a symbol, so without
+   * a latch a single bottle would launch a lookup per frame. A ref rather than
+   * state because the callback must see the update immediately, not after the
+   * next render.
+   */
+  const scanning = useRef(false);
+
   const cameraLive = phase.kind === 'preview' || phase.kind === 'capturing';
+
+  const handleBarcode = useCallback(async (scan: BarcodeScanningResult) => {
+    if (scanning.current) return;
+    scanning.current = true;
+
+    try {
+      // Decided locally and instantly. A loyalty card or a tin of beans must
+      // not interrupt the preview or reach the network, so anything that is not
+      // a drug code simply releases the latch and scanning continues in silence.
+      const interpreted = interpretBarcode({ type: scan.type, data: scan.data });
+      if (interpreted.status !== 'ndc-candidates') return;
+
+      setPhase({ kind: 'identifying' });
+      const resolution = await resolveNdcCandidates(interpreted.candidates);
+
+      switch (resolution.status) {
+        case 'identified':
+          setPhase({ kind: 'identified', drug: resolution.drug, saving: false });
+          return;
+        case 'ambiguous':
+          setPhase({ kind: 'ambiguous', matches: resolution.matches, saving: false });
+          return;
+        case 'unknown':
+          setPhase({
+            kind: 'problem',
+            message: Strings.scan.unrecognisedBody,
+            photoDiscarded: true,
+          });
+          return;
+        case 'offline':
+          setPhase({
+            kind: 'problem',
+            message: Strings.scan.offlineBody,
+            photoDiscarded: true,
+            // Offline is the one failure worth retrying as-is; the others need
+            // a different bottle or a different method.
+            retry: () => setPhase({ kind: 'preview' }),
+          });
+      }
+    } finally {
+      // Released only for paths that stay on the preview; once the phase has
+      // moved on the camera unmounts and no further scans arrive anyway.
+      scanning.current = false;
+    }
+  }, []);
+
+  const saveDrug = useCallback(async (drug: DrugIdentity) => {
+    setPhase((current) =>
+      current.kind === 'identified' || current.kind === 'ambiguous'
+        ? { ...current, saving: true }
+        : current
+    );
+
+    try {
+      await addMedication({
+        // RxNorm's concept name, verbatim. Not translated and not reformatted —
+        // it is what the user will compare against the printed box.
+        name: drug.name,
+        source: 'label-scan',
+        // The name came from an authoritative reference and the user has just
+        // confirmed it against the carton, so there is nothing left to review.
+        needsReview: false,
+        identity: { rxcui: drug.rxcui, ndc11: drug.ndc11 },
+      });
+      setPhase({ kind: 'saved' });
+    } catch {
+      setPhase({
+        kind: 'problem',
+        message: Strings.vault.unrecoverableBody,
+        photoDiscarded: true,
+      });
+    }
+  }, []);
 
   const handleCapture = useCallback(async () => {
     const camera = cameraRef.current;
@@ -106,7 +209,10 @@ export default function CameraScreen() {
     });
   }, []);
 
-  const retake = useCallback(() => setPhase({ kind: 'preview' }), []);
+  const retake = useCallback(() => {
+    scanning.current = false;
+    setPhase({ kind: 'preview' });
+  }, []);
   const close = useCallback(() => router.back(), [router]);
 
   // `permission` is null only while the initial status check is in flight.
@@ -137,6 +243,62 @@ export default function CameraScreen() {
     );
   }
 
+  if (phase.kind === 'identifying') {
+    return (
+      <Sheet>
+        <ActivityIndicator size="large" />
+        <BilingualText text={Strings.scan.looking} align="center" />
+      </Sheet>
+    );
+  }
+
+  if (phase.kind === 'identified') {
+    return (
+      <Sheet scroll>
+        <BilingualText text={Strings.scan.foundTitle} variant="heading" />
+        <DrugCard drug={phase.drug} />
+        <BilingualText text={Strings.scan.foundBody} variant="label" />
+        {phase.saving ? (
+          <ActivityIndicator size="large" />
+        ) : (
+          <BigButton label={Strings.scan.save} onPress={() => saveDrug(phase.drug)} />
+        )}
+        <BigButton label={Strings.scan.scanAgain} onPress={retake} tone="secondary" />
+        <BigButton label={Strings.camera.close} onPress={close} tone="secondary" />
+      </Sheet>
+    );
+  }
+
+  if (phase.kind === 'ambiguous') {
+    return (
+      <Sheet scroll>
+        <BilingualText text={Strings.scan.ambiguousTitle} variant="heading" />
+        <BilingualText text={Strings.scan.ambiguousBody} />
+        {phase.matches.map((match) => (
+          <View key={match.ndc11} style={styles.choice}>
+            <DrugCard drug={match} />
+            <BigButton
+              label={Strings.scan.save}
+              onPress={() => saveDrug(match)}
+              disabled={phase.saving}
+            />
+          </View>
+        ))}
+        <BigButton label={Strings.scan.scanAgain} onPress={retake} tone="secondary" />
+      </Sheet>
+    );
+  }
+
+  if (phase.kind === 'saved') {
+    return (
+      <Sheet>
+        <BilingualText text={Strings.scan.saved} variant="heading" align="center" />
+        <BigButton label={Strings.scan.scanAgain} onPress={retake} />
+        <BigButton label={Strings.camera.done} onPress={close} tone="secondary" />
+      </Sheet>
+    );
+  }
+
   if (phase.kind === 'result') {
     return (
       <Sheet scroll>
@@ -156,7 +318,10 @@ export default function CameraScreen() {
       <Sheet scroll>
         <BilingualText text={phase.message} variant="heading" />
         {phase.photoDiscarded && <DiscardNotice />}
-        <BigButton label={Strings.camera.retake} onPress={retake} />
+        <BigButton
+          label={phase.retry ? Strings.scan.retry : Strings.camera.retake}
+          onPress={phase.retry ?? retake}
+        />
         <BigButton label={Strings.camera.close} onPress={close} tone="secondary" />
       </Sheet>
     );
@@ -172,6 +337,10 @@ export default function CameraScreen() {
           mode="picture"
           enableTorch={torchOn}
           onMountError={handleMountError}
+          barcodeScannerSettings={{ barcodeTypes: [...DRUG_BARCODE_TYPES] }}
+          // Detached while a photo is being taken so a stray frame cannot start
+          // a lookup on top of a capture already under way.
+          onBarcodeScanned={phase.kind === 'preview' ? handleBarcode : undefined}
         />
       )}
 
@@ -190,7 +359,8 @@ export default function CameraScreen() {
         </View>
 
         <View style={styles.hintArea}>
-          <BilingualText text={Strings.camera.frameHint} align="center" onDark />
+          <BilingualText text={Strings.scan.hint} align="center" onDark />
+          <BilingualText text={Strings.scan.orPhoto} variant="label" align="center" onDark />
         </View>
 
         {phase.kind === 'capturing' || phase.kind === 'reading' ? (
@@ -217,6 +387,26 @@ export default function CameraScreen() {
           </View>
         )}
       </SafeAreaView>
+    </View>
+  );
+}
+
+/**
+ * The identified medicine.
+ *
+ * The name is rendered through `BilingualText` with an empty English line
+ * because it is already English and must not be paired with a translation —
+ * this is the one string on the screen that has to match the box exactly.
+ */
+function DrugCard({ drug }: { drug: DrugIdentity }) {
+  return (
+    <View style={styles.card}>
+      <BilingualText text={{ ko: drug.name, en: '' }} variant="heading" />
+      <BilingualText text={Strings.scan.codeLabel} variant="label" />
+      <BilingualText text={{ ko: drug.ndcFormatted, en: '' }} />
+      {drug.packageStatus === 'OBSOLETE' && (
+        <BilingualText text={Strings.scan.discontinued} variant="label" />
+      )}
     </View>
   );
 }
@@ -308,6 +498,13 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
     padding: Spacing.four,
   },
+  card: {
+    gap: Spacing.one,
+  },
+  choice: {
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
+  },
   cameraRoot: {
     flex: 1,
     backgroundColor: '#000000',
@@ -337,6 +534,7 @@ const styles = StyleSheet.create({
   hintArea: {
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.three,
+    gap: Spacing.two,
   },
   controls: {
     alignItems: 'center',
