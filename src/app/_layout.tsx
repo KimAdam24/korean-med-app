@@ -1,19 +1,9 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
-import { installDeviceRecognizer } from '@/features/ocr/device-recognizer';
 import { AppLockProvider, useAppLock } from '@/features/security/app-lock-context';
 import { LockScreen } from '@/features/security/lock-screen';
 import { Strings } from '@/i18n/strings';
-
-/**
- * Fills the §3.1 recognizer seam at startup, before any screen can call it.
- *
- * At module scope rather than in an effect: `recognizeLabel` is reachable from
- * the camera as soon as it mounts, and a seam filled one render later would
- * report `not-configured` to whoever got there first.
- */
-installDeviceRecognizer();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
