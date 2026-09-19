@@ -36,6 +36,19 @@ export type AppLockValue = {
   readonly lock: () => void;
   /** Re-probes after a PIN is created, so `pinSet` stops being stale. */
   readonly refresh: () => Promise<void>;
+  /**
+   * Runs an interaction that hands focus to the OS — a file picker, a
+   * permission dialog — without the resulting `background` transition being
+   * read as the user leaving the app.
+   *
+   * Anything that opens system UI *and* needs the calling screen to survive
+   * until it returns must go through this. Without it the screen is unmounted
+   * mid-interaction and the result arrives nowhere.
+   *
+   * Not for `Linking.openSettings()` and similar: that genuinely sends the user
+   * elsewhere, and re-locking when they come back is correct.
+   */
+  readonly runWithSystemUi: <T>(action: () => Promise<T>) => Promise<T>;
 };
 
 const AppLockContext = createContext<AppLockValue | null>(null);
@@ -46,12 +59,17 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
   const [lastOutcome, setLastOutcome] = useState<UnlockOutcome | null>(null);
 
   /**
-   * True while the OS prompt is on screen. The prompt pushes the app to
-   * `inactive` (and on some Android devices briefly to `background`), so
-   * without this the re-lock handler would fire during the very authentication
-   * meant to unlock, and the user would loop.
+   * True while the OS authentication prompt is on screen. Guards against a
+   * second prompt being opened on top of the first, which throws on iOS.
    */
   const authenticating = useRef(false);
+
+  /**
+   * How many system-UI interactions this app currently has open. Non-zero means
+   * a `background` transition is the OS taking focus for something we asked
+   * for, not the user walking away.
+   */
+  const systemUi = useRef(0);
 
   const applyCapability = useCallback((next: LockCapability) => {
     setCapability(next);
@@ -85,15 +103,45 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
    * notification shade, an incoming call banner, and the biometric prompt
    * itself. Locking on those would be hostile — and in the prompt's case,
    * self-defeating.
+   *
+   * `background` is not sufficient on its own either. Android backgrounds this
+   * activity whenever another one comes forward, including system UI that *we*
+   * opened — a document picker, a permission dialog. The user has not left the
+   * app in that case; the app asked the OS a question on their behalf. Locking
+   * there tears down the screen that is waiting for the answer, so the answer
+   * arrives to a component that no longer exists and the interaction silently
+   * fails. `systemUi` marks those windows so they are not mistaken for leaving.
    */
   useEffect(() => {
     const onChange = (next: AppStateStatus) => {
-      if (next === 'background' && !authenticating.current) {
+      if (next === 'background' && systemUi.current === 0) {
         setStatus((current) => (current === 'unlocked' ? 'locked' : current));
       }
     };
     const subscription = AppState.addEventListener('change', onChange);
     return () => subscription.remove();
+  }, []);
+
+  /**
+   * Runs `action` without the backgrounding it causes being read as the user
+   * leaving the app.
+   *
+   * A counter rather than a boolean: nesting is possible — a picker opened from
+   * a screen that is itself mid-permission-request — and a boolean would be
+   * cleared by whichever finished first, re-arming the lock while the other was
+   * still open.
+   *
+   * The suppression lasts exactly as long as the call. It is deliberately not a
+   * timer: the window should close when the OS hands control back, not after a
+   * guessed interval.
+   */
+  const runWithSystemUi = useCallback(async <T,>(action: () => Promise<T>): Promise<T> => {
+    systemUi.current += 1;
+    try {
+      return await action();
+    } finally {
+      systemUi.current = Math.max(0, systemUi.current - 1);
+    }
   }, []);
 
   const requestDeviceUnlock = useCallback(async (): Promise<UnlockOutcome> => {
@@ -105,21 +153,35 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
 
     authenticating.current = true;
     try {
-      const outcome = await unlockWithDevice(Strings.lock.prompt.ko, Strings.lock.cancel.ko);
+      // The prompt is system UI too, and on some Android devices it briefly
+      // backgrounds the app — which would re-lock during the very
+      // authentication meant to unlock.
+      const outcome = await runWithSystemUi(() =>
+        unlockWithDevice(Strings.lock.prompt.ko, Strings.lock.cancel.ko)
+      );
       setLastOutcome(outcome);
       if (outcome.kind === 'unlocked') setStatus('unlocked');
       return outcome;
     } finally {
       authenticating.current = false;
     }
-  }, []);
+  }, [runWithSystemUi]);
 
   const markUnlocked = useCallback(() => setStatus('unlocked'), []);
   const lock = useCallback(() => setStatus('locked'), []);
 
   const value = useMemo(
-    () => ({ status, capability, lastOutcome, requestDeviceUnlock, markUnlocked, lock, refresh }),
-    [status, capability, lastOutcome, requestDeviceUnlock, markUnlocked, lock, refresh]
+    () => ({
+      status,
+      capability,
+      lastOutcome,
+      requestDeviceUnlock,
+      markUnlocked,
+      lock,
+      refresh,
+      runWithSystemUi,
+    }),
+    [status, capability, lastOutcome, requestDeviceUnlock, markUnlocked, lock, refresh, runWithSystemUi]
   );
 
   return <AppLockContext.Provider value={value}>{children}</AppLockContext.Provider>;

@@ -5,6 +5,7 @@ import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Fonts, Spacing } from '@/constants/theme';
+import { useAppLock } from '@/features/security/app-lock-context';
 
 import { LabelOcr } from '../../../modules/label-ocr';
 import { DevLineList, logRecognizedLines } from './dev-line-list';
@@ -46,10 +47,14 @@ type ProbeState =
 
 export function DevFileProbe() {
   const [state, setState] = useState<ProbeState>({ kind: 'idle' });
+  const { runWithSystemUi } = useAppLock();
 
   const pickAndRead = useCallback(async () => {
     try {
-      const picked = await File.pickFileAsync({ mimeTypes: 'image/*' });
+      // The picker is a separate activity, so opening it backgrounds this one.
+      // Without this the app would re-lock, unmount this component, and drop
+      // the picked file on the floor while the user typed their PIN.
+      const picked = await runWithSystemUi(() => File.pickFileAsync({ mimeTypes: 'image/*' }));
       if (picked.canceled) return;
 
       setState({ kind: 'reading' });
@@ -67,7 +72,7 @@ export function DevFileProbe() {
         message: error instanceof Error ? error.message : String(error),
       });
     }
-  }, []);
+  }, [runWithSystemUi]);
 
   if (!__DEV__) return null;
 

@@ -33,6 +33,7 @@ import {
   type MedicationLabelFields,
   type RecognizedTextLine,
 } from '@/features/ocr/types';
+import { useAppLock } from '@/features/security/app-lock-context';
 import { Strings, type Bilingual } from '@/i18n/strings';
 
 /**
@@ -88,6 +89,21 @@ export default function CameraScreen() {
    * null in a release build — `probeCapture` returns null outside `__DEV__`.
    */
   const [devProbe, setDevProbe] = useState<CaptureProbe | null>(null);
+  const { runWithSystemUi } = useAppLock();
+
+  /**
+   * The Android permission dialog is another activity, so granting camera
+   * access backgrounds this one. Unguarded, that re-locks the app and unmounts
+   * this screen at the exact moment the user says yes — they authenticate, and
+   * land back on the home screen with the permission granted and nothing to
+   * show for it.
+   */
+  const askForCamera = useCallback(
+    () => runWithSystemUi(async () => {
+      await requestPermission();
+    }),
+    [requestPermission, runWithSystemUi]
+  );
 
   /**
    * `onBarcodeScanned` fires on every frame that contains a symbol, so without
@@ -251,7 +267,7 @@ export default function CameraScreen() {
       <Sheet>
         <BilingualText text={Strings.permission.askTitle} variant="heading" align="center" />
         <BilingualText text={Strings.permission.askBody} align="center" />
-        <BigButton label={Strings.permission.allow} onPress={requestPermission} />
+        <BigButton label={Strings.permission.allow} onPress={askForCamera} />
         <BigButton label={Strings.camera.close} onPress={close} tone="secondary" />
       </Sheet>
     ) : (
