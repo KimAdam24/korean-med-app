@@ -2,9 +2,16 @@ package expo.modules.labelocr
 
 import android.net.Uri
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import expo.modules.kotlin.exception.CodedException
+// `Coroutine` is a top-level infix extension on AsyncFunctionBuilder, not a
+// member of the definition DSL, so it has to be imported explicitly. Without
+// this the call parses as an unresolved reference and the lambda is never a
+// suspend context, which is why omitting it also breaks every `suspend` call
+// inside the block.
+import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import kotlin.coroutines.resume
@@ -57,7 +64,11 @@ class LabelOcrModule : Module() {
       val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
       try {
-        val recognised = suspendCancellableCoroutine { continuation ->
+        // Explicit type parameter rather than inference: the callback shape of
+        // Task<Text> gives the compiler no direct return to infer from, and a
+        // silent widening here would surface as a confusing error deep in the
+        // mapping below rather than at its cause.
+        val recognised = suspendCancellableCoroutine<Text> { continuation ->
           recognizer
             .process(image)
             .addOnSuccessListener { continuation.resume(it) }
@@ -74,10 +85,13 @@ class LabelOcrModule : Module() {
          * `top` is reading order. It is nullable; entries without one are sorted
          * last rather than dropped, since the text is still worth having.
          */
-        recognised.textBlocks
+        return@Coroutine recognised.textBlocks
           .flatMap { block -> block.lines }
           .sortedWith(
-            compareBy(
+            // Receiver named explicitly so the selector lambdas have a type to
+            // resolve `boundingBox` against; `compareBy` is a vararg of lambdas
+            // and infers poorly in the middle of a chain.
+            compareBy<Text.Line>(
               { it.boundingBox?.top ?: Int.MAX_VALUE },
               { it.boundingBox?.left ?: Int.MAX_VALUE }
             )
@@ -97,7 +111,10 @@ class LabelOcrModule : Module() {
                * and not as "good" — `features/ocr/types` keys the
                * user-confirmation prompt off exactly that.
                */
-              mapOf("text" to text, "confidence" to null)
+              // Typed explicitly: inference would settle on Map<String, String?>
+              // from these two entries, which is both misleading about the
+              // contract and wrong the moment a numeric confidence appears.
+              mapOf<String, Any?>("text" to text, "confidence" to null)
             }
           }
       } finally {
