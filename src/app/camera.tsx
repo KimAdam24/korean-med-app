@@ -8,13 +8,14 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
-import { Spacing } from '@/constants/theme';
+import { Fonts, Spacing } from '@/constants/theme';
 import {
   PhotoNotDiscardedError,
   withTransientCapture,
@@ -27,6 +28,7 @@ import {
   needsConfirmation,
   type ExtractedField,
   type MedicationLabelFields,
+  type RecognizedTextLine,
 } from '@/features/ocr/types';
 import { Strings, type Bilingual } from '@/i18n/strings';
 
@@ -51,7 +53,12 @@ type Phase =
   | { kind: 'identified'; drug: DrugIdentity; saving: boolean }
   | { kind: 'ambiguous'; matches: readonly DrugIdentity[]; saving: boolean }
   | { kind: 'saved' }
-  | { kind: 'result'; fields: MedicationLabelFields }
+  | {
+      kind: 'result';
+      fields: MedicationLabelFields;
+      /** Carried only so the development-only panel can show it. */
+      lines?: readonly RecognizedTextLine[];
+    }
   /**
    * `photoDiscarded` is carried explicitly rather than assumed: every failure
    * path deletes the capture file except `PhotoNotDiscardedError`, which is
@@ -176,7 +183,7 @@ export default function CameraScreen() {
 
       switch (result.status) {
         case 'recognized':
-          setPhase({ kind: 'result', fields: result.fields });
+          setPhase({ kind: 'result', fields: result.fields, lines: result.lines });
           return;
         case 'unreadable':
           setPhase({
@@ -309,6 +316,7 @@ export default function CameraScreen() {
         <ReadField label={Strings.result.name} field={phase.fields.name} />
         <ReadField label={Strings.result.dosage} field={phase.fields.dosage} />
         <ReadField label={Strings.result.instructions} field={phase.fields.instructions} />
+        <RawLinesPanel lines={phase.lines} />
         <DiscardNotice />
         <BigButton label={Strings.camera.done} onPress={close} />
         <BigButton label={Strings.camera.retake} onPress={retake} tone="secondary" />
@@ -471,6 +479,41 @@ function ReadField({ label, field }: { label: Bilingual; field?: ExtractedField 
   );
 }
 
+/**
+ * Shows the engine's raw output on the device, for capturing a real label while
+ * the sig parser is being written.
+ *
+ * Development-only, for the same reason the console log is: these lines are the
+ * text printed on someone's medication, and §4 keeps that to the user. The
+ * whole component compiles out of a release bundle because `__DEV__` is
+ * statically false there.
+ *
+ * `selectable` so the text can be copied off the phone directly — pulling it
+ * out of `adb logcat` works too, but not everyone testing this will have a
+ * cable to hand.
+ */
+function RawLinesPanel({ lines }: { lines?: readonly RecognizedTextLine[] }) {
+  if (!__DEV__ || !lines || lines.length === 0) return null;
+
+  return (
+    <View style={styles.rawPanel}>
+      <BilingualText
+        text={{ ko: `읽은 원문 ${lines.length}줄 (개발용)`, en: `Raw OCR: ${lines.length} lines (dev only)` }}
+        variant="label"
+      />
+      <Text selectable style={styles.rawText}>
+        {lines
+          .map((line, index) => {
+            // Confidence is null on Android, where ML Kit reports none.
+            const score = line.confidence === null ? '—' : line.confidence.toFixed(2);
+            return `${String(index).padStart(2, '0')} [${score}] ${line.text}`;
+          })
+          .join('\n')}
+      </Text>
+    </View>
+  );
+}
+
 function DiscardNotice() {
   return (
     <View style={styles.notice}>
@@ -584,6 +627,16 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: Spacing.one,
+  },
+  rawPanel: {
+    gap: Spacing.one,
+    paddingVertical: Spacing.two,
+  },
+  rawText: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: Fonts.mono,
+    color: '#60646C',
   },
   notice: {
     paddingVertical: Spacing.two,

@@ -33,12 +33,31 @@ export type MedicationLabelFields = {
   readonly instructions?: ExtractedField;
 };
 
+/**
+ * One line as the engine grouped it, before anything tries to interpret it.
+ *
+ * Engine-agnostic on purpose: Vision and ML Kit split the same label
+ * differently, and both native implementations normalise to reading order
+ * before this point. `confidence` is `null` when the engine does not report one
+ * — always the case on Android — and must be read as *unknown*, never as good.
+ */
+export type RecognizedTextLine = {
+  readonly text: string;
+  readonly confidence: number | null;
+};
+
 export type LabelRecognitionResult =
   | {
       readonly status: 'recognized';
       readonly fields: MedicationLabelFields;
       /** Full OCR text, kept to power a manual-correction flow (spec §5). */
       readonly rawText?: string;
+      /**
+       * The lines behind `rawText`, retained separately because joining them
+       * throws away the two things a parser needs most: where the engine
+       * thought each line ended, and how sure it was about each one.
+       */
+      readonly lines?: readonly RecognizedTextLine[];
     }
   /** OCR ran but found nothing usable — bad light, blur, label out of frame. */
   | { readonly status: 'unreadable' }
