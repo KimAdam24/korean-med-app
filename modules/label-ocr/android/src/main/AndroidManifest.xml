@@ -1,14 +1,14 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <application>
-    <!--
-      Asks Play Services to fetch the OCR model when the app is installed
-      rather than on first scan. Without this the model downloads lazily, and
-      the very first label a user tries to read is the one that fails or stalls
-      while it arrives - which for this audience is the moment they conclude
-      the app does not work.
-    -->
-    <meta-data
-      android:name="com.google.mlkit.vision.DEPENDENCIES"
-      android:value="ocr" />
-  </application>
+<manifest>
+  <!--
+    Deliberately does NOT declare com.google.mlkit.vision.DEPENDENCIES.
+
+    That key is shared: expo-camera declares it as "barcode_ui", and
+    expo-dev-launcher does the same in its debug manifest. A library adding a
+    different value for the same android:name is not a merge, it is a conflict,
+    and the Android manifest merger fails the build outright.
+
+    Since only one value can win, it has to be assembled where the whole app is
+    visible. See app.plugin.js in this module, which writes the combined list
+    into the application manifest with tools:replace.
+  -->
 </manifest>
