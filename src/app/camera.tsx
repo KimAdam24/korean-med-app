@@ -25,6 +25,7 @@ import {
 import { interpretBarcode } from '@/features/drugs/ndc';
 import { resolveNdcCandidates, type DrugIdentity } from '@/features/drugs/rxnorm';
 import { addMedication } from '@/features/medications/medication-store';
+import { DevLineList } from '@/features/ocr/dev-line-list';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
 import {
   needsConfirmation,
@@ -513,15 +514,7 @@ function RawLinesPanel({ lines }: { lines?: readonly RecognizedTextLine[] }) {
         text={{ ko: `읽은 원문 ${lines.length}줄 (개발용)`, en: `Raw OCR: ${lines.length} lines (dev only)` }}
         variant="label"
       />
-      <Text selectable style={styles.rawText}>
-        {lines
-          .map((line, index) => {
-            // Confidence is null on Android, where ML Kit reports none.
-            const score = line.confidence === null ? '—' : line.confidence.toFixed(2);
-            return `${String(index).padStart(2, '0')} [${score}] ${line.text}`;
-          })
-          .join('\n')}
-      </Text>
+      <DevLineList lines={lines} />
     </View>
   );
 }

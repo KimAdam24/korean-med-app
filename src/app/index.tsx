@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { DevFileProbe } from '@/features/ocr/dev-file-probe';
 import { Strings } from '@/i18n/strings';
 
 export default function HomeScreen() {
@@ -14,19 +15,29 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.intro}>
-          <BilingualText text={Strings.home.captureHint} />
-        </View>
+        {/**
+         * Scrolls only because the development probe below can produce more
+         * output than fits. The real screen is three elements tall, and for the
+         * target user it must not scroll at all — which it does not, since the
+         * probe renders nothing outside `__DEV__`.
+         */}
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <View style={styles.intro}>
+            <BilingualText text={Strings.home.captureHint} />
+          </View>
 
-        <BigButton
-          label={Strings.home.capture}
-          onPress={() => router.push('/camera')}
-          style={styles.cta}
-        />
+          <BigButton
+            label={Strings.home.capture}
+            onPress={() => router.push('/camera')}
+            style={styles.cta}
+          />
 
-        <View style={styles.privacy}>
-          <BilingualText text={Strings.home.privacy} variant="label" />
-        </View>
+          <View style={styles.privacy}>
+            <BilingualText text={Strings.home.privacy} variant="label" />
+          </View>
+
+          <DevFileProbe />
+        </ScrollView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -41,6 +52,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     maxWidth: MaxContentWidth,
+  },
+  scroll: {
+    flexGrow: 1,
     padding: Spacing.four,
     gap: Spacing.four,
   },

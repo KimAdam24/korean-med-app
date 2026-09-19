@@ -1,11 +1,8 @@
 import type { TransientImage } from '@/features/capture/transient-capture';
 
 import { LabelOcr } from '../../../modules/label-ocr';
-import type {
-  LabelRecognitionResult,
-  LabelRecognizer,
-  RecognizedTextLine,
-} from './types';
+import { logRecognizedLines } from './dev-line-list';
+import type { LabelRecognitionResult, LabelRecognizer } from './types';
 
 /**
  * Adapts the native `label-ocr` module to the §3.1 recognizer contract.
@@ -25,38 +22,12 @@ import type {
  * modes, and mixing it into the engine adapter would make both harder to reason
  * about.
  */
-/**
- * Prints the engine's output so a real label can be captured verbatim while the
- * sig parser is being written against it.
- *
- * **Gated on `__DEV__` and it must stay that way.** These lines are the text
- * printed on someone's medication: the drug, the dose, and often the
- * prescriber. Spec §4 says that data is the user's alone, and a release build
- * that wrote it to the device log would hand it to every other app able to read
- * logs. Metro evaluates `__DEV__` to `false` in production and drops the
- * branch, so the call disappears entirely from a release bundle — but only
- * because the check is here rather than around the call site.
- *
- * JSON rather than the joined text: line boundaries and per-line confidence are
- * exactly what gets lost in a human-readable dump, and exactly what the parser
- * has to be written against.
- */
-function logForDevelopment(lines: readonly RecognizedTextLine[]): void {
-  if (!__DEV__) return;
-  // Delimited so it can be pulled out of a noisy `adb logcat` with grep.
-  console.log(
-    `[label-ocr] BEGIN ${lines.length} line(s)\n` +
-      JSON.stringify(lines, null, 2) +
-      '\n[label-ocr] END'
-  );
-}
-
 export const deviceLabelRecognizer: LabelRecognizer = async (
   image: TransientImage
 ): Promise<LabelRecognitionResult> => {
   const lines = await LabelOcr.recognizeTextAsync(image.uri);
 
-  logForDevelopment(lines);
+  logRecognizedLines('camera', lines);
 
   if (lines.length === 0) {
     return { status: 'unreadable' };
