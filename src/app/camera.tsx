@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Image,
   StyleSheet,
   Text,
   View,
@@ -16,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Fonts, Spacing } from '@/constants/theme';
+import { probeCapture, type CaptureProbe } from '@/features/capture/dev-capture-probe';
 import {
   PhotoNotDiscardedError,
   withTransientCapture,
@@ -80,6 +82,11 @@ export default function CameraScreen() {
   const cameraRef = useRef<CameraView | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: 'preview' });
   const [torchOn, setTorchOn] = useState(false);
+  /**
+   * The frame the camera actually returned, for development diagnosis. Always
+   * null in a release build — `probeCapture` returns null outside `__DEV__`.
+   */
+  const [devProbe, setDevProbe] = useState<CaptureProbe | null>(null);
 
   /**
    * `onBarcodeScanned` fires on every frame that contains a symbol, so without
@@ -176,8 +183,11 @@ export default function CameraScreen() {
       // exists. Nothing about the image escapes this callback — the photo is
       // deleted before `withTransientCapture` returns, and only the extracted
       // text survives.
-      const result = await withTransientCapture(camera, (image) => {
+      const result = await withTransientCapture(camera, async (image) => {
         setPhase({ kind: 'reading' });
+        // Development-only, and compiled out of release. Must happen inside the
+        // window, while the file still exists.
+        setDevProbe(await probeCapture(image));
         return recognizeLabel(image);
       });
 
@@ -317,6 +327,7 @@ export default function CameraScreen() {
         <ReadField label={Strings.result.dosage} field={phase.fields.dosage} />
         <ReadField label={Strings.result.instructions} field={phase.fields.instructions} />
         <RawLinesPanel lines={phase.lines} />
+        <CapturedFramePanel probe={devProbe} />
         <DiscardNotice />
         <BigButton label={Strings.camera.done} onPress={close} />
         <BigButton label={Strings.camera.retake} onPress={retake} tone="secondary" />
@@ -328,6 +339,7 @@ export default function CameraScreen() {
     return (
       <Sheet scroll>
         <BilingualText text={phase.message} variant="heading" />
+        <CapturedFramePanel probe={devProbe} />
         {phase.photoDiscarded && <DiscardNotice />}
         <BigButton
           label={phase.retry ? Strings.scan.retry : Strings.camera.retake}
@@ -514,6 +526,44 @@ function RawLinesPanel({ lines }: { lines?: readonly RecognizedTextLine[] }) {
   );
 }
 
+/**
+ * Shows the frame the camera actually returned, beside the text read from it.
+ *
+ * This is the panel that distinguishes "recognition is wrong" from "the camera
+ * photographed something else entirely" — a distinction the OCR output alone
+ * cannot make, because a recogniser reading a synthetic test frame correctly
+ * looks identical to one reading a real label badly.
+ *
+ * Development-only. `probe` is always null in a release build, so this renders
+ * nothing and the photograph is never encoded.
+ */
+function CapturedFramePanel({ probe }: { probe: CaptureProbe | null }) {
+  if (!__DEV__ || !probe) return null;
+
+  const kilobytes = Math.round(probe.byteLength / 1024);
+
+  return (
+    <View style={styles.rawPanel}>
+      <BilingualText
+        text={{
+          ko: '찍힌 사진 (개발용)',
+          en: 'Captured frame (dev only)',
+        }}
+        variant="label"
+      />
+      <Image
+        source={{ uri: probe.previewDataUrl }}
+        style={styles.framePreview}
+        resizeMode="contain"
+        accessible={false}
+      />
+      <Text selectable style={styles.rawText}>
+        {`${probe.width}x${probe.height}  ${kilobytes} KB\n${probe.uri}`}
+      </Text>
+    </View>
+  );
+}
+
 function DiscardNotice() {
   return (
     <View style={styles.notice}>
@@ -627,6 +677,12 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: Spacing.one,
+  },
+  framePreview: {
+    width: '100%',
+    height: 220,
+    backgroundColor: '#00000010',
+    borderRadius: 8,
   },
   rawPanel: {
     gap: Spacing.one,
