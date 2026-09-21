@@ -67,7 +67,16 @@ function isIdentity(value: unknown): boolean {
   if (value === undefined) return true;
   if (typeof value !== 'object' || value === null) return false;
   const identity = value as Record<string, unknown>;
-  return typeof identity.rxcui === 'string' && typeof identity.ndc11 === 'string';
+  if (typeof identity.rxcui !== 'string' || typeof identity.ndc11 !== 'string') return false;
+
+  // Absent is fine — older records predate it. Present but malformed is not:
+  // a half-read ingredient list would make an interaction check quietly
+  // incomplete, which is worse than one that knows it has nothing to go on.
+  if (identity.ingredients === undefined) return true;
+  return (
+    Array.isArray(identity.ingredients) &&
+    identity.ingredients.every((name) => typeof name === 'string')
+  );
 }
 
 export async function loadProfile(): Promise<ProfileLoadResult> {

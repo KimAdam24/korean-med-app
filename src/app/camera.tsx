@@ -23,7 +23,11 @@ import {
   withTransientCapture,
 } from '@/features/capture/transient-capture';
 import { interpretBarcode } from '@/features/drugs/ndc';
-import { resolveNdcCandidates, type DrugIdentity } from '@/features/drugs/rxnorm';
+import {
+  fetchIngredients,
+  resolveNdcCandidates,
+  type DrugIdentity,
+} from '@/features/drugs/rxnorm';
 import { addMedication } from '@/features/medications/medication-store';
 import { DevLineList } from '@/features/ocr/dev-line-list';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
@@ -170,6 +174,15 @@ export default function CameraScreen() {
     );
 
     try {
+      /**
+       * Fetched at save time rather than when interactions are checked, so the
+       * check itself stays offline — an elderly user should not need signal to
+       * find out two of their medicines do not mix. Failure yields an empty
+       * list, which `checkInteractions` reports as unchecked rather than
+       * treating as safe.
+       */
+      const ingredients = await fetchIngredients(drug.rxcui);
+
       await addMedication({
         // RxNorm's concept name, verbatim. Not translated and not reformatted —
         // it is what the user will compare against the printed box.
@@ -178,7 +191,11 @@ export default function CameraScreen() {
         // The name came from an authoritative reference and the user has just
         // confirmed it against the carton, so there is nothing left to review.
         needsReview: false,
-        identity: { rxcui: drug.rxcui, ndc11: drug.ndc11 },
+        identity: {
+          rxcui: drug.rxcui,
+          ndc11: drug.ndc11,
+          ...(ingredients.length > 0 ? { ingredients } : {}),
+        },
       });
       setPhase({ kind: 'saved' });
     } catch {

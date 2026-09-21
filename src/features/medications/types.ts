@@ -43,6 +43,18 @@ export type MedicationRecord = {
     readonly rxcui: string;
     /** The 11-digit CMS code that resolved, unformatted. */
     readonly ndc11: string;
+    /**
+     * RxNorm ingredient names for the product, lower-cased.
+     *
+     * Stored rather than looked up on demand for two reasons. Interactions are
+     * between ingredients, not products — two different tablets can carry the
+     * same one — so this is the level any check has to work at. And keeping it
+     * on the record makes that check pure: an elderly user should not have to
+     * be online, or wait, to be told two of their medicines do not mix.
+     *
+     * Absent on older records and on anything not identified from a barcode.
+     */
+    readonly ingredients?: readonly string[];
   };
   /**
    * Set when a field arrived below the OCR confidence threshold and the user
