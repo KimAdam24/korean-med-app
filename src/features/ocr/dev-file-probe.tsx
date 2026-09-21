@@ -9,7 +9,13 @@ import { useAppLock } from '@/features/security/app-lock-context';
 
 import { LabelOcr } from '../../../modules/label-ocr';
 import { DevLineList, logRecognizedLines } from './dev-line-list';
-import type { RecognizedTextLine } from './types';
+import { interpretLines } from './device-recognizer';
+import {
+  needsConfirmation,
+  type ExtractedField,
+  type MedicationLabelFields,
+  type RecognizedTextLine,
+} from './types';
 
 /**
  * Runs the OCR engine against a file chosen from the device, bypassing the
@@ -33,16 +39,28 @@ import type { RecognizedTextLine } from './types';
  * So this calls the engine directly. Nothing is copied, nothing is written, and
  * nothing is deleted.
  *
+ * It does run the same interpretation the camera path runs, via
+ * `interpretLines`, and shows the parsed fields above the raw output. Showing
+ * only raw lines was right while the parser did not exist; once it did, a probe
+ * that could not exercise it left the parser testable solely through a camera
+ * that, on this setup, does not work.
+ *
  * ## Development only
  *
  * Renders nothing outside `__DEV__`. A shipped medical app should not carry a
- * "read text out of an arbitrary image" affordance: it is scaffolding, it is
- * not translated for the real audience, and its output is deliberately raw.
+ * "read text out of an arbitrary image" affordance: it is scaffolding, and it
+ * is not translated for the real audience.
  */
 type ProbeState =
   | { kind: 'idle' }
   | { kind: 'reading' }
-  | { kind: 'read'; uri: string; byteLength: number; lines: readonly RecognizedTextLine[] }
+  | {
+      kind: 'read';
+      uri: string;
+      byteLength: number;
+      lines: readonly RecognizedTextLine[];
+      fields: MedicationLabelFields;
+    }
   | { kind: 'failed'; message: string };
 
 export function DevFileProbe() {
@@ -63,7 +81,18 @@ export function DevFileProbe() {
       const lines = await LabelOcr.recognizeTextAsync(file.uri);
       logRecognizedLines('file', lines);
 
-      setState({ kind: 'read', uri: file.uri, byteLength: file.size, lines });
+      // The same interpretation the camera path runs, so what this shows is
+      // what a real scan would show. Calling the parser separately here would
+      // let the two drift apart silently.
+      const result = interpretLines(lines);
+
+      setState({
+        kind: 'read',
+        uri: file.uri,
+        byteLength: file.size,
+        lines,
+        fields: result.status === 'recognized' ? result.fields : {},
+      });
     } catch (error) {
       // Surfaced rather than swallowed: when the point of a tool is diagnosis,
       // a silent failure is the one outcome that helps nobody.
@@ -105,10 +134,48 @@ export function DevFileProbe() {
           <Text selectable style={styles.mono}>
             {`${Math.round(state.byteLength / 1024)} KB  ${state.lines.length} line(s)\n${state.uri}`}
           </Text>
+
+          {/*
+            Parsed first, raw underneath. When a field is wrong the next
+            question is always which line it came from, and having to scroll
+            between the two to answer it is how a five-second check becomes a
+            minute.
+          */}
+          <ParsedFields fields={state.fields} />
           <DevLineList lines={state.lines} />
         </View>
       )}
     </View>
+  );
+}
+
+/**
+ * The parser's output, with each field's confidence and whether the UI would
+ * demand confirmation for it.
+ *
+ * `needsConfirmation` is shown rather than inferred by eye because it is the
+ * decision that actually matters: a field can look right and still be flagged,
+ * and a reviewer comparing this against a label needs to see which.
+ */
+function ParsedFields({ fields }: { fields: MedicationLabelFields }) {
+  const rows: [string, ExtractedField | undefined][] = [
+    ['name', fields.name],
+    ['dosage', fields.dosage],
+    ['sig', fields.instructions],
+  ];
+
+  return (
+    <Text selectable style={styles.mono}>
+      {rows
+        .map(([label, value]) => {
+          // An absent field is the parser declining to guess, which is a
+          // different outcome from a wrong one and should read differently.
+          if (!value) return `${label.padEnd(7)} —  (absent, needs check)`;
+          const flag = needsConfirmation(value) ? 'needs check' : 'ok';
+          return `${label.padEnd(7)} [${value.confidence.toFixed(2)} ${flag}] ${value.text}`;
+        })
+        .join('\n')}
+    </Text>
   );
 }
 
