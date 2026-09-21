@@ -46,6 +46,32 @@ export type RecognizedTextLine = {
   readonly confidence: number | null;
 };
 
+/**
+ * Why a read looks unreliable beyond the usual "please confirm".
+ *
+ * `clipped-name` is the one that matters most. A drug name missing its first
+ * character — `-Thyroxine` for `L-Thyroxine` — still reads as a drug name, so a
+ * user checking it against the box can accept it without noticing. That is a
+ * different and worse failure than text that is obviously wrong.
+ */
+export type QualityReason =
+  /** The name begins or ends mid-character, so the engine cut it off. */
+  | 'clipped-name'
+  /** Enough tokens have impossible capitalisation that the read is suspect. */
+  | 'garbled-tokens'
+  /** Text came back, but none of it could be placed into a field. */
+  | 'nothing-understood';
+
+export type ReadQuality = {
+  /**
+   * `degraded` means: do not ask the user to confirm this, ask them to take the
+   * photograph again. Confirmation assumes the text is close enough to check
+   * against the box, and these signals say it may not be.
+   */
+  readonly level: 'ok' | 'degraded';
+  readonly reasons: readonly QualityReason[];
+};
+
 export type LabelRecognitionResult =
   | {
       readonly status: 'recognized';
@@ -58,6 +84,11 @@ export type LabelRecognitionResult =
        * thought each line ended, and how sure it was about each one.
        */
       readonly lines?: readonly RecognizedTextLine[];
+      /**
+       * How much to trust the fields above, beyond their individual
+       * confidences. Absent means it was not assessed.
+       */
+      readonly quality?: ReadQuality;
     }
   /** OCR ran but found nothing usable — bad light, blur, label out of frame. */
   | { readonly status: 'unreadable' }

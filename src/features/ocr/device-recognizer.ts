@@ -2,7 +2,7 @@ import type { TransientImage } from '@/features/capture/transient-capture';
 
 import { LabelOcr } from '../../../modules/label-ocr';
 import { logRecognizedLines } from './dev-line-list';
-import { parseLabelFields } from './sig-parser';
+import { assessReadQuality, parseLabelFields } from './sig-parser';
 import type {
   LabelRecognitionResult,
   LabelRecognizer,
@@ -41,9 +41,16 @@ export function interpretLines(lines: readonly RecognizedTextLine[]): LabelRecog
     return { status: 'unreadable' };
   }
 
+  const fields = parseLabelFields(lines);
+
   return {
     status: 'recognized',
     lines,
+    /**
+     * Assessed here rather than in the UI so the camera and the development
+     * probe cannot disagree about whether a read was good enough to act on.
+     */
+    quality: assessReadQuality(lines, fields),
     /**
      * Heuristics over text that has already been through OCR, so nothing here
      * is presented as verified — `sig-parser` caps every field below the
@@ -51,7 +58,7 @@ export function interpretLines(lines: readonly RecognizedTextLine[]): LabelRecog
      * `needsConfirmation` treats absent as unconfirmed, so an omission is safe
      * where an invention would not be.
      */
-    fields: parseLabelFields(lines),
+    fields,
     rawText: lines.map((line) => line.text).join('\n'),
   };
 }

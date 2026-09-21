@@ -122,6 +122,22 @@ export const Strings = {
     instructions: { ko: '복용 방법', en: 'How to take it' },
     missing: { ko: '읽지 못했어요', en: 'Could not be read' },
     needsCheck: { ko: '확인이 필요해요', en: 'Please check this' },
+
+    /**
+     * Shown instead of asking the user to confirm, when the read looks too poor
+     * to confirm against.
+     *
+     * The distinction is the point. "확인이 필요해요" asks the user to compare
+     * what we read with the box, which only works if what we read is close. A
+     * drug name missing its first letter still looks like a drug name, so the
+     * user would compare it, see something plausible, and agree. When that is
+     * possible the honest request is a new photograph, not a check.
+     */
+    degradedTitle: { ko: '글씨를 제대로 읽지 못했어요', en: 'We did not read this clearly' },
+    degradedBody: {
+      ko: '글자가 빠지거나 잘못 읽힌 것 같아요. 약 이름이 맞아 보여도 그대로 쓰면 위험할 수 있어요. 밝은 곳에서 다시 찍어 주세요.',
+      en: 'Some letters look missing or misread. Even if the medicine name looks right, it may not be. Please photograph it again somewhere brighter.',
+    },
   },
 
   /**

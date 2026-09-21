@@ -1,6 +1,8 @@
 import type {
   ExtractedField,
   MedicationLabelFields,
+  QualityReason,
+  ReadQuality,
   RecognizedTextLine,
 } from './types';
 
@@ -192,7 +194,6 @@ function field(text: string, lines: readonly RecognizedTextLine[]): ExtractedFie
 export function parseLabelFields(lines: readonly RecognizedTextLine[]): MedicationLabelFields {
   const classified = lines.map((line) => ({ line, role: classifyLine(line.text) }));
 
-  const directionLines = classified.filter((entry) => entry.role === 'directions');
   const productLines = classified.filter((entry) => entry.role === 'product');
 
   const fields: {
@@ -216,20 +217,145 @@ export function parseLabelFields(lines: readonly RecognizedTextLine[]): Medicati
     if (strength) fields.dosage = field(strength, [entry.line]);
   }
 
-  if (directionLines.length > 0) {
+  const sigLines = withContinuations(classified);
+
+  if (sigLines.length > 0) {
     // Index order, which is correct within a column even when the columns
     // themselves are interleaved. Joined with a space: the line break is an
     // artefact of the label's width, not punctuation.
-    const text = directionLines
-      .map((entry) => entry.line.text.trim())
+    const text = sigLines
+      .map((line) => line.text.trim())
       .join(' ')
       .replace(/\s+/g, ' ');
 
-    fields.instructions = field(
-      text,
-      directionLines.map((entry) => entry.line)
-    );
+    fields.instructions = field(text, sigLines);
   }
 
   return fields;
+}
+
+/**
+ * Collects the direction lines, absorbing wrapped continuations.
+ *
+ * Labels wrap directions across lines, and the tail carries no marker saying so
+ * — `egular motabosn.` is the second half of `...to treat irregular metabolism`
+ * and looks like nothing on its own. Dropping it truncates the instruction
+ * halfway, which is worse than useless: "Take tablets with food to" reads as a
+ * complete thought that is missing its point.
+ *
+ * Absorbing the *next* line unconditionally is not an option. On a
+ * column-interleaved label the next line belongs to the warning sticker, and
+ * joining it produces directions nobody prescribed — the failure this parser
+ * exists to avoid. So a line is absorbed only when all of these hold:
+ *
+ *   - the directions so far do not end in terminal punctuation, so something is
+ *     evidently missing;
+ *   - the candidate could not be classified as anything else, so it is not a
+ *     warning, a dispensing field or another product;
+ *   - it begins lowercase, which a new field on a label almost never does.
+ *
+ * Geometry would settle this properly — a continuation sits directly below its
+ * line and shares its left edge, while a neighbouring column does not — but the
+ * engines do not currently hand boxes up. These three conditions are what can
+ * be decided from text alone.
+ */
+function withContinuations(
+  classified: readonly { line: RecognizedTextLine; role: LineRole }[]
+): RecognizedTextLine[] {
+  const collected: RecognizedTextLine[] = [];
+
+  for (let index = 0; index < classified.length; index += 1) {
+    const entry = classified[index];
+    if (entry.role !== 'directions') continue;
+
+    collected.push(entry.line);
+
+    let cursor = index + 1;
+    let tail = entry.line.text.trim();
+
+    while (cursor < classified.length && !/[.!?]$/.test(tail)) {
+      const candidate = classified[cursor];
+      if (candidate.role !== 'unknown') break;
+      if (!/^[a-z]/.test(candidate.line.text.trim())) break;
+
+      collected.push(candidate.line);
+      tail = candidate.line.text.trim();
+      cursor += 1;
+    }
+
+    index = cursor - 1;
+  }
+
+  return collected;
+}
+
+/**
+ * A token whose capitalisation is impossible for a real word — neither all
+ * lower, all upper, nor capitalised. `FOoD` and `aTY` are the engine confusing
+ * letterforms, and a page with many of them was read badly.
+ */
+function hasImpossibleCase(token: string): boolean {
+  const letters = token.replace(/[^A-Za-z]/g, '');
+  if (letters.length < 2) return false;
+  return !(
+    letters === letters.toLowerCase() ||
+    letters === letters.toUpperCase() ||
+    letters === letters[0].toUpperCase() + letters.slice(1).toLowerCase()
+  );
+}
+
+/** Above this share of impossible-case tokens, treat the whole read as suspect. */
+const GARBLED_TOKEN_RATIO = 0.25;
+
+/**
+ * Judges whether a read is too poor to ask the user to confirm.
+ *
+ * ## What this can and cannot see
+ *
+ * It catches damage with a *shape*: a name cut off at its first character,
+ * capitalisation no typesetter would produce, a page of text that parsed into
+ * nothing at all.
+ *
+ * It cannot catch a plausible misspelling. `motabosn` for `metabolism` and
+ * `Thyeoxine` for `Thyroxine` are well-formed words that happen not to exist,
+ * and separating those from real drug names — which also look like words that
+ * do not exist — needs a lexicon this app does not have yet. The Korean
+ * ingredient list §3.2 requires is the natural source for one, and that is when
+ * this should get stricter.
+ *
+ * So a `degraded` verdict is reliable; an `ok` verdict only means nothing
+ * structural was wrong, which is why every field stays flagged for confirmation
+ * regardless.
+ */
+export function assessReadQuality(
+  lines: readonly RecognizedTextLine[],
+  fields: MedicationLabelFields
+): ReadQuality {
+  const reasons: QualityReason[] = [];
+
+  /**
+   * A name that starts or ends on punctuation lost a character to the frame
+   * edge or a crop. This is the signal worth having: `-Thyroxine` is still
+   * shaped like a drug name, so a user checking it against the box can accept
+   * it without seeing that the `L` is gone.
+   */
+  const name = fields.name?.text.trim();
+  if (name && (!/^[A-Za-z0-9]/.test(name) || !/[A-Za-z0-9.)]$/.test(name))) {
+    reasons.push('clipped-name');
+  }
+
+  const tokens = lines.flatMap((line) => line.text.split(/\s+/)).filter((token) => token.length > 1);
+  const garbled = tokens.filter(hasImpossibleCase).length;
+  if (tokens.length > 0 && garbled / tokens.length >= GARBLED_TOKEN_RATIO) {
+    reasons.push('garbled-tokens');
+  }
+
+  // Text came back and none of it could be placed. A handful of lines may
+  // legitimately be a label edge; a page of them means the read failed.
+  const understood = Boolean(fields.name || fields.dosage || fields.instructions);
+  if (!understood && lines.length >= 5) {
+    reasons.push('nothing-understood');
+  }
+
+  return { level: reasons.length > 0 ? 'degraded' : 'ok', reasons };
 }

@@ -31,6 +31,7 @@ import {
   needsConfirmation,
   type ExtractedField,
   type MedicationLabelFields,
+  type ReadQuality,
   type RecognizedTextLine,
 } from '@/features/ocr/types';
 import { useAppLock } from '@/features/security/app-lock-context';
@@ -62,6 +63,7 @@ type Phase =
       fields: MedicationLabelFields;
       /** Carried only so the development-only panel can show it. */
       lines?: readonly RecognizedTextLine[];
+      quality?: ReadQuality;
     }
   /**
    * `photoDiscarded` is carried explicitly rather than assumed: every failure
@@ -210,7 +212,12 @@ export default function CameraScreen() {
 
       switch (result.status) {
         case 'recognized':
-          setPhase({ kind: 'result', fields: result.fields, lines: result.lines });
+          setPhase({
+            kind: 'result',
+            fields: result.fields,
+            lines: result.lines,
+            quality: result.quality,
+          });
           return;
         case 'unreadable':
           setPhase({
@@ -339,15 +346,36 @@ export default function CameraScreen() {
   if (phase.kind === 'result') {
     return (
       <Sheet scroll>
-        <BilingualText text={Strings.result.title} variant="heading" />
+        {phase.quality?.level === 'degraded' ? (
+          /*
+           * Replaces the heading rather than sitting beside it. A warning shown
+           * next to a tidy list of fields reads as a footnote, and the whole
+           * point is that these fields should not be trusted enough to confirm.
+           */
+          <View style={styles.field}>
+            <BilingualText text={Strings.result.degradedTitle} variant="heading" />
+            <BilingualText text={Strings.result.degradedBody} />
+          </View>
+        ) : (
+          <BilingualText text={Strings.result.title} variant="heading" />
+        )}
         <ReadField label={Strings.result.name} field={phase.fields.name} />
         <ReadField label={Strings.result.dosage} field={phase.fields.dosage} />
         <ReadField label={Strings.result.instructions} field={phase.fields.instructions} />
         <RawLinesPanel lines={phase.lines} />
         <CapturedFramePanel probe={devProbe} />
         <DiscardNotice />
-        <BigButton label={Strings.camera.done} onPress={close} />
-        <BigButton label={Strings.camera.retake} onPress={retake} tone="secondary" />
+        {phase.quality?.level === 'degraded' ? (
+          <>
+            <BigButton label={Strings.camera.retake} onPress={retake} />
+            <BigButton label={Strings.camera.done} onPress={close} tone="secondary" />
+          </>
+        ) : (
+          <>
+            <BigButton label={Strings.camera.done} onPress={close} />
+            <BigButton label={Strings.camera.retake} onPress={retake} tone="secondary" />
+          </>
+        )}
       </Sheet>
     );
   }

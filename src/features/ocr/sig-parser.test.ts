@@ -10,7 +10,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { classifyLine, parseLabelFields, splitProduct } from './sig-parser.ts';
+import {
+  assessReadQuality,
+  classifyLine,
+  parseLabelFields,
+  splitProduct,
+} from './sig-parser.ts';
 import type { RecognizedTextLine } from './types.ts';
 
 /** Android reports no per-line confidence, so every line arrives as null. */
@@ -180,4 +185,84 @@ test('caps confidence below certainty even when the engine is sure', () => {
   ];
   // A perfectly recognised line can still be the wrong line.
   assert.ok(parseLabelFields(crisp).instructions!.confidence <= 0.75);
+});
+
+// --- Label 2: L-Thyroxine, a much poorer scan -----------------------------
+
+/**
+ * Fragments captured from a second, badly-read label. Not the whole page, only
+ * the lines whose behaviour is being pinned down — but each is verbatim,
+ * including `-Thyroxine` where the engine lost the leading `L`, and the
+ * directions broken across a line in the middle of a word.
+ */
+const THYROXINE: RecognizedTextLine[] = [
+  'Milg: Jacoo',
+  'Generlic for: L-Thyeoxine',
+  '-Thyroxine Tabs 80mcg',
+  'PRRA Goodearth',
+  'Take tablets with foodto teat',
+  'egular motabosn.',
+].map((text) => ({ text, confidence: null }));
+
+test('joins directions that wrapped onto the next line', () => {
+  // Stopping at "teat" would read as a complete thought missing its point.
+  const fields = parseLabelFields(THYROXINE);
+  assert.equal(fields.instructions?.text, 'Take tablets with foodto teat egular motabosn.');
+});
+
+test('flags a name the engine clipped', () => {
+  const fields = parseLabelFields(THYROXINE);
+  assert.equal(fields.name?.text, '-Thyroxine Tabs');
+
+  // The whole point: "-Thyroxine" still reads as a drug name, so asking the
+  // user to check it is not enough — they would check it and agree.
+  const quality = assessReadQuality(THYROXINE, fields);
+  assert.equal(quality.level, 'degraded');
+  assert.ok(quality.reasons.includes('clipped-name'));
+});
+
+test('does not call the good label degraded', () => {
+  const quality = assessReadQuality(LABEL, parseLabelFields(LABEL));
+  assert.equal(quality.level, 'ok', `unexpected reasons: ${quality.reasons.join(', ')}`);
+});
+
+test('does not absorb a neighbouring column as a continuation', () => {
+  // The regression that matters. On the interleaved label the line following
+  // the directions belongs to the warning sticker, and joining it would invent
+  // an instruction nobody prescribed.
+  const fields = parseLabelFields(LABEL);
+  assert.ok(!fields.instructions?.text.includes('EFFECT'));
+  assert.ok(!fields.instructions?.text.includes('CAUTION'));
+});
+
+test('only absorbs a lowercase, unclassifiable continuation', () => {
+  const newField: RecognizedTextLine[] = [
+    { text: 'Take one tablet daily', confidence: null },
+    // Capitalised, so a new field rather than a wrap.
+    { text: 'Patient: Jane Doe', confidence: null },
+  ];
+  assert.equal(parseLabelFields(newField).instructions?.text, 'Take one tablet daily');
+});
+
+test('reports nothing-understood when text came back but parsed to nothing', () => {
+  const unreadable: RecognizedTextLine[] = [
+    'xzq wvt',
+    'mmm nnn',
+    'qqq rrr',
+    'zzz yyy',
+    'ppp ooo',
+  ].map((text) => ({ text, confidence: null }));
+
+  const quality = assessReadQuality(unreadable, parseLabelFields(unreadable));
+  assert.equal(quality.level, 'degraded');
+  assert.ok(quality.reasons.includes('nothing-understood'));
+});
+
+test('flags a page full of impossible capitalisation', () => {
+  const garbled: RecognizedTextLine[] = ['FOoD aTY', 'tHE wORd', 'mOrE jUNk'].map((text) => ({
+    text,
+    confidence: null,
+  }));
+  const quality = assessReadQuality(garbled, parseLabelFields(garbled));
+  assert.ok(quality.reasons.includes('garbled-tokens'));
 });

@@ -14,6 +14,7 @@ import {
   needsConfirmation,
   type ExtractedField,
   type MedicationLabelFields,
+  type ReadQuality,
   type RecognizedTextLine,
 } from './types';
 
@@ -60,6 +61,7 @@ type ProbeState =
       byteLength: number;
       lines: readonly RecognizedTextLine[];
       fields: MedicationLabelFields;
+      quality?: ReadQuality;
     }
   | { kind: 'failed'; message: string };
 
@@ -92,6 +94,7 @@ export function DevFileProbe() {
         byteLength: file.size,
         lines,
         fields: result.status === 'recognized' ? result.fields : {},
+        quality: result.status === 'recognized' ? result.quality : undefined,
       });
     } catch (error) {
       // Surfaced rather than swallowed: when the point of a tool is diagnosis,
@@ -141,6 +144,15 @@ export function DevFileProbe() {
             between the two to answer it is how a five-second check becomes a
             minute.
           */}
+          <Text selectable style={styles.mono}>
+            {state.quality
+              ? `quality ${state.quality.level}${
+                  state.quality.reasons.length > 0
+                    ? ` (${state.quality.reasons.join(', ')})`
+                    : ''
+                }`
+              : 'quality not assessed'}
+          </Text>
           <ParsedFields fields={state.fields} />
           <DevLineList lines={state.lines} />
         </View>
