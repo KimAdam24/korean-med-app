@@ -1,3 +1,8 @@
+// Relative, with its extension, rather than the `@/` alias used elsewhere.
+// This is a value import, so it survives type erasure and has to resolve under
+// Node when the tests run — and Node knows nothing about the bundler's alias.
+import { nearestIngredient } from '../drugs/ingredients.ts';
+
 import type {
   ExtractedField,
   MedicationLabelFields,
@@ -348,6 +353,23 @@ export function assessReadQuality(
   const garbled = tokens.filter(hasImpossibleCase).length;
   if (tokens.length > 0 && garbled / tokens.length >= GARBLED_TOKEN_RATIO) {
     reasons.push('garbled-tokens');
+  }
+
+  /**
+   * A word one character from a real ingredient, anywhere on the label.
+   *
+   * Scanned across every line rather than only the name field, because the
+   * evidence is often elsewhere: on the label that prompted this, the
+   * extracted name was clipped but legible while `L-Thyeoxine` sat in a
+   * "Generic for:" line the parser does not otherwise use. Either way it is
+   * the same conclusion — the engine misread this page.
+   *
+   * Only near misses count. An unrecognised word is not evidence of anything,
+   * since the lexicon is partial and most real drugs are missing from it.
+   */
+  const misread = tokens.some((token) => nearestIngredient(token) !== null);
+  if (misread) {
+    reasons.push('misread-name');
   }
 
   // Text came back and none of it could be placed. A handful of lines may

@@ -2,6 +2,13 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // Lets a source file import another by its real path, extension and all.
+    // Needed where a *value* import must resolve under both Metro and plain
+    // Node: the unit tests run on Node, which knows nothing about the `@/`
+    // alias, so an aliased value import would pass typecheck and fail at test
+    // time. Safe here because nothing is emitted — Metro resolves the explicit
+    // extension directly.
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": [
         "./src/*"

@@ -59,6 +59,13 @@ export type QualityReason =
   | 'clipped-name'
   /** Enough tokens have impossible capitalisation that the read is suspect. */
   | 'garbled-tokens'
+  /**
+   * A word on the label is one character away from a real ingredient without
+   * being it — `Thyeoxine` for `Thyroxine`. Undetectable from the text alone,
+   * because the misread is shaped exactly like a drug name; only comparison
+   * against names that exist can see it.
+   */
+  | 'misread-name'
   /** Text came back, but none of it could be placed into a field. */
   | 'nothing-understood';
 

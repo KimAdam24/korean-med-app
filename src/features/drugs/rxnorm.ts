@@ -29,7 +29,8 @@
 
 import { formatCms11 } from './ndc';
 
-const RXNAV_ENDPOINT = 'https://rxnav.nlm.nih.gov/REST/ndcstatus.json';
+const RXNAV_BASE = 'https://rxnav.nlm.nih.gov/REST';
+const RXNAV_ENDPOINT = `${RXNAV_BASE}/ndcstatus.json`;
 
 /**
  * Long enough for a slow connection, short enough that an elderly user holding
@@ -123,6 +124,49 @@ async function lookupOne(ndc11: string, signal: AbortSignal): Promise<DrugIdenti
     name: result.conceptName,
     packageStatus: result.status,
   };
+}
+
+/**
+ * The active ingredients of a product, by RxNorm concept.
+ *
+ * Needed because §3.2 names the *ingredient* in Korean, not the product.
+ * "atenolol 50 MG Oral Tablet" is what RxNorm calls the thing in the bottle,
+ * and 식약처 publishes a Korean name for "atenolol" — the strength and the form
+ * are not part of that mapping and must be stripped before it is consulted.
+ *
+ * Returns an empty array rather than throwing when the lookup fails. A missing
+ * Korean name degrades to showing the English one, which §3.2 already
+ * specifies, so a network failure here costs a nicety rather than the feature.
+ */
+export async function fetchIngredients(rxcui: string): Promise<readonly string[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    // `tty=IN` is RxNorm's term type for a plain ingredient, as opposed to a
+    // branded or precise one. It is the level 식약처's list is keyed at.
+    const response = await fetch(
+      `${RXNAV_BASE}/rxcui/${encodeURIComponent(rxcui)}/related.json?tty=IN`,
+      { signal: controller.signal, headers: { Accept: 'application/json' } }
+    );
+    if (!response.ok) return [];
+
+    const payload = (await response.json()) as {
+      relatedGroup?: {
+        conceptGroup?: { tty?: string; conceptProperties?: { name?: string }[] }[];
+      };
+    };
+
+    return (payload.relatedGroup?.conceptGroup ?? [])
+      .filter((group) => group.tty === 'IN')
+      .flatMap((group) => group.conceptProperties ?? [])
+      .map((concept) => concept.name)
+      .filter((name): name is string => typeof name === 'string' && name.length > 0);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**
