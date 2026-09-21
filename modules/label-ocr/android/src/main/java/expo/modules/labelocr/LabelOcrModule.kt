@@ -1,5 +1,6 @@
 package expo.modules.labelocr
 
+import android.graphics.Rect
 import android.net.Uri
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
@@ -76,26 +77,12 @@ class LabelOcrModule : Module() {
         }
 
         /**
-         * Flattened and re-sorted rather than returned in ML Kit's block
-         * grouping. Apple's Vision produces a different grouping for the same
-         * label, and everything above this boundary is written against one
-         * shape — the sig parser must not have to know which engine ran.
-         *
-         * ML Kit's `boundingBox` has its origin at the top left, so ascending
-         * `top` is reading order. It is nullable; entries without one are sorted
-         * last rather than dropped, since the text is still worth having.
+         * Flattened out of ML Kit's block grouping and re-ordered. Apple's
+         * Vision groups the same label differently, and everything above this
+         * boundary is written against one shape — the sig parser must not have
+         * to know which engine ran.
          */
-        return@Coroutine recognised.textBlocks
-          .flatMap { block -> block.lines }
-          .sortedWith(
-            // Receiver named explicitly so the selector lambdas have a type to
-            // resolve `boundingBox` against; `compareBy` is a vararg of lambdas
-            // and infers poorly in the middle of a chain.
-            compareBy<Text.Line>(
-              { it.boundingBox?.top ?: Int.MAX_VALUE },
-              { it.boundingBox?.left ?: Int.MAX_VALUE }
-            )
-          )
+        return@Coroutine readingOrder(recognised.textBlocks.flatMap { block -> block.lines })
           .mapNotNull { line ->
             val text = line.text.trim()
             if (text.isEmpty()) {
@@ -122,4 +109,50 @@ class LabelOcrModule : Module() {
       }
     }
   }
+}
+
+/**
+ * Orders lines the way a person reads them: top to bottom, and left to right
+ * within a row.
+ *
+ * Sorting by `top` and then `left` does not achieve this, and was the bug it
+ * replaces. Two boxes on one visual row almost never share an exact top pixel,
+ * so the secondary comparison never ran and ordering was decided by a pixel or
+ * two of noise — which on a multi-column label interleaves the columns.
+ *
+ * The obvious repair, a comparator that calls near-equal tops equal, is worse
+ * than it looks: that relation is not transitive (a may tie b, b tie c, yet a
+ * sort strictly before c), so it is not a strict weak ordering. Java's TimSort
+ * detects exactly that and throws "Comparison method violates its general
+ * contract!". Banding into rows first keeps every comparison a real total
+ * order.
+ *
+ * The band tolerance is half the height of the line that opened the row, so it
+ * scales with the text rather than assuming a resolution.
+ *
+ * Note this orders rows, not columns: a label whose columns share rows will
+ * still interleave. Detecting columns is a larger problem, and worth solving
+ * only if a real label turns out to need it.
+ */
+private fun readingOrder(lines: List<Text.Line>): List<Text.Line> {
+  val positioned = lines.mapNotNull { line -> line.boundingBox?.let { box -> line to box } }
+  // Geometry is nullable. A line without it cannot be placed, but its text is
+  // still worth returning, so it goes last rather than being dropped.
+  val unpositioned = lines.filter { it.boundingBox == null }
+
+  val rows = mutableListOf<MutableList<Pair<Text.Line, Rect>>>()
+  for (entry in positioned.sortedBy { (_, box) -> box.top }) {
+    val (_, box) = entry
+    val anchor = rows.lastOrNull()?.firstOrNull()?.second
+    val tolerance = (anchor?.height() ?: box.height()) / 2
+
+    if (anchor != null && box.top - anchor.top <= tolerance) {
+      rows.last().add(entry)
+    } else {
+      rows.add(mutableListOf(entry))
+    }
+  }
+
+  return rows.flatMap { row -> row.sortedBy { (_, box) -> box.left }.map { (line, _) -> line } } +
+    unpositioned
 }

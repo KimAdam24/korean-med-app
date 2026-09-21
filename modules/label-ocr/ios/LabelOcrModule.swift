@@ -75,21 +75,12 @@ public class LabelOcrModule: Module {
 
       /**
        * Vision does not promise reading order, and ML Kit on Android groups
-       * differently again. Both platforms sort into top-to-bottom,
-       * left-to-right here so that everything above this boundary sees one
+       * differently again. Both platforms order top-to-bottom and then
+       * left-to-right here, so that everything above this boundary sees one
        * consistent shape — the sig parser must not have to know which engine
        * produced its input.
-       *
-       * Vision's `boundingBox` is normalised with its origin at the bottom
-       * left, so a *larger* y is higher up the label. Hence descending.
        */
-      let ordered = observations.sorted { lhs, rhs in
-        let dy = lhs.boundingBox.midY - rhs.boundingBox.midY
-        if abs(dy) > 0.01 {
-          return dy > 0
-        }
-        return lhs.boundingBox.minX < rhs.boundingBox.minX
-      }
+      let ordered = readingOrder(observations)
 
       return ordered.compactMap { observation in
         guard let candidate = observation.topCandidates(1).first else { return nil }
@@ -103,5 +94,50 @@ public class LabelOcrModule: Module {
         ]
       }
     }
+  }
+}
+
+/**
+ * Orders observations the way a person reads them: top to bottom, and left to
+ * right within a row.
+ *
+ * This replaces a comparator that treated near-equal vertical positions as
+ * equal and fell through to x. That relation is not transitive — a may tie b,
+ * and b tie c, while a and c differ by more than the tolerance — so it is not a
+ * strict weak ordering, and `sorted(by:)` given one has undefined behaviour.
+ * Banding into rows first keeps every comparison a real total order.
+ *
+ * Vision's `boundingBox` is normalised with its origin at the bottom left, so a
+ * *larger* midY is higher up the label: rows descend. The band tolerance is
+ * half the height of the line that opened the row, so it scales with the text
+ * rather than assuming a fixed fraction of the image.
+ *
+ * Note this orders rows, not columns: a label whose columns share rows will
+ * still interleave. Detecting columns is a larger problem, worth solving only
+ * if a real label turns out to need it.
+ */
+private func readingOrder(
+  _ observations: [VNRecognizedTextObservation]
+) -> [VNRecognizedTextObservation] {
+  let topDown = observations.sorted { $0.boundingBox.midY > $1.boundingBox.midY }
+
+  var rows: [[VNRecognizedTextObservation]] = []
+  for observation in topDown {
+    let box = observation.boundingBox
+    guard let anchor = rows.last?.first?.boundingBox else {
+      rows.append([observation])
+      continue
+    }
+
+    let tolerance = max(anchor.height, box.height) / 2
+    if anchor.midY - box.midY <= tolerance {
+      rows[rows.count - 1].append(observation)
+    } else {
+      rows.append([observation])
+    }
+  }
+
+  return rows.flatMap { row in
+    row.sorted { $0.boundingBox.minX < $1.boundingBox.minX }
   }
 }

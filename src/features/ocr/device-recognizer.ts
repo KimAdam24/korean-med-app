@@ -2,6 +2,7 @@ import type { TransientImage } from '@/features/capture/transient-capture';
 
 import { LabelOcr } from '../../../modules/label-ocr';
 import { logRecognizedLines } from './dev-line-list';
+import { parseLabelFields } from './sig-parser';
 import type { LabelRecognitionResult, LabelRecognizer } from './types';
 
 /**
@@ -37,12 +38,13 @@ export const deviceLabelRecognizer: LabelRecognizer = async (
     status: 'recognized',
     lines,
     /**
-     * No field extraction yet, so nothing is claimed about which line is the
-     * drug name and which is the dose. Leaving the fields empty is what keeps
-     * this honest: `needsConfirmation` treats an absent field as unconfirmed,
-     * so the UI cannot present a guess as a reading.
+     * Heuristics over text that has already been through OCR, so nothing here
+     * is presented as verified — `sig-parser` caps every field below the
+     * confirmation threshold, and leaves a field absent rather than guess.
+     * `needsConfirmation` treats absent as unconfirmed, so an omission is safe
+     * where an invention would not be.
      */
-    fields: {},
+    fields: parseLabelFields(lines),
     rawText: lines.map((line) => line.text).join('\n'),
   };
 };
