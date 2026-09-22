@@ -1,3 +1,5 @@
+import type { Attribution } from '@/features/guidance/attribution';
+
 /**
  * Drug–drug interaction checking (spec §3.4).
  *
@@ -57,10 +59,12 @@ export type InteractionRule = {
   readonly b: IngredientRef;
   readonly severity: InteractionSeverity;
   /**
-   * Where this rule comes from, precisely enough to find it again — the list,
-   * its version, and the row. Required: see the note above.
+   * Where this rule comes from. Required by the type, so a rule cannot exist
+   * without provenance — and carried through to the screen rather than kept
+   * internally, because a warning the user can attribute is one they can take
+   * to a pharmacist.
    */
-  readonly source: string;
+  readonly attribution: Attribution;
   /**
    * What happens, in plain clinical English, for a reviewer to check against
    * the source. **Not** user-facing text: §3.2 owns what the user reads, and

@@ -30,6 +30,11 @@
  * silence. Choosing and condensing is content work that needs review.
  */
 
+// Relative and extensioned, like the other value imports in tested modules:
+// the unit tests run on plain Node, which does not know the `@/` alias.
+import { attribute, type AttributedGuidance } from '../guidance/attribution.ts';
+import { Strings } from '../../i18n/strings.ts';
+
 const DAILYMED_BASE = 'https://dailymed.nlm.nih.gov/dailymed/services/v2';
 
 /** Matches the other network calls; a slow lookup should not hang a scan. */
@@ -55,6 +60,12 @@ export type LabelDocument = {
   /** DailyMed's stable identifier for a label across its revisions. */
   readonly setId: string;
   readonly title: string;
+  /**
+   * Which revision this is. Carried because labels are revised: a translation
+   * approved against version 3 is not approved against version 4, and without
+   * the number there is no way to notice that it moved.
+   */
+  readonly version: number | null;
 };
 
 /**
@@ -75,12 +86,16 @@ export async function findLabelsByNdc(ndcFormatted: string): Promise<readonly La
     if (!response.ok) return [];
 
     const payload = (await response.json()) as {
-      data?: { setid?: string; title?: string }[];
+      data?: { setid?: string; title?: string; spl_version?: number }[];
     };
 
     return (payload.data ?? [])
-      .filter((entry): entry is { setid: string; title?: string } => typeof entry.setid === 'string')
-      .map((entry) => ({ setId: entry.setid, title: entry.title ?? '' }));
+      .filter((entry) => typeof entry.setid === 'string')
+      .map((entry) => ({
+        setId: entry.setid as string,
+        title: entry.title ?? '',
+        version: typeof entry.spl_version === 'number' ? entry.spl_version : null,
+      }));
   } catch {
     return [];
   } finally {
@@ -95,20 +110,34 @@ export async function findLabelsByNdc(ndcFormatted: string): Promise<readonly La
  * drugs carry no boxed warning at all.
  */
 export async function fetchLabelSection(
-  setId: string,
+  document: LabelDocument,
   section: LabelSectionName
-): Promise<string | null> {
+): Promise<AttributedGuidance<string> | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${DAILYMED_BASE}/spls/${encodeURIComponent(setId)}.xml`, {
-      signal: controller.signal,
-      headers: { Accept: 'application/xml' },
-    });
+    const response = await fetch(
+      `${DAILYMED_BASE}/spls/${encodeURIComponent(document.setId)}.xml`,
+      { signal: controller.signal, headers: { Accept: 'application/xml' } }
+    );
     if (!response.ok) return null;
 
-    return extractSectionText(await response.text(), LABEL_SECTIONS[section]);
+    const text = extractSectionText(await response.text(), LABEL_SECTIONS[section]);
+    if (text === null) return null;
+
+    /**
+     * Returned already attributed rather than as a bare string. This text is
+     * the manufacturer's words, not the app's, and the difference is the whole
+     * point — a user who can say where a warning came from has something to
+     * take to a pharmacist.
+     */
+    return attribute(text, {
+      source: 'fda-label',
+      label: Strings.guidance.perFdaLabel,
+      citation: `DailyMed SPL ${document.setId} (${section})`,
+      revision: document.version === null ? undefined : `v${document.version}`,
+    });
   } catch {
     return null;
   } finally {

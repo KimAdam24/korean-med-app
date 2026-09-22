@@ -36,7 +36,11 @@ const FIXTURE_RULE: InteractionRule = {
   a: { ingredient: 'warfarin' },
   b: { ingredient: 'aspirin', aliases: ['acetylsalicylic acid'] },
   severity: 'avoid',
-  source: 'test fixture, not a medical claim',
+  attribution: {
+    source: 'onc-high-priority',
+    label: { ko: '시험용', en: 'test fixture' },
+    citation: 'test fixture, not a medical claim',
+  },
   effect: 'Fixture effect text.',
 };
 
@@ -166,11 +170,12 @@ test('a single medicine cannot interact with anything', () => {
   assert.equal(check.findings.length, 0);
 });
 
-test('every rule carries a source and an effect', () => {
+test('every rule carries attribution and an effect', () => {
   // Enforced on the fixtures too, so the shape cannot drift before the real
   // table is transcribed into it.
   for (const rule of [FIXTURE_RULE, ...INTERACTION_RULES]) {
-    assert.ok(rule.source.length > 0, `${rule.id} has no source`);
+    assert.ok(rule.attribution.citation.length > 0, `${rule.id} has no citation`);
+    assert.ok(rule.attribution.label.ko.length > 0, `${rule.id} has no displayable source`);
     assert.ok(rule.effect.length > 0, `${rule.id} has no effect`);
   }
 });

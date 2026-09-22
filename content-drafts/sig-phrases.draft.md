@@ -9,6 +9,41 @@ did this, would that be correct".
 
 ---
 
+---
+
+## ⚠ REVIEWER: START HERE — the "UP TO N" problem
+
+One row in this document is more dangerous than the rest, and it should not be
+approved in the same pass as the others.
+
+> `UP TO 3 TIMES DAILY` → draft: `하루 세 번까지`
+
+English `UP TO N` states a **ceiling**: three is the most you may take, and
+fewer — or none — is correct. Misread as a **schedule**, it becomes an
+instruction to take three doses a day, every day. For a PRN medicine that is a
+straightforward overdose, arrived at by following the app.
+
+The draft's `까지` is intended to carry "no more than". The drafter is not
+confident it does so unmistakably to a tired, elderly reader who may be scanning
+rather than parsing.
+
+**Specific questions for the reviewer:**
+
+1. Does `하루 세 번까지` read as a limit, or could it be taken as a plan for the
+   day?
+2. Is an explicit prohibition safer — e.g. adding `그보다 더 드시면 안 돼요`
+   ("you must not take more than that")?
+3. Should the ceiling and the as-needed condition be **one** statement rather
+   than two? `필요할 때만` (only when needed) and `세 번까지` (up to three times)
+   are doing related work, and separating them may weaken both.
+4. Is there a standard phrasing used on Korean pharmacy labels for a PRN
+   maximum? Matching existing convention would beat anything invented here.
+
+This row appeared on the first real label tested, so it is common rather than an
+edge case. Please treat it as its own decision.
+
+---
+
 ## How this is meant to work
 
 US dispensing instructions are formulaic. A small set of patterns covers most
@@ -88,11 +123,10 @@ anything non-oral — that is a product decision as much as a translation one.
 | F10 | IN THE MORNING | 아침에 | |
 | F11 | EVERY OTHER DAY | 이틀에 한 번 | ? Literally "once per two days" — confirm this is unambiguous |
 | F12 | WEEKLY | 일주일에 한 번 | |
-| F13 | UP TO 3 TIMES DAILY | 하루 세 번까지 | Ceiling, not a schedule — 까지 should carry that |
+| F13 | UP TO 3 TIMES DAILY | 하루 세 번까지 | ?? **See the flagged section at the top of this document — do not approve in a routine pass** |
 
-`UP TO N` (F13) is the one most likely to be misread as a requirement rather
-than a limit. It appeared on the first real label tested. **Reviewer: does 까지
-carry "no more than" clearly enough, or is an explicit 넘지 마세요 needed?**
+`UP TO N` (F13) is called out separately at the top of this document. It is the
+one row here whose failure mode is an overdose rather than a confusion.
 
 ## 4. Conditions and timing
 

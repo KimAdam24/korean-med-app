@@ -217,6 +217,30 @@ export const Strings = {
     },
   },
 
+  /**
+   * Source labels shown beside anything this app says about a medicine.
+   *
+   * Kept short deliberately. The job is to say whose claim it is; a sentence of
+   * provenance on every warning becomes wallpaper and stops being read. They
+   * are also the phrasing a user repeats to a pharmacist, which is the point —
+   * "FDA 허가사항에 나온 내용이래요" starts a conversation that "앱에서 봤어요"
+   * does not.
+   */
+  guidance: {
+    perFdaLabel: { ko: '미국 FDA 허가사항 기준', en: 'per the FDA-approved label' },
+    perRxNorm: { ko: '미국 의약품 표준 정보(RxNorm) 기준', en: 'per RxNorm' },
+    perOncList: { ko: '미국 ONC 주요 상호작용 목록 기준', en: 'per the ONC high-priority list' },
+    perCredibleMeds: { ko: 'CredibleMeds 기준', en: 'per CredibleMeds' },
+    /**
+     * Attached wherever guidance is shown. The app quotes sources; it does not
+     * advise, and the copy should not let that blur.
+     */
+    askPharmacist: {
+      ko: '약사에게 꼭 확인해 주세요.',
+      en: 'Please check with your pharmacist.',
+    },
+  },
+
   problem: {
     captureFailed: {
       ko: '사진을 찍지 못했어요. 다시 해 볼까요?',
