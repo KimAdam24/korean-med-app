@@ -62,6 +62,7 @@ type Phase =
   | { kind: 'identified'; drug: DrugIdentity; saving: boolean }
   | { kind: 'ambiguous'; matches: readonly DrugIdentity[]; saving: boolean }
   | { kind: 'saved' }
+  | { kind: 'saving' }
   | {
       kind: 'result';
       fields: MedicationLabelFields;
@@ -207,6 +208,50 @@ export default function CameraScreen() {
     }
   }, []);
 
+  /**
+   * Saves what the label reader produced (spec §3.1 fallback, §3.3).
+   *
+   * Until this existed the OCR path could not add a medicine at all: it
+   * displayed its reading and offered only "done". That left the entire
+   * fallback route — the one covering pharmacy vials, which is most real
+   * bottles — unable to reach the profile the app is built around.
+   *
+   * No RxNorm identity is attached, because there is none: OCR read text off a
+   * label, it did not identify a product. The record is marked for review, so
+   * the list keeps saying so until the user confirms it.
+   */
+  const saveFromLabel = useCallback(
+    async (fields: MedicationLabelFields) => {
+      const name = fields.name?.text.trim();
+      if (!name) return;
+
+      setPhase({ kind: 'saving' });
+      try {
+        await addMedication({
+          name,
+          dosage: fields.dosage?.text.trim() || undefined,
+          instructions: fields.instructions?.text.trim() || undefined,
+          source: 'label-scan',
+          /**
+           * Always true here, whatever the quality verdict said. Even a clean
+           * read is a machine's reading of a photograph, and the one field the
+           * user can check against the box in their hand is the one worth
+           * asking about.
+           */
+          needsReview: true,
+        });
+        setPhase({ kind: 'saved' });
+      } catch {
+        setPhase({
+          kind: 'problem',
+          message: Strings.vault.unrecoverableBody,
+          photoDiscarded: true,
+        });
+      }
+    },
+    []
+  );
+
   const handleCapture = useCallback(async () => {
     const camera = cameraRef.current;
     if (!camera) return;
@@ -304,6 +349,14 @@ export default function CameraScreen() {
     );
   }
 
+  if (phase.kind === 'saving') {
+    return (
+      <Sheet>
+        <ActivityIndicator size="large" />
+      </Sheet>
+    );
+  }
+
   if (phase.kind === 'identifying') {
     return (
       <Sheet>
@@ -382,6 +435,25 @@ export default function CameraScreen() {
         <RawLinesPanel lines={phase.lines} />
         <CapturedFramePanel probe={devProbe} />
         <DiscardNotice />
+
+        {/*
+          Saying so before the tap rather than after. The record is still
+          saveable when the read looks poor — refusing would strand a user whose
+          label simply photographs badly, and the pharmacy vial is the case OCR
+          exists for — but it is marked for checking, and the notice says why.
+        */}
+        {phase.fields.name ? (
+          <>
+            {phase.quality?.level === 'degraded' ? (
+              <BilingualText text={Strings.medications.saveUncheckedNotice} variant="label" />
+            ) : null}
+            <BigButton
+              label={Strings.medications.saveFromLabel}
+              onPress={() => saveFromLabel(phase.fields)}
+            />
+          </>
+        ) : null}
+
         {phase.quality?.level === 'degraded' ? (
           <>
             <BigButton label={Strings.camera.retake} onPress={retake} />
@@ -389,8 +461,8 @@ export default function CameraScreen() {
           </>
         ) : (
           <>
-            <BigButton label={Strings.camera.done} onPress={close} />
             <BigButton label={Strings.camera.retake} onPress={retake} tone="secondary" />
+            <BigButton label={Strings.camera.done} onPress={close} tone="secondary" />
           </>
         )}
       </Sheet>

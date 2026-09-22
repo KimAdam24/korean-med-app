@@ -226,6 +226,116 @@ export const Strings = {
    * "FDA 허가사항에 나온 내용이래요" starts a conversation that "앱에서 봤어요"
    * does not.
    */
+  /** The medication profile: the list, one medicine, and editing it. */
+  medications: {
+    title: { ko: '내 약 목록', en: 'My medicines' },
+    open: { ko: '내 약 보기', en: 'See my medicines' },
+    /** Shown on the home screen with the count filled in. */
+    countLabel: { ko: '등록된 약 {n}개', en: '{n} medicines saved' },
+
+    emptyTitle: { ko: '아직 등록된 약이 없어요', en: 'No medicines saved yet' },
+    emptyBody: {
+      ko: '약 상자의 바코드를 찍거나 사진을 찍어서 등록해 보세요.',
+      en: 'Scan the barcode on a box, or photograph the label, to add one.',
+    },
+
+    loading: { ko: '약 목록을 불러오고 있어요', en: 'Loading your medicines' },
+
+    addedOn: { ko: '등록한 날', en: 'Added' },
+    source: { ko: '등록 방법', en: 'How it was added' },
+    sourceScan: { ko: '바코드로 찾음', en: 'Found by barcode' },
+    sourceManual: { ko: '직접 입력함', en: 'Entered by hand' },
+
+    /**
+     * Shown on a record whose text came from OCR and has not been confirmed.
+     * Deliberately an invitation to check rather than a warning: the reading
+     * may well be right, and alarming someone about their own medicine list
+     * every time they open it would teach them to ignore it.
+     */
+    unconfirmed: { ko: '확인이 필요해요', en: 'Needs checking' },
+    confirm: { ko: '맞아요, 확인했어요', en: 'Yes, I checked it' },
+    confirmed: { ko: '확인했어요', en: 'Checked' },
+
+    edit: { ko: '고치기', en: 'Edit' },
+    save: { ko: '저장하기', en: 'Save' },
+    cancel: { ko: '취소', en: 'Cancel' },
+
+    fieldName: { ko: '약 이름', en: 'Medicine name' },
+    fieldDosage: { ko: '용량', en: 'Dose' },
+    fieldInstructions: { ko: '복용 방법', en: 'How to take it' },
+    fieldNamePlaceholder: { ko: '약 상자에 적힌 이름', en: 'The name printed on the box' },
+
+    nameRequired: {
+      ko: '약 이름은 비워 둘 수 없어요.',
+      en: 'A medicine needs a name.',
+    },
+
+    remove: { ko: '목록에서 지우기', en: 'Remove from my list' },
+    removeConfirmTitle: { ko: '이 약을 지울까요?', en: 'Remove this medicine?' },
+    removeConfirmBody: {
+      ko: '목록에서 사라져요. 다시 등록하려면 처음부터 다시 찍어야 해요.',
+      en: 'It will be gone from your list. Adding it again means scanning it again.',
+    },
+    removeConfirmYes: { ko: '네, 지울게요', en: 'Yes, remove it' },
+
+    saveFromLabel: { ko: '내 약으로 등록하기', en: 'Add to my medicines' },
+    /**
+     * Shown when saving a reading the app is not confident about. The record is
+     * still saved — refusing to save would strand a user whose label simply
+     * reads poorly — but it is marked, and it says so before the tap rather
+     * than after.
+     */
+    saveUncheckedNotice: {
+      ko: '읽은 내용이 정확하지 않을 수 있어요. 등록한 뒤에 꼭 확인해 주세요.',
+      en: 'What we read may not be exact. Please check it after adding.',
+    },
+  },
+
+  /** Managing the lock and the stored data. */
+  settings: {
+    title: { ko: '설정', en: 'Settings' },
+    open: { ko: '설정', en: 'Settings' },
+
+    changePin: { ko: '비밀번호 바꾸기', en: 'Change your PIN' },
+    changePinCurrent: { ko: '지금 쓰는 비밀번호를 입력해 주세요', en: 'Enter your current PIN' },
+    changePinNew: { ko: '새 비밀번호를 정해 주세요', en: 'Choose a new PIN' },
+    changePinDone: { ko: '비밀번호를 바꿨어요', en: 'Your PIN has been changed' },
+
+    forgotPin: { ko: '비밀번호를 잊으셨나요?', en: 'Forgotten your PIN?' },
+    /**
+     * When the phone has its own lock, that is the way back in — the app PIN
+     * is only a second gate, so proving identity to the phone is enough.
+     */
+    forgotPinWithDevice: {
+      ko: '휴대폰 잠금을 풀면 비밀번호를 새로 정할 수 있어요.',
+      en: 'Unlock with your phone, and you can set a new PIN.',
+    },
+    forgotPinUseDevice: { ko: '휴대폰 잠금으로 열기', en: 'Unlock with your phone' },
+    /**
+     * When it does not, there is nothing else that proves who the user is, and
+     * pretending otherwise would be a lie about the lock. Erasing is the only
+     * honest option, and the copy says exactly what it costs.
+     */
+    forgotPinNoDevice: {
+      ko: '이 휴대폰에는 잠금이 없어서, 비밀번호를 확인할 방법이 없어요. 약 목록을 모두 지우고 처음부터 다시 시작하는 방법밖에 없어요.',
+      en: 'This phone has no lock of its own, so there is no other way to check it is you. The only way forward is to erase your medicines and start again.',
+    },
+
+    eraseTitle: { ko: '내 정보 모두 지우기', en: 'Erase everything' },
+    eraseBody: {
+      ko: '등록한 약과 비밀번호를 모두 지워요. 되돌릴 수 없어요.',
+      en: 'Removes every saved medicine and your PIN. This cannot be undone.',
+    },
+    eraseConfirm: { ko: '네, 모두 지울게요', en: 'Yes, erase everything' },
+    eraseDone: { ko: '모두 지웠어요', en: 'Everything has been erased' },
+
+    /** Why the medicines live only on this phone, said plainly rather than buried. */
+    storageNotice: {
+      ko: '약 정보는 이 휴대폰 안에만 저장돼요. 다른 곳으로 보내지 않아요. 휴대폰을 바꾸면 다시 등록해야 해요.',
+      en: 'Your medicines are kept on this phone only, and never sent anywhere. Changing phones means adding them again.',
+    },
+  },
+
   guidance: {
     perFdaLabel: { ko: '미국 FDA 허가사항 기준', en: 'per the FDA-approved label' },
     perRxNorm: { ko: '미국 의약품 표준 정보(RxNorm) 기준', en: 'per RxNorm' },

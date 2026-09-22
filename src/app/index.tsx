@@ -32,6 +32,20 @@ export default function HomeScreen() {
             style={styles.cta}
           />
 
+          <BigButton
+            label={Strings.medications.open}
+            tone="secondary"
+            onPress={() => router.push('/medications')}
+            style={styles.cta}
+          />
+
+          <BigButton
+            label={Strings.settings.open}
+            tone="secondary"
+            onPress={() => router.push('/settings')}
+            style={styles.cta}
+          />
+
           <View style={styles.privacy}>
             <BilingualText text={Strings.home.privacy} variant="label" />
           </View>

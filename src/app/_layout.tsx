@@ -40,6 +40,15 @@ function LockGate() {
     <Stack>
       <Stack.Screen name="index" options={{ title: Strings.home.title.ko }} />
       <Stack.Screen
+        name="medications"
+        options={{ title: Strings.medications.title.ko }}
+      />
+      <Stack.Screen
+        name="medication/[id]"
+        options={{ title: Strings.medications.title.ko }}
+      />
+      <Stack.Screen name="settings" options={{ title: Strings.settings.title.ko }} />
+      <Stack.Screen
         name="camera"
         options={{
           // Full-screen and chrome-free: the capture UI supplies its own
