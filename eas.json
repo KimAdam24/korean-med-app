@@ -25,6 +25,14 @@
       "android": {
         "buildType": "app-bundle"
       }
+    },
+    "ios-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "node": "22.11.0",
+      "ios": {
+        "simulator": true
+      }
     }
   },
   "submit": {
