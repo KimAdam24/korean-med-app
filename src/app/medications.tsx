@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useProfile } from '@/features/medications/use-profile';
 import type { MedicationRecord } from '@/features/medications/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -116,7 +116,9 @@ function MedicationRow({
       }
       style={({ pressed }) => [
         styles.row,
-        { backgroundColor: theme.backgroundElement },
+        // The same surface and contrast-checked edge as every other card, so
+        // a medicine in the list looks like the medicine on its own page.
+        { backgroundColor: theme.surface, borderColor: theme.border },
         pressed && { backgroundColor: theme.backgroundSelected },
       ]}>
       {/* The drug name is English and must not be paired with a translation. */}
@@ -134,7 +136,7 @@ function MedicationRow({
 function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll?: boolean }) {
   const content = <View style={styles.content}>{children}</View>;
   return (
-    <ThemedView style={styles.root}>
+    <ThemedView type="page" style={styles.root}>
       <SafeAreaView style={styles.safeArea}>
         {scroll ? (
           <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView>
@@ -169,7 +171,8 @@ const styles = StyleSheet.create({
     // text when the system font size is turned up, which for this audience it
     // very often is.
     padding: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
+    borderWidth: 1,
     gap: Spacing.one,
     minHeight: 72,
     justifyContent: 'center',

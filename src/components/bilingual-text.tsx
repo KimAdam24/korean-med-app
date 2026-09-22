@@ -18,6 +18,13 @@ export type BilingualTextProps = {
   variant?: 'heading' | 'body' | 'label' | 'button';
   /** Light-on-dark, for use over the camera preview. */
   onDark?: boolean;
+  /**
+   * Overrides for text sitting on a tinted surface — a warning or notice panel
+   * — where the theme's default text colour was not the pair that was
+   * contrast-checked against that tint.
+   */
+  color?: string;
+  secondaryColor?: string;
   align?: 'left' | 'center';
   style?: StyleProp<ViewStyle>;
 };
@@ -26,19 +33,25 @@ export function BilingualText({
   text,
   variant = 'body',
   onDark = false,
+  color,
+  secondaryColor: secondaryOverride,
   align = 'left',
   style,
 }: BilingualTextProps) {
   const theme = useTheme();
-  const primaryColor = onDark ? '#ffffff' : theme.text;
-  const secondaryColor = onDark ? 'rgba(255,255,255,0.72)' : theme.textSecondary;
+  const primaryColor = color ?? (onDark ? '#ffffff' : theme.text);
+  const secondaryColor =
+    secondaryOverride ?? color ?? (onDark ? 'rgba(255,255,255,0.72)' : theme.textSecondary);
   const textAlign = align;
 
   return (
     <View
       style={[{ alignItems: align === 'center' ? 'center' : 'flex-start' }, style]}
       accessible
-      accessibilityLabel={text.ko}>
+      accessibilityLabel={text.ko}
+      // Headings are announced as headings, so a screen-reader user can move
+      // between sections of a result instead of listening to all of it.
+      accessibilityRole={variant === 'heading' ? 'header' : undefined}>
       <Text style={[styles[variant], { color: primaryColor, textAlign }]}>{text.ko}</Text>
       <Text
         style={[styles.secondary, { color: secondaryColor, textAlign }]}
@@ -73,7 +86,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   secondary: {
-    fontSize: 15,
+    // 16 rather than 15: the English line is secondary, not small print, and
+    // 16 is the floor for body text this app's readers should ever meet.
+    fontSize: 16,
     lineHeight: 22,
     fontWeight: '500',
     marginTop: 2,

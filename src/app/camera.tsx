@@ -2,6 +2,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Linking,
   Platform,
@@ -16,6 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
+import { Card, CardDivider } from '@/components/card';
+import { Notice } from '@/components/notice';
+import { ReadingField } from '@/components/reading-field';
 import { Fonts, Spacing } from '@/constants/theme';
 import { probeCapture, type CaptureProbe } from '@/features/capture/dev-capture-probe';
 import {
@@ -32,15 +36,16 @@ import { addMedication } from '@/features/medications/medication-store';
 import { LabelOcr } from '../../modules/label-ocr';
 import { interpretLines } from '@/features/ocr/device-recognizer';
 import { DevLineList } from '@/features/ocr/dev-line-list';
+import { assessField } from '@/features/ocr/field-integrity';
+import { medicationFromReading } from '@/features/ocr/reading-to-record';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
 import {
-  needsConfirmation,
-  type ExtractedField,
   type MedicationLabelFields,
   type ReadQuality,
   type RecognizedTextLine,
 } from '@/features/ocr/types';
 import { useAppLock } from '@/features/security/app-lock-context';
+import { useTheme } from '@/hooks/use-theme';
 import { Strings, type Bilingual } from '@/i18n/strings';
 
 /**
@@ -121,6 +126,32 @@ export default function CameraScreen() {
    * next render.
    */
   const scanning = useRef(false);
+
+  /**
+   * Tells a screen-reader user, the moment a result appears, if any of it
+   * could not be read.
+   *
+   * A sighted reader sees the amber panel at a glance. A screen-reader user
+   * would otherwise meet it only by swiping down to it — after hearing a
+   * clean-sounding name and dose first — which is exactly the order in which a
+   * damaged direction is most likely to be taken at face value.
+   */
+  useEffect(() => {
+    if (phase.kind !== 'result') return;
+
+    if (phase.quality?.level === 'degraded') {
+      AccessibilityInfo.announceForAccessibility(Strings.result.degradedTitle.ko);
+      return;
+    }
+
+    for (const kind of ['instructions', 'dosage', 'name'] as const) {
+      const text = phase.fields[kind]?.text;
+      if (text && assessField(kind, text).level === 'damaged') {
+        AccessibilityInfo.announceForAccessibility(Strings.result.damaged[kind].title.ko);
+        return;
+      }
+    }
+  }, [phase]);
 
   /**
    * When the screen is opened with an image already chosen, it reads that
@@ -270,27 +301,19 @@ export default function CameraScreen() {
    * No RxNorm identity is attached, because there is none: OCR read text off a
    * label, it did not identify a product. The record is marked for review, so
    * the list keeps saying so until the user confirms it.
+   *
+   * Damaged directions and doses are left out rather than saved and flagged —
+   * see `medicationFromReading` — so they cannot reappear on the medicine's own
+   * page under "how to take it".
    */
   const saveFromLabel = useCallback(
     async (fields: MedicationLabelFields) => {
-      const name = fields.name?.text.trim();
-      if (!name) return;
+      const toSave = medicationFromReading(fields);
+      if (!toSave) return;
 
       setPhase({ kind: 'saving' });
       try {
-        await addMedication({
-          name,
-          dosage: fields.dosage?.text.trim() || undefined,
-          instructions: fields.instructions?.text.trim() || undefined,
-          source: 'label-scan',
-          /**
-           * Always true here, whatever the quality verdict said. Even a clean
-           * read is a machine's reading of a photograph, and the one field the
-           * user can check against the box in their hand is the one worth
-           * asking about.
-           */
-          needsReview: true,
-        });
+        await addMedication(toSave.record);
         setPhase({ kind: 'saved' });
       } catch {
         setPhase({
@@ -465,57 +488,92 @@ export default function CameraScreen() {
   }
 
   if (phase.kind === 'result') {
+    const degraded = phase.quality?.level === 'degraded';
+    const toSave = medicationFromReading(phase.fields);
+
     return (
       <Sheet scroll>
-        {phase.quality?.level === 'degraded' ? (
-          /*
-           * Replaces the heading rather than sitting beside it. A warning shown
-           * next to a tidy list of fields reads as a footnote, and the whole
-           * point is that these fields should not be trusted enough to confirm.
-           */
-          <View style={styles.field}>
-            <BilingualText text={Strings.result.degradedTitle} variant="heading" />
-            <BilingualText text={Strings.result.degradedBody} />
-          </View>
-        ) : (
-          <BilingualText text={Strings.result.title} variant="heading" />
-        )}
-        <ReadField label={Strings.result.name} field={phase.fields.name} />
-        <ReadField label={Strings.result.dosage} field={phase.fields.dosage} />
-        <ReadField label={Strings.result.instructions} field={phase.fields.instructions} />
-        <RawLinesPanel lines={phase.lines} />
-        <CapturedFramePanel probe={devProbe} />
-        <DiscardNotice />
+        <BilingualText text={Strings.result.title} variant="heading" />
 
         {/*
-          Saying so before the tap rather than after. The record is still
-          saveable when the read looks poor — refusing would strand a user whose
-          label simply photographs badly, and the pharmacy vial is the case OCR
-          exists for — but it is marked for checking, and the notice says why.
+          One statement about the reading as a whole, instead of the same
+          warning under every field. Its tone carries the verdict: a clean read
+          asks for a comparison, a degraded one says not to trust it.
         */}
-        {phase.fields.name ? (
-          <>
-            {phase.quality?.level === 'degraded' ? (
+        {degraded ? (
+          <Notice
+            tone="warn"
+            title={Strings.result.degradedTitle}
+            body={Strings.result.degradedBody}
+          />
+        ) : (
+          <Notice tone="info" title={Strings.result.compareWithBottle} />
+        )}
+
+        {/* The medicine: the name is what gets matched against the box. */}
+        <Card>
+          <ReadingField
+            label={Strings.result.name}
+            kind="name"
+            text={phase.fields.name?.text}
+            assess
+            prominent
+          />
+          <CardDivider />
+          <ReadingField
+            label={Strings.result.dosage}
+            kind="dosage"
+            text={phase.fields.dosage?.text}
+            assess
+          />
+        </Card>
+
+        {/* The directions: the field whose damage is dangerous rather than untidy. */}
+        <Card>
+          <ReadingField
+            label={Strings.result.instructions}
+            kind="instructions"
+            text={phase.fields.instructions?.text}
+            assess
+          />
+        </Card>
+
+        <DiscardNotice />
+
+        {toSave ? (
+          <View style={styles.actions}>
+            {/*
+              Said before the tap rather than after: what will be left out, and
+              why the user will need to type it in.
+            */}
+            {toSave.dropped.includes('instructions') ? (
+              <BilingualText text={Strings.result.notSavedInstructions} variant="label" />
+            ) : null}
+            {toSave.dropped.includes('dosage') ? (
+              <BilingualText text={Strings.result.notSavedDosage} variant="label" />
+            ) : null}
+            {toSave.flagged.includes('name') ? (
               <BilingualText text={Strings.medications.saveUncheckedNotice} variant="label" />
             ) : null}
             <BigButton
               label={Strings.medications.saveFromLabel}
               onPress={() => saveFromLabel(phase.fields)}
+              // A degraded read makes retaking the primary action; saving is
+              // still offered, since some labels never photograph cleanly.
+              tone={degraded ? 'secondary' : 'primary'}
             />
-          </>
+          </View>
         ) : null}
 
-        {phase.quality?.level === 'degraded' ? (
-          <>
-            <BigButton label={Strings.camera.retake} onPress={retake} />
-            <BigButton label={Strings.camera.done} onPress={close} tone="secondary" />
-          </>
-        ) : (
-          <>
-            <BigButton label={Strings.camera.retake} onPress={retake} tone="secondary" />
-            <BigButton label={Strings.camera.done} onPress={close} tone="secondary" />
-          </>
-        )}
+        <BigButton
+          label={Strings.camera.retake}
+          onPress={retake}
+          tone={degraded ? 'primary' : 'secondary'}
+        />
+        <BigButton label={Strings.camera.done} onPress={close} tone="secondary" />
+
+        <RawLinesPanel lines={phase.lines} />
+        <CapturedFramePanel probe={devProbe} />
       </Sheet>
     );
   }
@@ -608,14 +666,23 @@ export default function CameraScreen() {
  */
 function DrugCard({ drug }: { drug: DrugIdentity }) {
   return (
-    <View style={styles.card}>
-      <BilingualText text={{ ko: drug.name, en: '' }} variant="heading" />
-      <BilingualText text={Strings.scan.codeLabel} variant="label" />
-      <BilingualText text={{ ko: drug.ndcFormatted, en: '' }} />
-      {drug.packageStatus === 'OBSOLETE' && (
-        <BilingualText text={Strings.scan.discontinued} variant="label" />
-      )}
-    </View>
+    <Card>
+      {/*
+        Not judged for OCR damage: this name came from RxNorm, keyed by a
+        verified barcode, not from reading a photograph.
+      */}
+      <ReadingField label={Strings.result.name} kind="name" text={drug.name} assess={false} prominent />
+      <CardDivider />
+      <ReadingField
+        label={Strings.scan.codeLabel}
+        kind="dosage"
+        text={drug.ndcFormatted}
+        assess={false}
+      />
+      {drug.packageStatus === 'OBSOLETE' ? (
+        <Notice tone="info" title={Strings.scan.discontinued} />
+      ) : null}
+    </Card>
   );
 }
 
@@ -662,17 +729,6 @@ function IconControl({
         onDark={!active}
       />
     </Pressable>
-  );
-}
-
-function ReadField({ label, field }: { label: Bilingual; field?: ExtractedField }) {
-  const unsure = needsConfirmation(field);
-  return (
-    <View style={styles.field}>
-      <BilingualText text={label} variant="label" />
-      <BilingualText text={{ ko: field?.text ?? '—', en: '' }} />
-      {unsure && <BilingualText text={Strings.result.needsCheck} variant="label" />}
-    </View>
   );
 }
 
@@ -750,9 +806,12 @@ function DiscardNotice() {
 }
 
 function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll?: boolean }) {
+  const theme = useTheme();
   const content = <View style={styles.sheetContent}>{children}</View>;
   return (
-    <SafeAreaView style={styles.sheet}>
+    // The page colour sits behind cards so that a white card reads as an
+    // object; on plain white, cards and page merge and the grouping is lost.
+    <SafeAreaView style={[styles.sheet, { backgroundColor: theme.page }]}>
       {scroll ? <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView> : content}
     </SafeAreaView>
   );
@@ -761,6 +820,9 @@ function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll
 const styles = StyleSheet.create({
   sheet: {
     flex: 1,
+  },
+  actions: {
+    gap: Spacing.three,
   },
   scroll: {
     flexGrow: 1,

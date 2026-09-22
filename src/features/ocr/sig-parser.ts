@@ -299,14 +299,22 @@ function withContinuations(
  * lower, all upper, nor capitalised. `FOoD` and `aTY` are the engine confusing
  * letterforms, and a page with many of them was read badly.
  */
-function hasImpossibleCase(token: string): boolean {
-  const letters = token.replace(/[^A-Za-z]/g, '');
-  if (letters.length < 2) return false;
-  return !(
-    letters === letters.toLowerCase() ||
-    letters === letters.toUpperCase() ||
-    letters === letters[0].toUpperCase() + letters.slice(1).toLowerCase()
-  );
+export function hasImpossibleCase(token: string): boolean {
+  /**
+   * Judged per part, split on hyphens and slashes. Stripping the punctuation
+   * and judging the whole token would read `L-Thyroxine` as `LThyroxine` — a
+   * capital in the middle of a word — and flag a correctly printed drug name
+   * as garbled. Hyphenated prefixes (`L-`, `D-`, `Co-`) are common on labels.
+   */
+  return token.split(/[-/]/).some((part) => {
+    const letters = part.replace(/[^A-Za-z]/g, '');
+    if (letters.length < 2) return false;
+    return !(
+      letters === letters.toLowerCase() ||
+      letters === letters.toUpperCase() ||
+      letters === letters[0].toUpperCase() + letters.slice(1).toLowerCase()
+    );
+  });
 }
 
 /** Above this share of impossible-case tokens, treat the whole read as suspect. */

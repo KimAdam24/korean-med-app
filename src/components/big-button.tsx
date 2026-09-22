@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-nat
 
 import { BilingualText } from '@/components/bilingual-text';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import type { Bilingual } from '@/i18n/strings';
 
 /**
@@ -24,6 +25,8 @@ export function BigButton({
   disabled = false,
   style,
 }: BigButtonProps) {
+  const theme = useTheme();
+
   return (
     <Pressable
       onPress={onPress}
@@ -33,7 +36,11 @@ export function BigButton({
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.base,
-        tone === 'primary' ? styles.primary : styles.secondary,
+        tone === 'primary'
+          ? styles.primary
+          : // From the theme rather than fixed: the brand blue that works as an
+            // outline on white falls to about 3:1 on the dark page.
+            [styles.secondary, { borderColor: theme.outline }],
         pressed && styles.pressed,
         disabled && styles.disabled,
         style,
@@ -65,7 +72,6 @@ const styles = StyleSheet.create({
   secondary: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#1B5FB0',
   },
   pressed: {
     opacity: 0.7,

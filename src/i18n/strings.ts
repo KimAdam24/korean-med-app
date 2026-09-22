@@ -133,6 +133,63 @@ export const Strings = {
      * user would compare it, see something plausible, and agree. When that is
      * possible the honest request is a new photograph, not a check.
      */
+    /**
+     * Said once, at the top of a reading, instead of under every field.
+     *
+     * Confirmation is still required — a machine read a photograph — but a
+     * warning attached to every field says nothing about any of them, and
+     * teaches the reader to skip the one that matters. Field-level warnings are
+     * now reserved for fields where damage was actually found.
+     */
+    compareWithBottle: {
+      ko: '사진으로 읽은 내용이에요. 저장하기 전에 약병과 한 번 비교해 주세요.',
+      en: 'This was read from a photo. Please compare it with the bottle once before saving.',
+    },
+
+    /**
+     * Shown *in place of* a field's value when its text is damaged. The value
+     * is never shown as an answer in that case — only as evidence, behind a
+     * tap, marked as inaccurate.
+     */
+    damaged: {
+      name: {
+        title: { ko: '약 이름을 정확히 읽지 못했어요', en: 'We could not read the medicine name clearly' },
+        body: {
+          ko: '글자가 빠졌거나 잘못 읽힌 것 같아요. 약 상자에 적힌 이름과 꼭 비교해 주세요.',
+          en: 'Letters look missing or misread. Please check it against the name on the box.',
+        },
+      },
+      dosage: {
+        title: { ko: '용량을 정확히 읽지 못했어요', en: 'We could not read the dose clearly' },
+        body: {
+          ko: '숫자가 잘못 읽혔을 수 있어요. 약병에 적힌 용량을 직접 확인해 주세요.',
+          en: 'The numbers may be misread. Please read the dose on the bottle itself.',
+        },
+      },
+      instructions: {
+        title: { ko: '복용 방법을 정확히 읽지 못했어요', en: 'We could not read the directions clearly' },
+        body: {
+          ko: '글자가 깨져 있어서 복용 방법으로 보여 드리지 않았어요. 약병에 적힌 내용을 직접 확인해 주세요.',
+          en: 'Some letters are broken, so we have not shown this as directions. Please read them on the bottle itself.',
+        },
+      },
+    },
+    showRaw: { ko: '사진에서 읽은 글자 보기', en: 'Show the letters read from the photo' },
+    hideRaw: { ko: '글자 숨기기', en: 'Hide the letters' },
+    rawCaption: {
+      ko: '정확하지 않은 글자예요. 표시된 부분이 특히 깨져 있어요.',
+      en: 'These letters are not accurate. The marked words are the most damaged.',
+    },
+    /** Said before the save button when damaged fields will be left out. */
+    notSavedInstructions: {
+      ko: '복용 방법은 저장하지 않아요. 등록한 뒤 약병을 보고 직접 입력해 주세요.',
+      en: 'The directions will not be saved. After adding, please type them in from the bottle.',
+    },
+    notSavedDosage: {
+      ko: '용량은 저장하지 않아요. 등록한 뒤 약병을 보고 직접 입력해 주세요.',
+      en: 'The dose will not be saved. After adding, please type it in from the bottle.',
+    },
+
     degradedTitle: { ko: '글씨를 제대로 읽지 못했어요', en: 'We did not read this clearly' },
     degradedBody: {
       ko: '글자가 빠지거나 잘못 읽힌 것 같아요. 약 이름이 맞아 보여도 그대로 쓰면 위험할 수 있어요. 밝은 곳에서 다시 찍어 주세요.',

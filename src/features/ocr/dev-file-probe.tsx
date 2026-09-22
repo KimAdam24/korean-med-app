@@ -13,6 +13,8 @@ import { addMedication } from '@/features/medications/medication-store';
 import { LabelOcr } from '../../../modules/label-ocr';
 import { DevLineList, logRecognizedLines } from './dev-line-list';
 import { interpretLines } from './device-recognizer';
+import { assessField, type FieldKind } from './field-integrity';
+import { medicationFromReading } from './reading-to-record';
 import {
   needsConfirmation,
   type ExtractedField,
@@ -114,17 +116,13 @@ export function DevFileProbe() {
    * camera does. Marked for review like any label reading, because it is one.
    */
   const saveParsed = useCallback(async (fields: MedicationLabelFields) => {
-    const name = fields.name?.text.trim();
-    if (!name) return;
+    // The same mapping the camera uses, damaged fields dropped included, so
+    // this exercises the real save rather than a looser parallel one.
+    const toSave = medicationFromReading(fields);
+    if (!toSave) return;
 
-    await addMedication({
-      name,
-      dosage: fields.dosage?.text.trim() || undefined,
-      instructions: fields.instructions?.text.trim() || undefined,
-      source: 'label-scan',
-      needsReview: true,
-    });
-    setState({ kind: 'saved', name });
+    await addMedication(toSave.record);
+    setState({ kind: 'saved', name: toSave.record.name });
   }, []);
 
   const seedSample = useCallback(async () => {
@@ -238,21 +236,26 @@ export function DevFileProbe() {
  * and a reviewer comparing this against a label needs to see which.
  */
 function ParsedFields({ fields }: { fields: MedicationLabelFields }) {
-  const rows: [string, ExtractedField | undefined][] = [
-    ['name', fields.name],
-    ['dosage', fields.dosage],
-    ['sig', fields.instructions],
+  const rows: [string, FieldKind, ExtractedField | undefined][] = [
+    ['name', 'name', fields.name],
+    ['dosage', 'dosage', fields.dosage],
+    ['sig', 'instructions', fields.instructions],
   ];
 
   return (
     <Text selectable style={styles.mono}>
       {rows
-        .map(([label, value]) => {
+        .map(([label, kind, value]) => {
           // An absent field is the parser declining to guess, which is a
           // different outcome from a wrong one and should read differently.
           if (!value) return `${label.padEnd(7)} —  (absent, needs check)`;
           const flag = needsConfirmation(value) ? 'needs check' : 'ok';
-          return `${label.padEnd(7)} [${value.confidence.toFixed(2)} ${flag}] ${value.text}`;
+          // The per-field verdict the result screen acts on, so a reviewer can
+          // see why a field was withheld rather than guess.
+          const integrity = assessField(kind, value.text);
+          const verdict =
+            integrity.level === 'damaged' ? ` DAMAGED(${integrity.reasons.join(',')})` : '';
+          return `${label.padEnd(7)} [${value.confidence.toFixed(2)} ${flag}${verdict}] ${value.text}`;
         })
         .join('\n')}
     </Text>

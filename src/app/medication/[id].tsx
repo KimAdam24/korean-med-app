@@ -5,6 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
+import { Card, CardDivider } from '@/components/card';
+import { Notice } from '@/components/notice';
+import { ReadingField } from '@/components/reading-field';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import {
@@ -13,6 +16,7 @@ import {
   updateMedication,
 } from '@/features/medications/medication-store';
 import { useProfile } from '@/features/medications/use-profile';
+import { assessField } from '@/features/ocr/field-integrity';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, type Bilingual } from '@/i18n/strings';
 
@@ -167,12 +171,51 @@ export default function MedicationScreen() {
     );
   }
 
+  /**
+   * Machine readings are judged for damage until the user takes ownership of
+   * them by confirming or editing. After that the text is theirs, and flagging
+   * a typo in the user's own words as a misread would be wrong.
+   *
+   * Applied here as well as at save time because records saved before the
+   * check existed may still carry damaged directions, and this is the screen
+   * that would otherwise present them as instructions.
+   */
+  const assess = record.needsReview;
+  const damaged = (
+    [
+      ['name', record.name],
+      ['dosage', record.dosage],
+      ['instructions', record.instructions],
+    ] as const
+  ).some(([kind, text]) => assess && text && assessField(kind, text).level === 'damaged');
+
   return (
     <Sheet scroll>
-      <BilingualText text={{ ko: record.name, en: '' }} variant="heading" />
+      <Card>
+        <ReadingField
+          label={Strings.medications.fieldName}
+          kind="name"
+          text={record.name}
+          assess={assess}
+          prominent
+        />
+        <CardDivider />
+        <ReadingField
+          label={Strings.medications.fieldDosage}
+          kind="dosage"
+          text={record.dosage}
+          assess={assess}
+        />
+      </Card>
 
-      <ReadOnlyField label={Strings.medications.fieldDosage} value={record.dosage} />
-      <ReadOnlyField label={Strings.medications.fieldInstructions} value={record.instructions} />
+      <Card>
+        <ReadingField
+          label={Strings.medications.fieldInstructions}
+          kind="instructions"
+          text={record.instructions}
+          assess={assess}
+        />
+      </Card>
 
       <View style={styles.meta}>
         <BilingualText text={Strings.medications.source} variant="label" />
@@ -185,31 +228,29 @@ export default function MedicationScreen() {
         />
       </View>
 
-      {record.needsReview ? (
+      {record.needsReview && !damaged ? (
         <>
-          <BilingualText text={Strings.medications.unconfirmed} variant="label" />
+          <Notice tone="info" title={Strings.medications.unconfirmed} />
           <BigButton label={Strings.medications.confirm} onPress={confirm} />
         </>
       ) : null}
 
-      <BigButton label={Strings.medications.edit} onPress={startEditing} tone="secondary" />
+      {/*
+        With damage present, "yes, I checked it" is not offered: confirming
+        would mark the broken text as the user's own and remove the warning.
+        Editing is the way forward, so it becomes the primary action.
+      */}
+      <BigButton
+        label={Strings.medications.edit}
+        onPress={startEditing}
+        tone={damaged ? 'primary' : 'secondary'}
+      />
       <BigButton
         label={Strings.medications.remove}
         tone="secondary"
         onPress={() => setMode({ kind: 'confirming-removal' })}
       />
     </Sheet>
-  );
-}
-
-function ReadOnlyField({ label, value }: { label: Bilingual; value?: string }) {
-  return (
-    <View style={styles.field}>
-      <BilingualText text={label} variant="label" />
-      <BilingualText
-        text={{ ko: value ?? Strings.result.missing.ko, en: '' }}
-      />
-    </View>
   );
 }
 
@@ -253,7 +294,7 @@ function Field({
 function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll?: boolean }) {
   const content = <View style={styles.content}>{children}</View>;
   return (
-    <ThemedView style={styles.root}>
+    <ThemedView type="page" style={styles.root}>
       <SafeAreaView style={styles.safeArea}>
         {scroll ? (
           <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView>

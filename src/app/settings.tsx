@@ -233,7 +233,7 @@ export default function SettingsScreen() {
 function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll?: boolean }) {
   const content = <View style={styles.content}>{children}</View>;
   return (
-    <ThemedView style={styles.root}>
+    <ThemedView type="page" style={styles.root}>
       <SafeAreaView style={styles.safeArea}>
         {scroll ? (
           <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView>
