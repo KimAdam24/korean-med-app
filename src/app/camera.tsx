@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
-import { useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -29,6 +29,8 @@ import {
   type DrugIdentity,
 } from '@/features/drugs/rxnorm';
 import { addMedication } from '@/features/medications/medication-store';
+import { LabelOcr } from '../../modules/label-ocr';
+import { interpretLines } from '@/features/ocr/device-recognizer';
 import { DevLineList } from '@/features/ocr/dev-line-list';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
 import {
@@ -119,6 +121,55 @@ export default function CameraScreen() {
    * next render.
    */
   const scanning = useRef(false);
+
+  /**
+   * When the screen is opened with an image already chosen, it reads that
+   * instead of opening the camera.
+   *
+   * Deliberately reuses this screen rather than duplicating the result view:
+   * both paths end in the same fields, the same quality verdict and the same
+   * save, and two copies of that would drift.
+   *
+   * The file is the user's. It is read and nothing else — no
+   * `withTransientCapture`, because that function's contract is to delete what
+   * it was given, which would destroy a photograph the app did not create.
+   */
+  const { imageUri } = useLocalSearchParams<{ imageUri?: string }>();
+  const readImported = useRef(false);
+
+  useEffect(() => {
+    if (!imageUri || readImported.current) return;
+    readImported.current = true;
+
+    (async () => {
+      setPhase({ kind: 'reading' });
+      try {
+        const lines = await LabelOcr.recognizeTextAsync(imageUri);
+        const result = interpretLines(lines);
+        if (result.status === 'recognized') {
+          setPhase({
+            kind: 'result',
+            fields: result.fields,
+            lines: result.lines,
+            quality: result.quality,
+          });
+        } else {
+          setPhase({
+            kind: 'problem',
+            message: Strings.problem.unreadable,
+            // Nothing was captured, so there is no photo of ours to report on.
+            photoDiscarded: true,
+          });
+        }
+      } catch {
+        setPhase({
+          kind: 'problem',
+          message: Strings.problem.captureFailed,
+          photoDiscarded: true,
+        });
+      }
+    })();
+  }, [imageUri]);
 
   const cameraLive = phase.kind === 'preview' || phase.kind === 'capturing';
 

@@ -19,6 +19,9 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE"
+      ],
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.USE_BIOMETRIC",
@@ -59,6 +62,12 @@
         "expo-local-authentication",
         {
           "faceIDPermission": "약 정보를 본인만 열어 볼 수 있도록 Face ID를 사용합니다."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": false
         }
       ],
       "./modules/label-ocr/app.plugin.js"

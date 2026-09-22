@@ -7,6 +7,7 @@ import { BilingualText } from '@/components/bilingual-text';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useAppLock } from '@/features/security/app-lock-context';
 
+import { pickImage } from '@/features/capture/pick-image';
 import { addMedication } from '@/features/medications/medication-store';
 
 import { LabelOcr } from '../../../modules/label-ocr';
@@ -74,16 +75,15 @@ export function DevFileProbe() {
 
   const pickAndRead = useCallback(async () => {
     try {
-      // The picker is a separate activity, so opening it backgrounds this one.
-      // Without this the app would re-lock, unmount this component, and drop
-      // the picked file on the floor while the user typed their PIN.
-      const picked = await runWithSystemUi(() => File.pickFileAsync({ mimeTypes: 'image/*' }));
-      if (picked.canceled) return;
+      // Uses the same photo picker the real feature does, so this exercises
+      // that path rather than a parallel one.
+      const picked = await pickImage(runWithSystemUi);
+      if (!picked) return;
 
       setState({ kind: 'reading' });
 
-      const file = picked.result;
-      const lines = await LabelOcr.recognizeTextAsync(file.uri);
+      const file = new File(picked.uri);
+      const lines = await LabelOcr.recognizeTextAsync(picked.uri);
       logRecognizedLines('file', lines);
 
       // The same interpretation the camera path runs, so what this shows is
@@ -93,8 +93,8 @@ export function DevFileProbe() {
 
       setState({
         kind: 'read',
-        uri: file.uri,
-        byteLength: file.size,
+        uri: picked.uri,
+        byteLength: file.exists ? file.size : 0,
         lines,
         fields: result.status === 'recognized' ? result.fields : {},
         quality: result.status === 'recognized' ? result.quality : undefined,
