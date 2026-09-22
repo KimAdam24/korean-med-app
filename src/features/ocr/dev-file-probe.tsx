@@ -185,7 +185,13 @@ export function DevFileProbe() {
       {state.kind === 'read' && (
         <View style={styles.output}>
           {/* The picked file, shown so a wrong selection is obvious immediately. */}
-          <Image source={{ uri: state.uri }} style={styles.preview} resizeMode="contain" />
+          <Image
+            source={{ uri: state.uri }}
+            style={styles.preview}
+            resizeMode="contain"
+            // Decorative to a screen reader; the size and path beneath say what it is.
+            accessible={false}
+          />
           <Text selectable style={styles.mono}>
             {`${Math.round(state.byteLength / 1024)} KB  ${state.lines.length} line(s)\n${state.uri}`}
           </Text>
