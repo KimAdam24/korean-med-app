@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card, CardDivider } from '@/components/card';
-import { Notice } from '@/components/notice';
+import { Notice, StatusBadge } from '@/components/notice';
 import { ReadingField } from '@/components/reading-field';
 import { Fonts, Spacing } from '@/constants/theme';
 import { probeCapture, type CaptureProbe } from '@/features/capture/dev-capture-probe';
@@ -488,93 +488,16 @@ export default function CameraScreen() {
   }
 
   if (phase.kind === 'result') {
-    const degraded = phase.quality?.level === 'degraded';
-    const toSave = medicationFromReading(phase.fields);
-
     return (
-      <Sheet scroll>
-        <BilingualText text={Strings.result.title} variant="heading" />
-
-        {/*
-          One statement about the reading as a whole, instead of the same
-          warning under every field. Its tone carries the verdict: a clean read
-          asks for a comparison, a degraded one says not to trust it.
-        */}
-        {degraded ? (
-          <Notice
-            tone="warn"
-            title={Strings.result.degradedTitle}
-            body={Strings.result.degradedBody}
-          />
-        ) : (
-          <Notice tone="info" title={Strings.result.compareWithBottle} />
-        )}
-
-        {/* The medicine: the name is what gets matched against the box. */}
-        <Card>
-          <ReadingField
-            label={Strings.result.name}
-            kind="name"
-            text={phase.fields.name?.text}
-            assess
-            prominent
-          />
-          <CardDivider />
-          <ReadingField
-            label={Strings.result.dosage}
-            kind="dosage"
-            text={phase.fields.dosage?.text}
-            assess
-          />
-        </Card>
-
-        {/* The directions: the field whose damage is dangerous rather than untidy. */}
-        <Card>
-          <ReadingField
-            label={Strings.result.instructions}
-            kind="instructions"
-            text={phase.fields.instructions?.text}
-            assess
-          />
-        </Card>
-
-        <DiscardNotice />
-
-        {toSave ? (
-          <View style={styles.actions}>
-            {/*
-              Said before the tap rather than after: what will be left out, and
-              why the user will need to type it in.
-            */}
-            {toSave.dropped.includes('instructions') ? (
-              <BilingualText text={Strings.result.notSavedInstructions} variant="label" />
-            ) : null}
-            {toSave.dropped.includes('dosage') ? (
-              <BilingualText text={Strings.result.notSavedDosage} variant="label" />
-            ) : null}
-            {toSave.flagged.includes('name') ? (
-              <BilingualText text={Strings.medications.saveUncheckedNotice} variant="label" />
-            ) : null}
-            <BigButton
-              label={Strings.medications.saveFromLabel}
-              onPress={() => saveFromLabel(phase.fields)}
-              // A degraded read makes retaking the primary action; saving is
-              // still offered, since some labels never photograph cleanly.
-              tone={degraded ? 'secondary' : 'primary'}
-            />
-          </View>
-        ) : null}
-
-        <BigButton
-          label={Strings.camera.retake}
-          onPress={retake}
-          tone={degraded ? 'primary' : 'secondary'}
-        />
-        <BigButton label={Strings.camera.done} onPress={close} tone="secondary" />
-
-        <RawLinesPanel lines={phase.lines} />
-        <CapturedFramePanel probe={devProbe} />
-      </Sheet>
+      <ReadingResult
+        fields={phase.fields}
+        lines={phase.lines}
+        quality={phase.quality}
+        devProbe={devProbe}
+        onSave={saveFromLabel}
+        onRetake={retake}
+        onClose={close}
+      />
     );
   }
 
@@ -654,6 +577,167 @@ export default function CameraScreen() {
         )}
       </SafeAreaView>
     </View>
+  );
+}
+
+/**
+ * What a label reading produced, in one of two shapes.
+ *
+ * ## A clean or partly damaged reading
+ *
+ * The fields are the point, so they lead. One calm notice asks the reader to
+ * compare against the bottle, and a warning appears only on a field where
+ * damage was actually found — specific, so it means something.
+ *
+ * ## A degraded reading
+ *
+ * Nothing in it should be relied on, so the fields stop leading. The first
+ * version of this showed a warning banner and then a warning on every field,
+ * each large and bilingual and saying nearly the same thing; the reader
+ * scrolled through a wall of amber before reaching anything useful, and a
+ * poor photograph read as a telling-off.
+ *
+ * Now there is one card: a heading marked with a small amber badge, one line
+ * on how to get a better photo, and the retake button inside it, at the top,
+ * where it is reachable without scrolling. Amber is an accent here, not a
+ * background. The fields are still available behind a deliberate tap — some
+ * labels never photograph cleanly, and saving must stay possible — but they
+ * no longer stand between the reader and the thing to do next.
+ *
+ * The safety rule is unchanged in both: damaged text is never shown as a value.
+ */
+function ReadingResult({
+  fields,
+  lines,
+  quality,
+  devProbe,
+  onSave,
+  onRetake,
+  onClose,
+}: {
+  fields: MedicationLabelFields;
+  lines?: readonly RecognizedTextLine[];
+  quality?: ReadQuality;
+  devProbe: CaptureProbe | null;
+  onSave: (fields: MedicationLabelFields) => void;
+  onRetake: () => void;
+  onClose: () => void;
+}) {
+  const degraded = quality?.level === 'degraded';
+  const toSave = medicationFromReading(fields);
+  // Local, so it starts closed on every new reading rather than inheriting
+  // whatever the last one left.
+  const [showFields, setShowFields] = useState(false);
+
+  const fieldCards = (
+    <>
+      {/* The medicine: the name is what gets matched against the box. */}
+      <Card>
+        <ReadingField
+          label={Strings.result.name}
+          kind="name"
+          text={fields.name?.text}
+          assess
+          prominent
+          compact={degraded}
+        />
+        <CardDivider />
+        <ReadingField
+          label={Strings.result.dosage}
+          kind="dosage"
+          text={fields.dosage?.text}
+          assess
+          compact={degraded}
+        />
+      </Card>
+
+      {/* The directions: the field whose damage is dangerous rather than untidy. */}
+      <Card>
+        <ReadingField
+          label={Strings.result.instructions}
+          kind="instructions"
+          text={fields.instructions?.text}
+          assess
+          compact={degraded}
+        />
+      </Card>
+    </>
+  );
+
+  const saveBlock = toSave ? (
+    <View style={styles.actions}>
+      {/* Said before the tap rather than after: what will be left out, and why. */}
+      {toSave.dropped.includes('instructions') ? (
+        <BilingualText text={Strings.result.notSavedInstructions} variant="label" />
+      ) : null}
+      {toSave.dropped.includes('dosage') ? (
+        <BilingualText text={Strings.result.notSavedDosage} variant="label" />
+      ) : null}
+      {toSave.flagged.includes('name') ? (
+        <BilingualText text={Strings.medications.saveUncheckedNotice} variant="label" />
+      ) : null}
+      <BigButton
+        label={Strings.medications.saveFromLabel}
+        onPress={() => onSave(fields)}
+        tone={degraded ? 'secondary' : 'primary'}
+      />
+    </View>
+  ) : null;
+
+  if (degraded) {
+    return (
+      <Sheet scroll>
+        <Card>
+          <View style={styles.headingRow}>
+            <StatusBadge tone="warn" />
+            <BilingualText
+              text={Strings.result.degradedTitle}
+              variant="heading"
+              style={styles.headingText}
+            />
+          </View>
+          <BilingualText text={Strings.result.degradedBody} hideEnglish />
+          <BigButton label={Strings.camera.retake} onPress={onRetake} />
+        </Card>
+
+        <BigButton
+          label={showFields ? Strings.result.hideReading : Strings.result.showReading}
+          onPress={() => setShowFields((shown) => !shown)}
+          tone="secondary"
+        />
+
+        {showFields ? (
+          <>
+            {fieldCards}
+            {saveBlock}
+          </>
+        ) : null}
+
+        <BigButton label={Strings.camera.done} onPress={onClose} tone="secondary" />
+        <DiscardNotice />
+
+        <RawLinesPanel lines={lines} />
+        <CapturedFramePanel probe={devProbe} />
+      </Sheet>
+    );
+  }
+
+  return (
+    <Sheet scroll>
+      <BilingualText text={Strings.result.title} variant="heading" />
+      <Notice tone="info" title={Strings.result.compareWithBottle} />
+
+      {fieldCards}
+
+      <DiscardNotice />
+      {saveBlock}
+
+      <BigButton label={Strings.camera.retake} onPress={onRetake} tone="secondary" />
+      <BigButton label={Strings.camera.done} onPress={onClose} tone="secondary" />
+
+      <RawLinesPanel lines={lines} />
+      <CapturedFramePanel probe={devProbe} />
+    </Sheet>
   );
 }
 
@@ -823,6 +907,14 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: Spacing.three,
+  },
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  headingText: {
+    flex: 1,
   },
   scroll: {
     flexGrow: 1,

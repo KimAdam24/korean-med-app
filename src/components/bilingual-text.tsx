@@ -25,6 +25,12 @@ export type BilingualTextProps = {
    */
   color?: string;
   secondaryColor?: string;
+  /**
+   * Omit the English gloss. For explanatory text inside notices, where the
+   * title already carries the gist in both languages and repeating a whole
+   * sentence in English doubles the block for a reader who does not need it.
+   */
+  hideEnglish?: boolean;
   align?: 'left' | 'center';
   style?: StyleProp<ViewStyle>;
 };
@@ -35,6 +41,7 @@ export function BilingualText({
   onDark = false,
   color,
   secondaryColor: secondaryOverride,
+  hideEnglish = false,
   align = 'left',
   style,
 }: BilingualTextProps) {
@@ -53,13 +60,15 @@ export function BilingualText({
       // between sections of a result instead of listening to all of it.
       accessibilityRole={variant === 'heading' ? 'header' : undefined}>
       <Text style={[styles[variant], { color: primaryColor, textAlign }]}>{text.ko}</Text>
-      <Text
-        style={[styles.secondary, { color: secondaryColor, textAlign }]}
-        // Already covered by the group's accessibilityLabel.
-        accessibilityElementsHidden
-        importantForAccessibility="no">
-        {text.en}
-      </Text>
+      {hideEnglish || !text.en ? null : (
+        <Text
+          style={[styles.secondary, { color: secondaryColor, textAlign }]}
+          // Already covered by the group's accessibilityLabel.
+          accessibilityElementsHidden
+          importantForAccessibility="no">
+          {text.en}
+        </Text>
+      )}
     </View>
   );
 }
@@ -86,10 +95,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   secondary: {
-    // 16 rather than 15: the English line is secondary, not small print, and
-    // 16 is the floor for body text this app's readers should ever meet.
-    fontSize: 16,
-    lineHeight: 22,
+    /**
+     * 14pt, the design skill's absolute minimum, and deliberately well below
+     * the Korean it sits under. This was briefly 16 on the reasoning that it
+     * was body text; seen rendered, English at nearly the Korean's size doubled
+     * every block and competed with it. It is a gloss — for a caregiver, or for
+     * matching a term against an English label — and should read as one.
+     */
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '500',
     marginTop: 2,
   },

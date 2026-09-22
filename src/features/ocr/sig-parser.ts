@@ -51,7 +51,7 @@ import type {
 
 /**
  * Assigned to any field built from lines whose engine confidence is unknown,
- * which on Android is all of them.
+ * which some engines never report.
  *
  * Deliberately below `LOW_CONFIDENCE_THRESHOLD`: not knowing how sure the
  * engine was is not the same as it being sure, and must never read that way.

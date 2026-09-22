@@ -12,11 +12,15 @@ export type RecognizedLine = {
   /** Trimmed. Never empty — empty lines are dropped natively. */
   readonly text: string;
   /**
-   * `0`–`1` on iOS, from Vision's top candidate.
+   * `0`–`1`: Vision's top-candidate confidence on iOS, `Text.Line.getConfidence()`
+   * on Android.
    *
-   * **`null` on Android**, because ML Kit's documented `Text.Line` surface has
-   * no per-line confidence. Treat `null` as *unknown*, never as good: a record
-   * built from unknown-confidence text still needs the user to confirm it.
+   * The two scales come from different models and are not comparable — a 0.8
+   * from one engine does not mean what a 0.8 from the other does — so any
+   * threshold applied to this must be calibrated per platform.
+   *
+   * Nullable because an engine may not report one. Treat `null` as *unknown*,
+   * never as good.
    */
   readonly confidence: number | null;
 };

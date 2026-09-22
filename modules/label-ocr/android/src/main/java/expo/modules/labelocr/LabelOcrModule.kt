@@ -89,19 +89,20 @@ class LabelOcrModule : Module() {
               null
             } else {
               /**
-               * `confidence` is always null on Android. ML Kit's documented
-               * `Text.Line` surface exposes text and geometry but no per-line
-               * confidence, so there is nothing honest to report. iOS supplies
-               * a real 0..1 value from Vision.
+               * `Text.Line.getConfidence()` returns a float in [0, 1]. This
+               * module previously sent null here, on the mistaken belief that
+               * ML Kit exposed no per-line confidence — a conclusion drawn from
+               * a guide page rather than the API reference, which documents it.
+               * The Android pipeline was discarding the most direct signal it
+               * has about how well a label was read.
                *
-               * Consumers must therefore treat a missing confidence as "unknown"
-               * and not as "good" — `features/ocr/types` keys the
-               * user-confirmation prompt off exactly that.
+               * Consumers still treat an absent confidence as unknown rather
+               * than good; the field stays nullable because other engines may
+               * genuinely not report one.
                */
-              // Typed explicitly: inference would settle on Map<String, String?>
-              // from these two entries, which is both misleading about the
-              // contract and wrong the moment a numeric confidence appears.
-              mapOf<String, Any?>("text" to text, "confidence" to null)
+              // Typed explicitly so the map's value type is not inferred from
+              // whichever entry happens to come first.
+              mapOf<String, Any?>("text" to text, "confidence" to line.confidence)
             }
           }
       } finally {

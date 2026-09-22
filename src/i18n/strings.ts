@@ -154,23 +154,26 @@ export const Strings = {
     damaged: {
       name: {
         title: { ko: '약 이름을 정확히 읽지 못했어요', en: 'We could not read the medicine name clearly' },
+        // Action only: the title has already said the name could not be read.
         body: {
-          ko: '글자가 빠졌거나 잘못 읽힌 것 같아요. 약 상자에 적힌 이름과 꼭 비교해 주세요.',
-          en: 'Letters look missing or misread. Please check it against the name on the box.',
+          ko: '약 상자에 적힌 이름과 꼭 비교해 주세요.',
+          en: 'Please check it against the name on the box.',
         },
       },
       dosage: {
         title: { ko: '용량을 정확히 읽지 못했어요', en: 'We could not read the dose clearly' },
         body: {
-          ko: '숫자가 잘못 읽혔을 수 있어요. 약병에 적힌 용량을 직접 확인해 주세요.',
-          en: 'The numbers may be misread. Please read the dose on the bottle itself.',
+          ko: '약병에 적힌 용량을 직접 확인해 주세요.',
+          en: 'Please read the dose on the bottle itself.',
         },
       },
       instructions: {
         title: { ko: '복용 방법을 정확히 읽지 못했어요', en: 'We could not read the directions clearly' },
+        // Keeps its reason: without it, directions that are simply absent
+        // could be mistaken for a label that had none.
         body: {
-          ko: '글자가 깨져 있어서 복용 방법으로 보여 드리지 않았어요. 약병에 적힌 내용을 직접 확인해 주세요.',
-          en: 'Some letters are broken, so we have not shown this as directions. Please read them on the bottle itself.',
+          ko: '깨진 글자라서 보여 드리지 않았어요. 약병을 직접 확인해 주세요.',
+          en: 'The letters are broken, so they are not shown. Please read the bottle itself.',
         },
       },
     },
@@ -191,10 +194,25 @@ export const Strings = {
     },
 
     degradedTitle: { ko: '글씨를 제대로 읽지 못했어요', en: 'We did not read this clearly' },
+    /**
+     * Help, not a verdict. An earlier version said the reading could be
+     * dangerous to use, which is true but belongs at the moment of acting on a
+     * field — where each damaged field still says so — rather than in the
+     * headline, where it made a poor photo feel like a telling-off. What the
+     * reader needs here is how to get a better one, and that advice is ML Kit's
+     * own: text should fill as much of the frame as possible.
+     */
     degradedBody: {
-      ko: '글자가 빠지거나 잘못 읽힌 것 같아요. 약 이름이 맞아 보여도 그대로 쓰면 위험할 수 있어요. 밝은 곳에서 다시 찍어 주세요.',
-      en: 'Some letters look missing or misread. Even if the medicine name looks right, it may not be. Please photograph it again somewhere brighter.',
+      ko: '밝은 곳에서, 약 글씨가 화면에 가득 차게 다시 찍어 보세요.',
+      en: 'Try again somewhere bright, with the label filling the screen.',
     },
+    /**
+     * Reveals the fields of a degraded reading. "그래도" (anyway) is the whole
+     * caution: it says the reading is there if wanted, without repeating why it
+     * should not be trusted.
+     */
+    showReading: { ko: '그래도 읽은 내용 보기', en: 'Show what was read anyway' },
+    hideReading: { ko: '읽은 내용 숨기기', en: 'Hide what was read' },
   },
 
   /**

@@ -25,8 +25,7 @@ export function DevLineList({ lines }: { lines: readonly RecognizedTextLine[] })
 }
 
 function formatLine(line: RecognizedTextLine, index: number): string {
-  // An em dash rather than a number when the engine reports no confidence,
-  // which on Android is every line.
+  // An em dash rather than a number when the engine reports no confidence.
   const score = line.confidence === null ? '—' : line.confidence.toFixed(2);
   return `${String(index).padStart(2, '0')} [${score}] ${line.text}`;
 }

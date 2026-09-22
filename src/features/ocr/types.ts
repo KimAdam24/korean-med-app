@@ -39,7 +39,7 @@ export type MedicationLabelFields = {
  * Engine-agnostic on purpose: Vision and ML Kit split the same label
  * differently, and both native implementations normalise to reading order
  * before this point. `confidence` is `null` when the engine does not report one
- * — always the case on Android — and must be read as *unknown*, never as good.
+ * and must be read as *unknown*, never as good.
  */
 export type RecognizedTextLine = {
   readonly text: string;

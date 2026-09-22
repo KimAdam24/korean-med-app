@@ -113,21 +113,23 @@ Only Latin script is bundled. ML Kit ships one model per script at roughly 38 MB
 each, and these users read English labels — Korean is the language of the
 guidance, not of the input.
 
-### Android OCR reports no confidence at all
+### OCR confidence is not comparable across platforms
 
-Vision gives a real 0–1 confidence per line. ML Kit's documented `Text.Line`
-surface has none, so the module reports `null` there rather than inventing a
-number.
+Both engines report a 0–1 confidence per line — Vision's top candidate on iOS,
+`Text.Line.getConfidence()` on Android. The Android module sent `null` for
+every line until this was caught, on the mistaken belief that ML Kit exposed
+none; it does, in the API reference.
 
-`null` is treated as *unknown*, never as good, which in practice means every
-Android OCR result needs the user to confirm it. That is the honest reading of
-what we know, and it is the safe one — but it does mean the confirmation
-prompt will be far more common on Android than on iOS.
+The two numbers come from different models and mean different things, so no
+threshold should be shared between them. Nothing currently gates on
+confidence: every OCR field is capped below the confirmation threshold
+regardless, because a perfectly recognised line can still be the wrong line.
 
-### The native module has not been compiled or run
+### The native module has not been run on hardware
 
-Swift and Kotlin were written without a local Xcode or Android SDK, so they are
-reviewed but unbuilt. First `eas build` is where compile errors will surface.
+The Swift compiles (verified by an EAS iOS simulator build) and the Kotlin
+compiles (verified by a dev-client build). Neither has read a real pharmacy
+label on a physical device.
 
 ### A scanned barcode cannot say which NDC segmentation it holds
 

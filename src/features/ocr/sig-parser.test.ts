@@ -18,7 +18,11 @@ import {
 } from './sig-parser.ts';
 import type { RecognizedTextLine } from './types.ts';
 
-/** Android reports no per-line confidence, so every line arrives as null. */
+/**
+ * Every line is null on purpose: this fixture was captured while the Android
+ * module was discarding ML Kit's confidence, and it now stands in for an
+ * engine that reports none.
+ */
 const LABEL: RecognizedTextLine[] = [
   'ISSUED BY:',
   'NICOLE WILSON',

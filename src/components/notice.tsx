@@ -41,7 +41,12 @@ export function Notice({
         <StatusBadge tone={tone} />
         <BilingualText text={title} variant="label" color={text} style={styles.title} />
       </View>
-      {body ? <BilingualText text={body} color={text} /> : null}
+      {/*
+        English on the title only. The title already says what is going on in
+        both languages; repeating the explanation too doubled every warning, and
+        a block that long reads as a lecture rather than a note.
+      */}
+      {body ? <BilingualText text={body} color={text} hideEnglish /> : null}
       {children}
     </View>
   );

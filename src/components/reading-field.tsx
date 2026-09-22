@@ -34,6 +34,7 @@ export function ReadingField({
   text,
   assess,
   prominent = false,
+  compact = false,
 }: {
   label: Bilingual;
   kind: FieldKind;
@@ -46,6 +47,12 @@ export function ReadingField({
   assess: boolean;
   /** The medicine name: larger, because it is what gets matched against the box. */
   prominent?: boolean;
+  /**
+   * Show a damaged field as its title alone, without the explanation. For when
+   * a message elsewhere on the screen has already said why and what to do —
+   * repeating it per field turned a bad read into a wall of the same warning.
+   */
+  compact?: boolean;
 }) {
   const theme = useTheme();
   const [showRaw, setShowRaw] = useState(false);
@@ -67,7 +74,7 @@ export function ReadingField({
         <Notice
           tone="warn"
           title={Strings.result.damaged[kind].title}
-          body={Strings.result.damaged[kind].body}>
+          body={compact ? undefined : Strings.result.damaged[kind].body}>
           <Pressable
             onPress={() => setShowRaw((shown) => !shown)}
             accessibilityRole="button"
