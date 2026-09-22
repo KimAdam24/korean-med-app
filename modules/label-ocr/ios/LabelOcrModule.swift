@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import ImageIO
 import Vision
 
 /**
@@ -64,7 +65,26 @@ public class LabelOcrModule: Module {
       request.usesLanguageCorrection = false
       request.recognitionLanguages = ["en-US"]
 
-      let handler = VNImageRequestHandler(url: url, options: [:])
+      /**
+       * Orientation is passed explicitly, and must be.
+       *
+       * `VNImageRequestHandler(url:options:)` does not apply the EXIF
+       * orientation tag — it reads the stored pixels as they lie. That was
+       * harmless while every image came from our own camera, where we control
+       * the capture. A photograph chosen from the user's library is arbitrary:
+       * a portrait shot is very often stored landscape with a tag saying which
+       * way is up, and handed to Vision unrotated it is a page of sideways
+       * text, which recognises as nothing at all.
+       *
+       * The failure is silent and looks like the engine is broken rather than
+       * mis-fed, which is why this is read here rather than left to be
+       * discovered.
+       */
+      let handler = VNImageRequestHandler(
+        url: url,
+        orientation: exifOrientation(of: url),
+        options: [:]
+      )
       do {
         try handler.perform([request])
       } catch {
@@ -140,4 +160,21 @@ private func readingOrder(
   return rows.flatMap { row in
     row.sorted { $0.boundingBox.minX < $1.boundingBox.minX }
   }
+}
+
+/**
+ * The EXIF orientation of the image at `url`, or `.up` when it has none.
+ *
+ * `.up` is the right default rather than a guess: an image with no orientation
+ * tag is by definition stored the way it should be displayed, so treating it
+ * as upright is correct rather than merely safe.
+ */
+private func exifOrientation(of url: URL) -> CGImagePropertyOrientation {
+  guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+        let raw = properties[kCGImagePropertyOrientation] as? UInt32,
+        let orientation = CGImagePropertyOrientation(rawValue: raw) else {
+    return .up
+  }
+  return orientation
 }
