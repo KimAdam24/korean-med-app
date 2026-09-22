@@ -7,6 +7,8 @@ import { BilingualText } from '@/components/bilingual-text';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useAppLock } from '@/features/security/app-lock-context';
 
+import { addMedication } from '@/features/medications/medication-store';
+
 import { LabelOcr } from '../../../modules/label-ocr';
 import { DevLineList, logRecognizedLines } from './dev-line-list';
 import { interpretLines } from './device-recognizer';
@@ -63,7 +65,8 @@ type ProbeState =
       fields: MedicationLabelFields;
       quality?: ReadQuality;
     }
-  | { kind: 'failed'; message: string };
+  | { kind: 'failed'; message: string }
+  | { kind: 'saved'; name: string };
 
 export function DevFileProbe() {
   const [state, setState] = useState<ProbeState>({ kind: 'idle' });
@@ -106,6 +109,37 @@ export function DevFileProbe() {
     }
   }, [runWithSystemUi]);
 
+  /**
+   * Saves what the parser produced, through `addMedication` exactly as the
+   * camera does. Marked for review like any label reading, because it is one.
+   */
+  const saveParsed = useCallback(async (fields: MedicationLabelFields) => {
+    const name = fields.name?.text.trim();
+    if (!name) return;
+
+    await addMedication({
+      name,
+      dosage: fields.dosage?.text.trim() || undefined,
+      instructions: fields.instructions?.text.trim() || undefined,
+      source: 'label-scan',
+      needsReview: true,
+    });
+    setState({ kind: 'saved', name });
+  }, []);
+
+  const seedSample = useCallback(async () => {
+    const record = await addMedication({
+      name: 'SAMPLE-NOTAREALDRUG 100 MG',
+      dosage: '100 MG',
+      instructions: 'TAKE 1 TABLET BY MOUTH TWICE DAILY WITH FOOD',
+      // 'manual' rather than 'label-scan': nothing read this off anything, and
+      // the detail screen says where a record came from.
+      source: 'manual',
+      needsReview: true,
+    });
+    setState({ kind: 'saved', name: record.name });
+  }, []);
+
   if (!__DEV__) return null;
 
   return (
@@ -129,6 +163,26 @@ export function DevFileProbe() {
           {state.message}
         </Text>
       )}
+
+      {state.kind === 'saved' && (
+        <Text selectable style={styles.mono}>
+          {`saved "${state.name}" — open My medicines to see it`}
+        </Text>
+      )}
+
+      {/*
+        Seeds a record with no image at all, so the list, detail, edit and
+        delete screens can be exercised on a machine whose camera cannot
+        produce one. Named obviously falsely for the same reason the test
+        fixtures are: a sample that could be mistaken for a real medicine is a
+        sample that will be.
+      */}
+      <BigButton
+        label={{ ko: '가짜 약 하나 넣기 (개발용)', en: 'Seed a sample medicine (dev only)' }}
+        tone="secondary"
+        onPress={seedSample}
+        disabled={state.kind === 'reading'}
+      />
 
       {state.kind === 'read' && (
         <View style={styles.output}>
@@ -154,6 +208,20 @@ export function DevFileProbe() {
               : 'quality not assessed'}
           </Text>
           <ParsedFields fields={state.fields} />
+
+          {/*
+            The same save the camera performs, against the same store, so this
+            exercises the real path rather than a parallel one. Only offered
+            when a name was parsed, because `addMedication` needs one and a
+            nameless record cannot be matched against a box.
+          */}
+          {state.fields.name ? (
+            <BigButton
+              label={{ ko: '이 약 등록하기 (개발용)', en: 'Add this to my medicines (dev only)' }}
+              onPress={() => saveParsed(state.fields)}
+            />
+          ) : null}
+
           <DevLineList lines={state.lines} />
         </View>
       )}
