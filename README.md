@@ -39,6 +39,7 @@ usual.
 ```bash
 npm run typecheck   # app and tests
 npm run test:unit   # pure-logic tests, run on Node
+npm run test:integration   # the app end to end under Jest, native modules faked
 npm run eval        # OCR scorecard against real label readings
 npm run lint
 ```
@@ -180,9 +181,19 @@ The lockout schedule reads `Date.now()`. Defeating it requires already holding
 an unlocked phone, at which point the PIN is not what protects the data — the
 hardware-backed key is. Accepted knowingly; see `src/features/security/pin.ts`.
 
-### Test coverage is uneven
+### What the tests cannot reach
 
-The UTF-8 codec is tested thoroughly, against Node across the whole BMP, because
-silent mojibake in a dosage line is a correctness bug. The keychain, AES and
-biometric paths have no automated coverage — they need a real device, and have
-not yet been exercised on one.
+Two layers of automated tests. `npm run test:unit` covers the pure logic — the
+label parser, field integrity, reading order, the evaluation corpus, the UTF-8
+codec — on Node. `npm run test:integration` (Jest, in `integration/`) runs the
+real app above the native boundary: the vault with real AES-GCM, the PIN store
+and its lockout, the lock and relock behaviour, the capture path's deletion
+guarantee, and the screens end to end through `expo-router`'s test renderer.
+
+Below that boundary everything is faked — keychain, file system, biometric
+prompt, camera, photo picker, OCR engine — so the tests prove the app uses
+those modules correctly *as the fakes describe them*. Where a fake models
+platform behaviour (Android dropping a prompt started in the background,
+the picker copying photos into the cache), it follows the platform source it
+was checked against; it is still no substitute for a physical device, on which
+the native modules have not yet been exercised.

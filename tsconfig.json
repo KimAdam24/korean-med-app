@@ -35,6 +35,9 @@
     "android",
     "ios",
     "**/*.test.ts",
-    "**/*.test.tsx"
+    "**/*.test.tsx",
+    // Jest integration tests and their fakes, typechecked with Jest's globals
+    // by tsconfig.integration.json.
+    "integration"
   ]
 }

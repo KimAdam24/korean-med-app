@@ -34,10 +34,16 @@
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
-    "@types/node": "^26.6.1",
+    "@react-native/jest-preset": "^0.86.3",
+    "@testing-library/react-native": "13.3.3",
+    "@types/jest": "29.5.14",
+    "@types/node": "^22.20.4",
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
+    "jest": "^29.7.0",
+    "jest-expo": "~57.0.5",
+    "react-test-renderer": "19.2.3",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -46,9 +52,29 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.integration.json",
     "test:unit": "node --test --experimental-strip-types \"src/**/*.test.ts\"",
+    "test:integration": "jest",
     "eval": "node --no-warnings --experimental-strip-types src/features/ocr/eval/report.ts"
   },
-  "private": true
+  "private": true,
+  "jest": {
+    "preset": "jest-expo",
+    "testMatch": [
+      "<rootDir>/integration/**/*.test.ts?(x)"
+    ],
+    "setupFiles": [
+      "<rootDir>/integration/setup.ts"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/integration/reset.ts"
+    ],
+    "moduleNameMapper": {
+      "\\.css$": "<rootDir>/integration/fakes/stylesheet.ts",
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|standard-navigation)"
+    ]
+  }
 }

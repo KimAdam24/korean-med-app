@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Jest's globals, and Node's for the fakes built on node:crypto. Kept out
+    // of the app's own typecheck for the same reason as tsconfig.test.json.
+    "types": ["jest", "node"]
+  },
+  "include": [
+    "integration/**/*.ts",
+    "integration/**/*.tsx",
+    "src/expo-types.d.ts",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": []
+}
