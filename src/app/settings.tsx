@@ -1,17 +1,20 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
+import { Card, CardDivider } from '@/components/card';
+import { ListRow } from '@/components/list-row';
+import { Notice } from '@/components/notice';
 import { PinPad } from '@/components/pin-pad';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Screen } from '@/components/screen';
+import { Spacing } from '@/constants/theme';
 import { clearProfile } from '@/features/medications/medication-store';
 import { useAppLock } from '@/features/security/app-lock-context';
 import { PIN_LENGTH, clearPin, setPin, verifyPin } from '@/features/security/pin';
-import { Strings, type Bilingual } from '@/i18n/strings';
+import { useTheme } from '@/hooks/use-theme';
+import { Strings, formatLockout, type Bilingual } from '@/i18n/strings';
 
 /**
  * Managing the lock and the stored data.
@@ -33,9 +36,19 @@ import { Strings, type Bilingual } from '@/i18n/strings';
  *     and offering a way in would mean the lock never meant anything. The only
  *     honest option is to erase and start again, said plainly with its cost.
  */
-type Screen =
+type Step =
   | { kind: 'menu' }
-  | { kind: 'change-pin'; stage: 'current' | 'new'; error?: Bilingual }
+  /**
+   * `confirm` carries the first entry. A new PIN is entered twice, as it is
+   * when first set: one mistyped digit here would otherwise lock the user out
+   * of their own list, recoverable only by device unlock or erasing it all.
+   */
+  | {
+      kind: 'change-pin';
+      stage: 'current' | 'new' | 'confirm';
+      first?: string;
+      error?: Bilingual;
+    }
   | { kind: 'forgot-pin' }
   | { kind: 'confirm-erase' }
   | { kind: 'working' }
@@ -43,43 +56,79 @@ type Screen =
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const { capability, requestDeviceUnlock, refresh } = useAppLock();
-  const [screen, setScreen] = useState<Screen>({ kind: 'menu' });
+  const [step, setStep] = useState<Step>({ kind: 'menu' });
   const [entry, setEntry] = useState('');
 
   const erase = useCallback(async () => {
-    setScreen({ kind: 'working' });
-    // Order matters: the vault key goes first, which is the act that actually
-    // makes the records unreadable. Clearing the PIN afterwards is tidying.
-    await clearProfile();
-    await clearPin();
-    await refresh();
-    setScreen({ kind: 'done', message: Strings.settings.eraseDone });
+    setStep({ kind: 'working' });
+    try {
+      // Order matters: the vault key goes first, which is the act that
+      // actually makes the records unreadable. Clearing the PIN is tidying.
+      await clearProfile();
+      await clearPin();
+      await refresh();
+      setStep({ kind: 'done', message: Strings.settings.eraseDone });
+    } catch {
+      // Back to the question rather than a spinner that never ends. Nothing
+      // may say "erased" unless it was; the user can try again from here.
+      setStep({ kind: 'confirm-erase' });
+    }
   }, [refresh]);
 
   const handlePinEntry = useCallback(
     async (next: string) => {
       setEntry(next);
-      if (next.length !== PIN_LENGTH || screen.kind !== 'change-pin') return;
+      if (next.length !== PIN_LENGTH || step.kind !== 'change-pin') return;
+      setEntry('');
 
-      if (screen.stage === 'current') {
+      if (step.stage === 'current') {
         const result = await verifyPin(next);
-        setEntry('');
         if (result.outcome === 'correct') {
-          setScreen({ kind: 'change-pin', stage: 'new' });
+          setStep({ kind: 'change-pin', stage: 'new' });
         } else {
-          setScreen({ kind: 'change-pin', stage: 'current', error: Strings.pin.incorrect });
+          setStep({
+            kind: 'change-pin',
+            stage: 'current',
+            // A lock-out says how long to wait, as it does on the lock
+            // screen; "not correct" alone would invite more attempts that
+            // cannot succeed yet.
+            error:
+              result.outcome === 'locked-out' ||
+              (result.outcome === 'incorrect' && result.lockedForMs > 0)
+                ? formatLockout(Strings.pin.lockedOut, result.lockedForMs)
+                : Strings.pin.incorrect,
+          });
         }
         return;
       }
 
-      setScreen({ kind: 'working' });
-      await setPin(next);
-      setEntry('');
-      await refresh();
-      setScreen({ kind: 'done', message: Strings.settings.changePinDone });
+      if (step.stage === 'new') {
+        setStep({ kind: 'change-pin', stage: 'confirm', first: next });
+        return;
+      }
+
+      if (next !== step.first) {
+        setStep({
+          kind: 'change-pin',
+          stage: 'new',
+          error: Strings.pin.mismatch,
+        });
+        return;
+      }
+
+      setStep({ kind: 'working' });
+      try {
+        await setPin(next);
+        await refresh();
+        setStep({ kind: 'done', message: Strings.settings.changePinDone });
+      } catch {
+        // The old PIN is still the PIN. Start the new one again.
+        setStep({ kind: 'change-pin', stage: 'new' });
+      }
     },
-    [screen, refresh]
+    [step, refresh]
   );
 
   /**
@@ -90,63 +139,63 @@ export default function SettingsScreen() {
     const outcome = await requestDeviceUnlock();
     if (outcome.kind !== 'unlocked') return;
     setEntry('');
-    setScreen({ kind: 'change-pin', stage: 'new' });
+    setStep({ kind: 'change-pin', stage: 'new' });
   }, [requestDeviceUnlock]);
 
-  if (screen.kind === 'working') {
+  if (step.kind === 'working') {
     return (
-      <Sheet>
-        <ActivityIndicator size="large" />
-      </Sheet>
+      <Screen centered>
+        <ActivityIndicator size="large" color={theme.primaryIcon} />
+      </Screen>
     );
   }
 
-  if (screen.kind === 'done') {
+  if (step.kind === 'done') {
     return (
-      <Sheet>
-        <BilingualText text={screen.message} variant="heading" align="center" />
+      <Screen centered>
+        <BilingualText text={step.message} variant="heading" align="center" />
         <BigButton label={Strings.camera.done} onPress={() => router.back()} />
-      </Sheet>
+      </Screen>
     );
   }
 
-  if (screen.kind === 'confirm-erase') {
+  if (step.kind === 'confirm-erase') {
     return (
-      <Sheet>
+      <Screen centered>
         <BilingualText text={Strings.settings.eraseTitle} variant="heading" />
         <BilingualText text={Strings.settings.eraseBody} />
-        {/* Way out first, destructive action second. */}
+        {/* Way out first and primary; the destructive action second, marked. */}
+        <BigButton label={Strings.medications.cancel} onPress={() => setStep({ kind: 'menu' })} />
         <BigButton
-          label={Strings.medications.cancel}
-          onPress={() => setScreen({ kind: 'menu' })}
+          label={Strings.settings.eraseConfirm}
+          icon="erase"
+          tone="caution"
+          onPress={erase}
         />
-        <BigButton label={Strings.settings.eraseConfirm} tone="secondary" onPress={erase} />
-      </Sheet>
+      </Screen>
     );
   }
 
-  if (screen.kind === 'forgot-pin') {
+  if (step.kind === 'forgot-pin') {
     const canUseDevice = capability?.deviceSecured ?? false;
 
     return (
-      <Sheet scroll>
+      <Screen scroll>
         <BilingualText text={Strings.settings.forgotPin} variant="heading" />
 
         {canUseDevice ? (
           <>
             <BilingualText text={Strings.settings.forgotPinWithDevice} />
-            <BigButton
-              label={Strings.settings.forgotPinUseDevice}
-              onPress={recoverWithDevice}
-            />
+            <BigButton label={Strings.settings.forgotPinUseDevice} onPress={recoverWithDevice} />
           </>
         ) : (
           <>
             <BilingualText text={Strings.settings.forgotPinNoDevice} />
             <BigButton
               label={Strings.settings.eraseTitle}
-              tone="secondary"
-              onPress={() => setScreen({ kind: 'confirm-erase' })}
+              icon="erase"
+              tone="caution"
+              onPress={() => setStep({ kind: 'confirm-erase' })}
             />
           </>
         )}
@@ -154,114 +203,92 @@ export default function SettingsScreen() {
         <BigButton
           label={Strings.medications.cancel}
           tone="secondary"
-          onPress={() => setScreen({ kind: 'menu' })}
+          onPress={() => setStep({ kind: 'menu' })}
         />
-      </Sheet>
+      </Screen>
     );
   }
 
-  if (screen.kind === 'change-pin') {
+  if (step.kind === 'change-pin') {
+    const title =
+      step.stage === 'current'
+        ? Strings.settings.changePinCurrent
+        : step.stage === 'new'
+          ? Strings.settings.changePinNew
+          : Strings.pin.confirmTitle;
+
     return (
-      <Sheet scroll>
-        <BilingualText
-          text={
-            screen.stage === 'current'
-              ? Strings.settings.changePinCurrent
-              : Strings.settings.changePinNew
-          }
-          variant="heading"
-          align="center"
-        />
-        {screen.error ? (
-          <BilingualText text={screen.error} variant="label" align="center" />
+      <Screen scroll centered>
+        <BilingualText text={title} variant="heading" align="center" />
+        {step.error ? (
+          <BilingualText text={step.error} variant="label" align="center" color={theme.warnText} />
         ) : null}
 
         <PinPad value={entry} length={PIN_LENGTH} onChange={handlePinEntry} />
 
-        {screen.stage === 'current' ? (
-          <BigButton
-            label={Strings.settings.forgotPin}
-            tone="secondary"
-            onPress={() => setScreen({ kind: 'forgot-pin' })}
-          />
-        ) : null}
+        <View style={styles.pinActions}>
+          {step.stage === 'current' ? (
+            <BigButton
+              label={Strings.settings.forgotPin}
+              tone="secondary"
+              onPress={() => setStep({ kind: 'forgot-pin' })}
+            />
+          ) : null}
 
-        <BigButton
-          label={Strings.medications.cancel}
-          tone="secondary"
-          onPress={() => {
-            setEntry('');
-            setScreen({ kind: 'menu' });
-          }}
-        />
-      </Sheet>
+          <BigButton
+            label={Strings.medications.cancel}
+            tone="secondary"
+            onPress={() => {
+              setEntry('');
+              setStep({ kind: 'menu' });
+            }}
+          />
+        </View>
+      </Screen>
     );
   }
 
   return (
-    <Sheet scroll>
+    <Screen scroll>
       {/*
         Said here rather than buried in a policy document. Device-only storage
         is the trade this app makes for privacy, and the cost — a new phone
         means starting again — belongs somewhere the user will actually meet it.
       */}
-      <BilingualText text={Strings.settings.storageNotice} />
+      <Notice tone="info" title={Strings.settings.storageNotice} />
 
-      {capability?.pinSet ? (
-        <BigButton
-          label={Strings.settings.changePin}
-          tone="secondary"
-          onPress={() => {
-            setEntry('');
-            setScreen({ kind: 'change-pin', stage: 'current' });
-          }}
+      <Card flush>
+        {capability?.pinSet ? (
+          <>
+            <ListRow
+              icon="key"
+              title={Strings.settings.changePin}
+              onPress={() => {
+                setEntry('');
+                setStep({ kind: 'change-pin', stage: 'current' });
+              }}
+            />
+            <CardDivider inset />
+          </>
+        ) : null}
+
+        <ListRow
+          icon="erase"
+          tone="caution"
+          title={Strings.settings.eraseTitle}
+          onPress={() => setStep({ kind: 'confirm-erase' })}
         />
-      ) : null}
-
-      <BigButton
-        label={Strings.settings.eraseTitle}
-        tone="secondary"
-        onPress={() => setScreen({ kind: 'confirm-erase' })}
-      />
+      </Card>
 
       <View style={styles.spacer} />
       <BigButton label={Strings.camera.close} onPress={() => router.back()} />
-    </Sheet>
-  );
-}
-
-function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll?: boolean }) {
-  const content = <View style={styles.content}>{children}</View>;
-  return (
-    <ThemedView type="page" style={styles.root}>
-      <SafeAreaView style={styles.safeArea}>
-        {scroll ? (
-          <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView>
-        ) : (
-          content
-        )}
-      </SafeAreaView>
-    </ThemedView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  safeArea: {
-    flex: 1,
-    maxWidth: MaxContentWidth,
-  },
-  scroll: {
-    flexGrow: 1,
-  },
-  content: {
-    flex: 1,
+  pinActions: {
     gap: Spacing.three,
-    padding: Spacing.four,
   },
   spacer: {
     flex: 1,

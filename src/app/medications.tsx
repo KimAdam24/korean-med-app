@@ -1,12 +1,14 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Fragment, useCallback } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { Card, CardDivider } from '@/components/card';
+import { Icon } from '@/components/icon';
+import { ListRow } from '@/components/list-row';
+import { Screen } from '@/components/screen';
+import { IconSize, Radius, Spacing } from '@/constants/theme';
 import { useProfile } from '@/features/medications/use-profile';
 import type { MedicationRecord } from '@/features/medications/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -21,6 +23,7 @@ import { Strings } from '@/i18n/strings';
  */
 export default function MedicationsScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const { state, reload } = useProfile();
 
   /**
@@ -36,16 +39,16 @@ export default function MedicationsScreen() {
 
   if (state.status === 'loading') {
     return (
-      <Sheet>
-        <ActivityIndicator size="large" />
+      <Screen centered>
+        <ActivityIndicator size="large" color={theme.primaryIcon} />
         <BilingualText text={Strings.medications.loading} align="center" />
-      </Sheet>
+      </Screen>
     );
   }
 
   if (state.status === 'unrecoverable') {
     return (
-      <Sheet>
+      <Screen centered>
         <BilingualText text={Strings.vault.unrecoverableTitle} variant="heading" />
         <BilingualText text={Strings.vault.unrecoverableBody} />
         {/*
@@ -56,10 +59,11 @@ export default function MedicationsScreen() {
         */}
         <BigButton
           label={Strings.settings.open}
+          icon="settings"
           tone="secondary"
           onPress={() => router.push('/settings')}
         />
-      </Sheet>
+      </Screen>
     );
   }
 
@@ -67,114 +71,100 @@ export default function MedicationsScreen() {
 
   if (medications.length === 0) {
     return (
-      <Sheet>
-        <BilingualText text={Strings.medications.emptyTitle} variant="heading" />
-        <BilingualText text={Strings.medications.emptyBody} />
-        <BigButton label={Strings.home.capture} onPress={() => router.push('/camera')} />
-      </Sheet>
+      <Screen centered>
+        <View style={[styles.emptyIcon, { backgroundColor: theme.primaryWash }]}>
+          <Icon name="medicines" color={theme.primaryIcon} size={IconSize.hero} />
+        </View>
+        <BilingualText text={Strings.medications.emptyTitle} variant="heading" align="center" />
+        <BilingualText text={Strings.medications.emptyBody} align="center" />
+        <BigButton
+          label={Strings.home.capture}
+          icon="camera"
+          onPress={() => router.push('/camera')}
+        />
+      </Screen>
     );
   }
 
   return (
-    <Sheet scroll>
-      {medications.map((record) => (
-        <MedicationRow
-          key={record.id}
-          record={record}
-          onPress={() => router.push(`/medication/${record.id}`)}
-        />
-      ))}
+    <Screen scroll>
+      <Card flush>
+        {medications.map((record, index) => (
+          <Fragment key={record.id}>
+            {index > 0 ? <CardDivider inset /> : null}
+            <MedicationRow
+              record={record}
+              onPress={() => router.push(`/medication/${record.id}`)}
+            />
+          </Fragment>
+        ))}
+      </Card>
+
       <BigButton
         label={Strings.home.capture}
+        icon="camera"
         tone="secondary"
         onPress={() => router.push('/camera')}
       />
-    </Sheet>
+    </Screen>
   );
 }
 
-function MedicationRow({
-  record,
-  onPress,
-}: {
-  record: MedicationRecord;
-  onPress: () => void;
-}) {
+function MedicationRow({ record, onPress }: { record: MedicationRecord; onPress: () => void }) {
   const theme = useTheme();
 
   return (
-    <Pressable
+    <ListRow
+      icon="medicines"
+      // The drug name is English and must not be paired with a translation.
+      title={{ ko: record.name, en: '' }}
+      detail={record.dosage ? { ko: record.dosage, en: '' } : undefined}
       onPress={onPress}
-      accessibilityRole="button"
       // The whole row is one target, and it announces as one thing: the name,
       // then whether it still needs checking. A screen reader walking four
       // separate labels per medicine is slower to use, not more informative.
       accessibilityLabel={
-        record.needsReview
-          ? `${record.name}. ${Strings.medications.unconfirmed.ko}`
-          : record.name
-      }
-      style={({ pressed }) => [
-        styles.row,
-        // The same surface and contrast-checked edge as every other card, so
-        // a medicine in the list looks like the medicine on its own page.
-        { backgroundColor: theme.surface, borderColor: theme.border },
-        pressed && { backgroundColor: theme.backgroundSelected },
-      ]}>
-      {/* The drug name is English and must not be paired with a translation. */}
-      <BilingualText text={{ ko: record.name, en: '' }} variant="button" />
-
-      {record.dosage ? <BilingualText text={{ ko: record.dosage, en: '' }} /> : null}
-
+        record.needsReview ? `${record.name}. ${Strings.medications.unconfirmed.ko}` : record.name
+      }>
       {record.needsReview ? (
-        <BilingualText text={Strings.medications.unconfirmed} variant="label" />
+        // A badge rather than a line of text, so "needs checking" reads as
+        // a state of this medicine and not as part of its name or dose.
+        <View style={[styles.badge, { backgroundColor: theme.warnSurface }]}>
+          <View style={[styles.badgeDot, { backgroundColor: theme.warnAccent }]} />
+          <BilingualText
+            text={Strings.medications.unconfirmed}
+            variant="label"
+            color={theme.warnText}
+            hideEnglish
+          />
+        </View>
       ) : null}
-    </Pressable>
-  );
-}
-
-function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll?: boolean }) {
-  const content = <View style={styles.content}>{children}</View>;
-  return (
-    <ThemedView type="page" style={styles.root}>
-      <SafeAreaView style={styles.safeArea}>
-        {scroll ? (
-          <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView>
-        ) : (
-          content
-        )}
-      </SafeAreaView>
-    </ThemedView>
+    </ListRow>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
+  emptyIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  badge: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: Spacing.two,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.two + Spacing.one,
+    borderRadius: Radius.pill,
+    marginTop: Spacing.one,
   },
-  safeArea: {
-    flex: 1,
-    maxWidth: MaxContentWidth,
-  },
-  scroll: {
-    flexGrow: 1,
-  },
-  content: {
-    flex: 1,
-    gap: Spacing.three,
-    padding: Spacing.four,
-  },
-  row: {
-    // Padding rather than a fixed height: the row has to keep containing its
-    // text when the system font size is turned up, which for this audience it
-    // very often is.
-    padding: Spacing.three,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    gap: Spacing.one,
-    minHeight: 72,
-    justifyContent: 'center',
+  badgeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });

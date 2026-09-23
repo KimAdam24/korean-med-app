@@ -17,9 +17,15 @@ import { useTheme } from '@/hooks/use-theme';
  */
 export function Card({
   children,
+  flush = false,
   style,
 }: {
   children: React.ReactNode;
+  /**
+   * No padding or gap, for a grouped list whose rows supply their own and
+   * whose pressed highlight should run to the card's edge.
+   */
+  flush?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const theme = useTheme();
@@ -28,6 +34,7 @@ export function Card({
     <View
       style={[
         styles.card,
+        flush && styles.flush,
         { backgroundColor: theme.surface, borderColor: theme.border },
         style,
       ]}>
@@ -36,18 +43,33 @@ export function Card({
   );
 }
 
-/** A rule between two parts of one card. */
-export function CardDivider() {
+/**
+ * A rule between two parts of one card. `inset` indents it past a list row's
+ * icon, the way grouped lists do, so the icons read as one column.
+ */
+export function CardDivider({ inset = false }: { inset?: boolean }) {
   const theme = useTheme();
-  return <View style={[styles.divider, { backgroundColor: theme.border }]} />;
+  return (
+    <View style={[styles.divider, inset && styles.inset, { backgroundColor: theme.border }]} />
+  );
 }
 
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
     borderRadius: Radius.card,
+    borderCurve: 'continuous',
     padding: Spacing.four,
     gap: Spacing.three,
+  },
+  flush: {
+    padding: 0,
+    gap: 0,
+    overflow: 'hidden',
+  },
+  inset: {
+    // Row padding, plus the icon well, plus the gap after it.
+    marginLeft: Spacing.four - Spacing.one + 52 + Spacing.three,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

@@ -1,20 +1,41 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Card, CardDivider } from '@/components/card';
+import { Icon } from '@/components/icon';
+import { ListRow } from '@/components/list-row';
+import { Screen } from '@/components/screen';
+import { IconSize, Spacing } from '@/constants/theme';
 import { pickImage } from '@/features/capture/pick-image';
+import { useProfile } from '@/features/medications/use-profile';
 import { useAppLock } from '@/features/security/app-lock-context';
 import { DevFileProbe } from '@/features/ocr/dev-file-probe';
-import { Strings } from '@/i18n/strings';
+import { useTheme } from '@/hooks/use-theme';
+import { Strings, type Bilingual } from '@/i18n/strings';
 
+/**
+ * Home: one thing to do, and two places to go.
+ *
+ * The capture action leads, inside the card that explains it, because it is
+ * the reason the app is opened. The other destinations sit below as one
+ * grouped list, so they read as "elsewhere" rather than as three more buttons
+ * competing with it for the same attention.
+ */
 export default function HomeScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const { runWithSystemUi } = useAppLock();
+  const { state, reload } = useProfile();
+
+  // Re-read on focus, so the count is right after adding or removing one.
+  useFocusEffect(
+    useCallback(() => {
+      void reload();
+    }, [reload])
+  );
 
   /**
    * Chooses a photograph and hands it to the label reader, reusing the camera
@@ -26,94 +47,101 @@ export default function HomeScreen() {
     router.push({ pathname: '/camera', params: { imageUri: picked.uri } });
   }, [router, runWithSystemUi]);
 
+  const count = state.status === 'ready' ? state.profile.medications.length : 0;
+  const countDetail: Bilingual | undefined =
+    count > 0
+      ? {
+          ko: Strings.medications.countLabel.ko.replace('{n}', String(count)),
+          en: Strings.medications.countLabel.en.replace('{n}', String(count)),
+        }
+      : undefined;
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        {/**
-         * Scrolls only because the development probe below can produce more
-         * output than fits. The real screen is three elements tall, and for the
-         * target user it must not scroll at all — which it does not, since the
-         * probe renders nothing outside `__DEV__`.
-         */}
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <View style={styles.intro}>
-            <BilingualText text={Strings.home.captureHint} />
-          </View>
+    <Screen scroll>
+      <Card>
+        <View style={[styles.heroIcon, { backgroundColor: theme.primaryWash }]}>
+          <Icon name="camera" color={theme.primaryIcon} size={IconSize.hero} />
+        </View>
+        <BilingualText text={Strings.home.captureHint} />
+        <BigButton
+          label={Strings.home.capture}
+          icon="camera"
+          onPress={() => router.push('/camera')}
+        />
+      </Card>
 
-          <BigButton
-            label={Strings.home.capture}
-            onPress={() => router.push('/camera')}
-            style={styles.cta}
-          />
+      <Card flush>
+        <ListRow
+          icon="medicines"
+          title={Strings.medications.open}
+          detail={countDetail}
+          onPress={() => router.push('/medications')}
+        />
+        <CardDivider inset />
 
-          {/*
-            The gallery path, gated until the privacy copy is reviewed.
+        {/*
+          The gallery path, gated until the privacy copy is reviewed.
 
-            The feature itself is finished. What is not finished is the copy:
-            the home screen still promises that photos are deleted after
-            reading, which is true of the camera and false of a photo the user
-            already owns. Shipping the button beside that sentence would make
-            the app state something untrue about the user's own files, so the
-            gate stays until `content-drafts/privacy-copy.draft.md` is signed
-            off — at which point removing it is the last step of that review.
-          */}
-          {__DEV__ ? (
-            <BigButton
-              label={{ ko: '사진 고르기 (검토 대기)', en: 'Choose a photo (pending copy review)' }}
-              tone="secondary"
+          The feature itself is finished. What is not finished is the copy:
+          the home screen still promises that photos are deleted after
+          reading, which is true of the camera and false of a photo the user
+          already owns. Shipping this beside that sentence would make the app
+          state something untrue about the user's own files, so the gate stays
+          until `content-drafts/privacy-copy.draft.md` is signed off — at which
+          point removing it is the last step of that review.
+        */}
+        {__DEV__ ? (
+          <>
+            <ListRow
+              icon="photo"
+              title={{
+                ko: '사진 고르기 (검토 대기)',
+                en: 'Choose a photo (pending copy review)',
+              }}
               onPress={pickAndRead}
-              style={styles.cta}
             />
-          ) : null}
+            <CardDivider inset />
+          </>
+        ) : null}
 
-          <BigButton
-            label={Strings.medications.open}
-            tone="secondary"
-            onPress={() => router.push('/medications')}
-            style={styles.cta}
-          />
+        <ListRow
+          icon="settings"
+          title={Strings.settings.open}
+          onPress={() => router.push('/settings')}
+        />
+      </Card>
 
-          <BigButton
-            label={Strings.settings.open}
-            tone="secondary"
-            onPress={() => router.push('/settings')}
-            style={styles.cta}
-          />
+      <View style={styles.privacy}>
+        <Icon name="lock" color={theme.textSecondary} />
+        <BilingualText
+          text={Strings.home.privacy}
+          variant="label"
+          color={theme.textSecondary}
+          style={styles.privacyText}
+        />
+      </View>
 
-          <View style={styles.privacy}>
-            <BilingualText text={Strings.home.privacy} variant="label" />
-          </View>
-
-          <DevFileProbe />
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+      <DevFileProbe />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    flexDirection: 'row',
+  heroIcon: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
     justifyContent: 'center',
-  },
-  safeArea: {
-    flex: 1,
-    maxWidth: MaxContentWidth,
-  },
-  scroll: {
-    flexGrow: 1,
-    padding: Spacing.four,
-    gap: Spacing.four,
-  },
-  intro: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  cta: {
-    alignSelf: 'stretch',
   },
   privacy: {
-    paddingBottom: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two + Spacing.one,
+    paddingHorizontal: Spacing.one,
+    paddingTop: Spacing.two,
+  },
+  privacyText: {
+    flex: 1,
   },
 });

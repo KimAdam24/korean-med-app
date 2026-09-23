@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
+import { Icon } from '@/components/icon';
 import { PinPad } from '@/components/pin-pad';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { ALL_EDGES, Screen } from '@/components/screen';
+import { IconSize } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { Strings, formatLockout, type Bilingual } from '@/i18n/strings';
 
 import { useAppLock } from './app-lock-context';
@@ -131,6 +132,7 @@ function Unlock({
 
   return (
     <Sheet>
+      <LockEmblem />
       <BilingualText text={Strings.lock.title} variant="heading" align="center" />
       <BilingualText text={Strings.lock.body} align="center" />
       {message && <BilingualText text={message} variant="label" align="center" />}
@@ -225,6 +227,7 @@ function EnterPin({
 
   return (
     <Sheet scroll>
+      <LockEmblem />
       <BilingualText text={Strings.pin.enterTitle} variant="heading" align="center" />
       <BilingualText text={Strings.pin.enterBody} align="center" />
       {error && <BilingualText text={error} variant="label" align="center" />}
@@ -301,39 +304,35 @@ function CreatePin({ onCreated }: { onCreated: () => void }) {
 
 // --- Shared frame ---------------------------------------------------------
 
+/**
+ * The lock replaces the navigator, so there is no header above it and every
+ * safe-area edge is its own.
+ */
 function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll?: boolean }) {
-  const content = <View style={styles.content}>{children}</View>;
   return (
-    <ThemedView style={styles.root}>
-      <SafeAreaView style={styles.safeArea}>
-        {scroll ? (
-          <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView>
-        ) : (
-          content
-        )}
-      </SafeAreaView>
-    </ThemedView>
+    <Screen scroll={scroll} centered edges={ALL_EDGES}>
+      {children}
+    </Screen>
+  );
+}
+
+/** Says "locked" before a word is read. Decorative; the title says it too. */
+function LockEmblem() {
+  const theme = useTheme();
+  return (
+    <View style={[styles.emblem, { backgroundColor: theme.primaryWash }]}>
+      <Icon name="lock" color={theme.primaryIcon} size={IconSize.hero} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    flexDirection: 'row',
+  emblem: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
     justifyContent: 'center',
-  },
-  safeArea: {
-    flex: 1,
-    maxWidth: MaxContentWidth,
-  },
-  scroll: {
-    flexGrow: 1,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'stretch',
-    gap: Spacing.four,
-    padding: Spacing.four,
+    alignSelf: 'center',
   },
 });

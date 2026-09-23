@@ -32,6 +32,13 @@ export const Colors = {
     border: '#8A8F98',
     /** Secondary button outline and link text. 5.7 on page. */
     outline: '#1B5FB0',
+    /** Primary button fill. */
+    primary: '#1B5FB0',
+    primaryPressed: '#154C8E',
+    onPrimary: '#FFFFFF', // 6.3 on primary, 8.6 on pressed
+    /** A soft wash of the primary, behind an icon in a list row. */
+    primaryWash: '#E3EDFA',
+    primaryIcon: '#1B5FB0', // 5.4 on the wash, 5.7 on page
 
     infoSurface: '#E8F1FB',
     infoText: '#0B3A70', // 9.9
@@ -60,6 +67,14 @@ export const Colors = {
     surface: '#1A1C20',
     border: '#6B7079', // 3.4
     outline: '#5B93DB', // 6.1 on page
+    // The same fill in both modes: white on it clears 6.3 either way, and a
+    // lighter blue would need dark text and stop reading as the same button.
+    primary: '#1B5FB0',
+    primaryPressed: '#154C8E',
+    onPrimary: '#FFFFFF',
+    primaryWash: '#16263B',
+    // Not the fill: that is 3.0 on the dark page, too faint for a graphic.
+    primaryIcon: '#8DBBF5', // 7.7 on the wash, 9.6 on page
 
     infoSurface: '#10243E',
     infoText: '#CFE3FB', // 11.9
@@ -78,11 +93,46 @@ export const Colors = {
   },
 } as const;
 
-/** Card corner radius, shared so every surface in the app reads as one family. */
+/** Corner radii, shared so every surface in the app reads as one family. */
 export const Radius = {
   card: 16,
+  /** Large touch targets: buttons and keypad keys. */
+  button: 20,
   inner: 12,
   pill: 999,
+} as const;
+
+/**
+ * The type ramp. Sizes start well above the platform defaults because the
+ * reader is elderly (spec §2); font scaling stays on, so nothing may assume a
+ * fixed text height. The English gloss is deliberately small — see
+ * `BilingualText`.
+ */
+export const Type = {
+  heading: { fontSize: 30, lineHeight: 40, fontWeight: '700' },
+  button: { fontSize: 24, lineHeight: 32, fontWeight: '700' },
+  /** A row or card title: body size, heavier. */
+  title: { fontSize: 22, lineHeight: 30, fontWeight: '700' },
+  body: { fontSize: 22, lineHeight: 32, fontWeight: '500' },
+  label: { fontSize: 18, lineHeight: 26, fontWeight: '600' },
+  gloss: { fontSize: 14, lineHeight: 20, fontWeight: '500' },
+} as const;
+
+/** Icon sizes, matched to the type they sit beside. */
+export const IconSize = {
+  row: 28,
+  button: 28,
+  hero: 44,
+} as const;
+
+/**
+ * The capture screen's chrome. Fixed rather than themed: it sits over a live
+ * camera image, which is dark whatever the system setting.
+ */
+export const CameraChrome = {
+  background: '#000000',
+  foreground: '#FFFFFF',
+  scrim: 'rgba(0, 0, 0, 0.55)',
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
@@ -122,5 +172,4 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;

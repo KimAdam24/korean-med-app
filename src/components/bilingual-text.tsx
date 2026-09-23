@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { CameraChrome, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Bilingual } from '@/i18n/strings';
 
@@ -15,7 +16,7 @@ import type { Bilingual } from '@/i18n/strings';
  */
 export type BilingualTextProps = {
   text: Bilingual;
-  variant?: 'heading' | 'body' | 'label' | 'button';
+  variant?: 'heading' | 'title' | 'body' | 'label' | 'button';
   /** Light-on-dark, for use over the camera preview. */
   onDark?: boolean;
   /**
@@ -46,7 +47,7 @@ export function BilingualText({
   style,
 }: BilingualTextProps) {
   const theme = useTheme();
-  const primaryColor = color ?? (onDark ? '#ffffff' : theme.text);
+  const primaryColor = color ?? (onDark ? CameraChrome.foreground : theme.text);
   const secondaryColor =
     secondaryOverride ?? color ?? (onDark ? 'rgba(255,255,255,0.72)' : theme.textSecondary);
   const textAlign = align;
@@ -74,26 +75,11 @@ export function BilingualText({
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontSize: 30,
-    lineHeight: 40,
-    fontWeight: '700',
-  },
-  body: {
-    fontSize: 22,
-    lineHeight: 32,
-    fontWeight: '500',
-  },
-  label: {
-    fontSize: 18,
-    lineHeight: 26,
-    fontWeight: '600',
-  },
-  button: {
-    fontSize: 24,
-    lineHeight: 32,
-    fontWeight: '700',
-  },
+  heading: Type.heading,
+  title: Type.title,
+  body: Type.body,
+  label: Type.label,
+  button: Type.button,
   secondary: {
     /**
      * 14pt, the design skill's absolute minimum, and deliberately well below
@@ -102,9 +88,7 @@ const styles = StyleSheet.create({
      * every block and competed with it. It is a gloss — for a caregiver, or for
      * matching a term against an English label — and should read as one.
      */
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
+    ...Type.gloss,
     marginTop: 2,
   },
 });

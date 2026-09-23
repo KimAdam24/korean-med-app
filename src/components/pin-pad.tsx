@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { BilingualText } from '@/components/bilingual-text';
-import { Spacing } from '@/constants/theme';
+import { Icon } from '@/components/icon';
+import { IconSize, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings } from '@/i18n/strings';
 
@@ -55,7 +56,12 @@ export function PinPad({ value, length, onChange, disabled = false }: PinPadProp
             style={[
               styles.dot,
               { borderColor: theme.textSecondary },
-              index < value.length && { backgroundColor: theme.text, borderColor: theme.text },
+              // The icon tint, not the button fill: it clears 3:1 against the
+              // page in dark mode too, which the fill does not.
+              index < value.length && {
+                backgroundColor: theme.primaryIcon,
+                borderColor: theme.primaryIcon,
+              },
             ]}
           />
         ))}
@@ -69,7 +75,7 @@ export function PinPad({ value, length, onChange, disabled = false }: PinPadProp
         <View style={styles.key} />
         <Key label="0" onPress={() => press('0')} disabled={disabled} />
         <Key
-          label="⌫"
+          icon
           accessibilityLabel={Strings.pin.delete.ko}
           onPress={backspace}
           disabled={disabled || value.length === 0}
@@ -79,13 +85,19 @@ export function PinPad({ value, length, onChange, disabled = false }: PinPadProp
   );
 }
 
+/**
+ * One key. Digits are text; the delete key is the platform's own backspace
+ * symbol rather than a `⌫` character, which some Android fonts draw as a box.
+ */
 function Key({
   label,
+  icon = false,
   accessibilityLabel,
   onPress,
   disabled,
 }: {
-  label: string;
+  label?: string;
+  icon?: boolean;
   accessibilityLabel?: string;
   onPress: () => void;
   disabled: boolean;
@@ -101,11 +113,18 @@ function Key({
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.key,
-        { backgroundColor: theme.backgroundElement },
+        // A white key with a contrast-checked edge, like every other surface,
+        // so the pad stays visible on the grey page.
+        styles.keyFace,
+        { backgroundColor: theme.surface, borderColor: theme.border },
         pressed && { backgroundColor: theme.backgroundSelected },
         disabled && styles.keyDisabled,
       ]}>
-      <BilingualText text={{ ko: label, en: '' }} variant="button" align="center" />
+      {icon ? (
+        <Icon name="backspace" color={theme.text} size={IconSize.button + 4} />
+      ) : (
+        <BilingualText text={{ ko: label ?? '', en: '' }} variant="heading" align="center" />
+      )}
     </Pressable>
   );
 }
@@ -136,9 +155,13 @@ const styles = StyleSheet.create({
   key: {
     width: 96,
     height: 84,
-    borderRadius: Spacing.four,
+    borderRadius: Radius.button,
+    borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  keyFace: {
+    borderWidth: 1,
   },
   keyDisabled: {
     opacity: 0.4,

@@ -19,8 +19,9 @@ import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card, CardDivider } from '@/components/card';
 import { Notice, StatusBadge } from '@/components/notice';
+import { Icon, type IconName } from '@/components/icon';
 import { ReadingField } from '@/components/reading-field';
-import { Fonts, Spacing } from '@/constants/theme';
+import { CameraChrome, Fonts, Radius, Spacing } from '@/constants/theme';
 import { probeCapture, type CaptureProbe } from '@/features/capture/dev-capture-probe';
 import {
   PhotoNotDiscardedError,
@@ -557,7 +558,7 @@ export default function CameraScreen() {
 
         {phase.kind === 'capturing' || phase.kind === 'reading' ? (
           <View style={styles.controls}>
-            <ActivityIndicator size="large" color="#ffffff" />
+            <ActivityIndicator size="large" color={CameraChrome.foreground} />
             <BilingualText
               text={phase.kind === 'capturing' ? Strings.camera.capturing : Strings.camera.reading}
               align="center"
@@ -567,11 +568,11 @@ export default function CameraScreen() {
         ) : (
           <View style={styles.controls}>
             <View style={styles.controlRow}>
-              <IconControl label={Strings.camera.close} glyph="✕" onPress={close} />
+              <IconControl label={Strings.camera.close} icon="close" onPress={close} />
               <Shutter onPress={handleCapture} />
               <IconControl
                 label={torchOn ? Strings.camera.torchOff : Strings.camera.torchOn}
-                glyph="☀"
+                icon={torchOn ? 'torchOn' : 'torchOff'}
                 active={torchOn}
                 onPress={() => setTorchOn((on) => !on)}
               />
@@ -794,12 +795,12 @@ function Shutter({ onPress }: { onPress: () => void }) {
 
 function IconControl({
   label,
-  glyph,
+  icon,
   onPress,
   active = false,
 }: {
   label: Bilingual;
-  glyph: string;
+  icon: IconName;
   onPress: () => void;
   active?: boolean;
 }) {
@@ -815,11 +816,11 @@ function IconControl({
         active && styles.iconControlActive,
         pressed && styles.shutterPressed,
       ]}>
-      <BilingualText
-        text={{ ko: glyph, en: '' }}
-        variant="button"
-        align="center"
-        onDark={!active}
+      {/* Inverted when on, so the state shows as well as the symbol. */}
+      <Icon
+        name={icon}
+        color={active ? CameraChrome.background : CameraChrome.foreground}
+        size={32}
       />
     </Pressable>
   );
@@ -934,27 +935,25 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
     padding: Spacing.four,
   },
-  card: {
-    gap: Spacing.one,
-  },
   choice: {
     gap: Spacing.two,
     paddingVertical: Spacing.two,
   },
   cameraRoot: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: CameraChrome.background,
   },
   overlay: {
     flex: 1,
     justifyContent: 'space-between',
   },
   banner: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: CameraChrome.scrim,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     margin: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
+    borderCurve: 'continuous',
   },
   frameArea: {
     flex: 1,
@@ -965,7 +964,8 @@ const styles = StyleSheet.create({
     aspectRatio: 4 / 3,
     borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.9)',
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
+    borderCurve: 'continuous',
   },
   hintArea: {
     paddingHorizontal: Spacing.four,
@@ -991,7 +991,7 @@ const styles = StyleSheet.create({
     height: 96,
     borderRadius: 48,
     borderWidth: 5,
-    borderColor: '#ffffff',
+    borderColor: CameraChrome.foreground,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -999,7 +999,7 @@ const styles = StyleSheet.create({
     width: 74,
     height: 74,
     borderRadius: 37,
-    backgroundColor: '#ffffff',
+    backgroundColor: CameraChrome.foreground,
   },
   shutterPressed: {
     opacity: 0.6,
@@ -1010,13 +1010,10 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: CameraChrome.scrim,
   },
   iconControlActive: {
-    backgroundColor: '#ffffff',
-  },
-  field: {
-    gap: Spacing.one,
+    backgroundColor: CameraChrome.foreground,
   },
   framePreview: {
     width: '100%',

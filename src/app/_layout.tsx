@@ -1,15 +1,41 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
+import { Colors } from '@/constants/theme';
 import { AppLockProvider, useAppLock } from '@/features/security/app-lock-context';
 import { LockScreen } from '@/features/security/lock-screen';
 import { Strings } from '@/i18n/strings';
 
+/**
+ * The navigator's colours, taken from the app's palette.
+ *
+ * The stock themes paint headers plain white or black above screens drawn on
+ * the app's grey page, which leaves a seam under every title, and tint back
+ * buttons with a blue that is not the app's. The header now shares the page
+ * colour, so title and content read as one surface.
+ */
+function navigationTheme(scheme: 'light' | 'dark'): Theme {
+  const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+  const palette = Colors[scheme];
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: palette.outline,
+      background: palette.page,
+      card: palette.page,
+      text: palette.text,
+      border: palette.border,
+      notification: palette.warnAccent,
+    },
+  };
+}
+
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={navigationTheme(scheme)}>
       <AppLockProvider>
         <LockGate />
       </AppLockProvider>
@@ -37,16 +63,17 @@ function LockGate() {
   }
 
   return (
-    <Stack>
+    <Stack
+      screenOptions={{
+        // Larger and heavier than the platform default, which is set for a
+        // general audience. The header shares the page colour, so its shadow
+        // line would only draw a seam.
+        headerTitleStyle: { fontSize: 22, fontWeight: '700' },
+        headerShadowVisible: false,
+      }}>
       <Stack.Screen name="index" options={{ title: Strings.home.title.ko }} />
-      <Stack.Screen
-        name="medications"
-        options={{ title: Strings.medications.title.ko }}
-      />
-      <Stack.Screen
-        name="medication/[id]"
-        options={{ title: Strings.medications.title.ko }}
-      />
+      <Stack.Screen name="medications" options={{ title: Strings.medications.title.ko }} />
+      <Stack.Screen name="medication/[id]" options={{ title: Strings.medications.title.ko }} />
       <Stack.Screen name="settings" options={{ title: Strings.settings.title.ko }} />
       <Stack.Screen
         name="camera"

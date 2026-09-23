@@ -1,15 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card, CardDivider } from '@/components/card';
 import { Notice } from '@/components/notice';
 import { ReadingField } from '@/components/reading-field';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Screen } from '@/components/screen';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import {
   confirmMedication,
   removeMedication,
@@ -38,6 +37,7 @@ type Mode =
 export default function MedicationScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const theme = useTheme();
   const { state, reload } = useProfile();
   const [mode, setMode] = useState<Mode>({ kind: 'viewing' });
 
@@ -70,58 +70,75 @@ export default function MedicationScreen() {
       return;
     }
 
+    const editing = mode;
     setMode({ kind: 'working' });
-    await updateMedication(record.id, {
-      name,
-      // Cleared fields become absent rather than empty strings, so
-      // `needsConfirmation` keeps treating them as unfilled.
-      dosage: mode.dosage.trim() || undefined,
-      instructions: mode.instructions.trim() || undefined,
+    try {
+      await updateMedication(record.id, {
+        name,
+        // Cleared fields become absent rather than empty strings, so
+        // `needsConfirmation` keeps treating them as unfilled.
+        dosage: editing.dosage.trim() || undefined,
+        instructions: editing.instructions.trim() || undefined,
       /**
        * Editing is the user telling us what the label says, which is a
        * stronger source than the reading it replaces. Nothing left to check.
        */
-      needsReview: false,
-    });
-    await reload();
-    setMode({ kind: 'viewing' });
+        needsReview: false,
+      });
+      await reload();
+      setMode({ kind: 'viewing' });
+    } catch {
+      // Back to the form with what was typed, rather than a spinner that never
+      // ends. Nothing was saved, and nothing says it was.
+      setMode(editing);
+    }
   }, [mode, record, reload]);
 
   const confirm = useCallback(async () => {
     if (!record) return;
     setMode({ kind: 'working' });
-    await confirmMedication(record.id);
-    await reload();
-    setMode({ kind: 'viewing' });
+    try {
+      await confirmMedication(record.id);
+      await reload();
+    } finally {
+      // Whether or not it stuck, the record on screen is re-read, so it shows
+      // what is actually stored rather than a spinner that never ends.
+      setMode({ kind: 'viewing' });
+    }
   }, [record, reload]);
 
   const remove = useCallback(async () => {
     if (!record) return;
     setMode({ kind: 'working' });
-    await removeMedication(record.id);
-    router.back();
+    try {
+      await removeMedication(record.id);
+      router.back();
+    } catch {
+      // Still in the list. Say nothing false; show it as it is.
+      setMode({ kind: 'viewing' });
+    }
   }, [record, router]);
 
   if (state.status === 'loading' || mode.kind === 'working') {
     return (
-      <Sheet>
-        <ActivityIndicator size="large" />
-      </Sheet>
+      <Screen centered>
+        <ActivityIndicator size="large" color={theme.primaryIcon} />
+      </Screen>
     );
   }
 
   if (state.status === 'unrecoverable' || !record) {
     return (
-      <Sheet>
+      <Screen centered>
         <BilingualText text={Strings.vault.unrecoverableTitle} variant="heading" />
         <BigButton label={Strings.camera.close} onPress={() => router.back()} />
-      </Sheet>
+      </Screen>
     );
   }
 
   if (mode.kind === 'confirming-removal') {
     return (
-      <Sheet>
+      <Screen centered>
         <BilingualText text={Strings.medications.removeConfirmTitle} variant="heading" />
         <BilingualText text={Strings.medications.removeConfirmBody} />
         {/*
@@ -131,16 +148,17 @@ export default function MedicationScreen() {
         <BigButton label={Strings.medications.cancel} onPress={() => setMode({ kind: 'viewing' })} />
         <BigButton
           label={Strings.medications.removeConfirmYes}
-          tone="secondary"
+          icon="erase"
+          tone="caution"
           onPress={remove}
         />
-      </Sheet>
+      </Screen>
     );
   }
 
   if (mode.kind === 'editing') {
     return (
-      <Sheet scroll>
+      <Screen scroll>
         <Field
           label={Strings.medications.fieldName}
           value={mode.name}
@@ -159,7 +177,9 @@ export default function MedicationScreen() {
           onChange={(instructions) => setMode({ ...mode, instructions })}
         />
 
-        {mode.error ? <BilingualText text={mode.error} variant="label" /> : null}
+        {mode.error ? (
+          <BilingualText text={mode.error} variant="label" color={theme.warnText} />
+        ) : null}
 
         <BigButton label={Strings.medications.save} onPress={save} />
         <BigButton
@@ -167,7 +187,7 @@ export default function MedicationScreen() {
           tone="secondary"
           onPress={() => setMode({ kind: 'viewing' })}
         />
-      </Sheet>
+      </Screen>
     );
   }
 
@@ -190,7 +210,7 @@ export default function MedicationScreen() {
   ).some(([kind, text]) => assess && text && assessField(kind, text).level === 'damaged');
 
   return (
-    <Sheet scroll>
+    <Screen scroll>
       <Card>
         <ReadingField
           label={Strings.medications.fieldName}
@@ -242,15 +262,17 @@ export default function MedicationScreen() {
       */}
       <BigButton
         label={Strings.medications.edit}
+        icon="edit"
         onPress={startEditing}
         tone={damaged ? 'primary' : 'secondary'}
       />
       <BigButton
         label={Strings.medications.remove}
-        tone="secondary"
+        icon="erase"
+        tone="caution"
         onPress={() => setMode({ kind: 'confirming-removal' })}
       />
-    </Sheet>
+    </Screen>
   );
 }
 
@@ -283,7 +305,7 @@ function Field({
         // which is set for a general audience and is too small here.
         style={[
           styles.input,
-          { color: theme.text, borderColor: theme.textSecondary },
+          { color: theme.text, borderColor: theme.textSecondary, backgroundColor: theme.surface },
           multiline && styles.inputMultiline,
         ]}
       />
@@ -291,39 +313,7 @@ function Field({
   );
 }
 
-function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll?: boolean }) {
-  const content = <View style={styles.content}>{children}</View>;
-  return (
-    <ThemedView type="page" style={styles.root}>
-      <SafeAreaView style={styles.safeArea}>
-        {scroll ? (
-          <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView>
-        ) : (
-          content
-        )}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
-
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  safeArea: {
-    flex: 1,
-    maxWidth: MaxContentWidth,
-  },
-  scroll: {
-    flexGrow: 1,
-  },
-  content: {
-    flex: 1,
-    gap: Spacing.three,
-    padding: Spacing.four,
-  },
   field: {
     gap: Spacing.one,
   },
@@ -332,10 +322,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
   },
   input: {
-    fontSize: 22,
-    lineHeight: 32,
+    fontSize: Type.body.fontSize,
+    lineHeight: Type.body.lineHeight,
     borderWidth: 2,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.inner,
+    borderCurve: 'continuous',
     paddingHorizontal: Spacing.three,
     // Vertical padding rather than a height, so the box grows with the system
     // font size instead of clipping the text inside it.
