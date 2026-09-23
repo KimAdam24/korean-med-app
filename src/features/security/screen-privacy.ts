@@ -33,7 +33,11 @@ export async function protectFromAppSwitcher(): Promise<void> {
 
   let screenCapture: typeof import('expo-screen-capture');
   try {
-    screenCapture = await import('expo-screen-capture');
+    // A `require` inside the try rather than `import()`: the module is still
+    // evaluated only here, so a missing native module is caught, and it behaves
+    // the same under Metro and under Jest, where a dynamic import does not run.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    screenCapture = require('expo-screen-capture');
   } catch {
     return;
   }

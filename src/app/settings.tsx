@@ -11,6 +11,7 @@ import { PinPad } from '@/components/pin-pad';
 import { Screen } from '@/components/screen';
 import { Spacing } from '@/constants/theme';
 import { clearProfile } from '@/features/medications/medication-store';
+import { goBackOr } from '@/features/navigation/go-back';
 import { useAppLock } from '@/features/security/app-lock-context';
 import { PIN_LENGTH, clearPin, setPin, verifyPin } from '@/features/security/pin';
 import { useTheme } from '@/hooks/use-theme';
@@ -166,7 +167,7 @@ export default function SettingsScreen() {
     return (
       <Screen centered>
         <BilingualText text={step.message} variant="heading" align="center" />
-        <BigButton label={Strings.camera.done} onPress={() => router.back()} />
+        <BigButton label={Strings.camera.done} onPress={() => goBackOr(router, '/')} />
       </Screen>
     );
   }
@@ -298,7 +299,7 @@ export default function SettingsScreen() {
       </Card>
 
       <View style={styles.spacer} />
-      <BigButton label={Strings.camera.close} onPress={() => router.back()} />
+      <BigButton label={Strings.camera.close} onPress={() => goBackOr(router, '/')} />
     </Screen>
   );
 }

@@ -154,7 +154,10 @@ const NO_ATTEMPTS: Attempts = { failures: 0, lockedUntil: null };
  * particularly since the encrypted data is protected by a hardware-backed key
  * the PIN does not unlock.
  *
- * Indexed by failure count; anything past the end uses the last entry.
+ * The first entry is the penalty after the first failure, the second after the
+ * second, and so on; anything past the end uses the last entry. (It was once
+ * indexed by the count itself, which starts at one, so the first entry was
+ * never used and only three attempts were free, not the four promised below.)
  */
 const LOCKOUT_LADDER_MS = [
   0, 0, 0, 0, // first four attempts are free — mistyping is normal
@@ -241,7 +244,7 @@ async function checkPin(pin: string): Promise<PinVerification> {
   }
 
   const failures = (await readAttempts()).failures + 1;
-  const penalty = LOCKOUT_LADDER_MS[Math.min(failures, LOCKOUT_LADDER_MS.length - 1)];
+  const penalty = LOCKOUT_LADDER_MS[Math.min(failures - 1, LOCKOUT_LADDER_MS.length - 1)];
   await writeAttempts({
     failures,
     lockedUntil: penalty > 0 ? Date.now() + penalty : null,

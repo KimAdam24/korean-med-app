@@ -37,6 +37,7 @@ import {
 import { addMedication } from '@/features/medications/medication-store';
 import { LabelOcr } from '../../modules/label-ocr';
 import { interpretLines } from '@/features/ocr/interpret-lines';
+import { goBackOr } from '@/features/navigation/go-back';
 import { DevLineList, logRecognizedLines } from '@/features/ocr/dev-line-list';
 import { assessField } from '@/features/ocr/field-integrity';
 import { medicationFromReading } from '@/features/ocr/reading-to-record';
@@ -408,7 +409,7 @@ export default function CameraScreen() {
     scanning.current = false;
     setPhase({ kind: 'preview' });
   }, []);
-  const close = useCallback(() => router.back(), [router]);
+  const close = useCallback(() => goBackOr(router, '/'), [router]);
 
   // `permission` is null only while the initial status check is in flight.
   if (!permission) {

@@ -15,6 +15,7 @@ import {
   updateMedication,
 } from '@/features/medications/medication-store';
 import { useProfile } from '@/features/medications/use-profile';
+import { goBackOr } from '@/features/navigation/go-back';
 import { assessField } from '@/features/ocr/field-integrity';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, type Bilingual } from '@/i18n/strings';
@@ -112,7 +113,7 @@ export default function MedicationScreen() {
     setMode({ kind: 'working' });
     try {
       await removeMedication(record.id);
-      router.back();
+      goBackOr(router, '/medications');
     } catch {
       // Still in the list. Say nothing false; show it as it is.
       setMode({ kind: 'viewing' });
@@ -131,7 +132,7 @@ export default function MedicationScreen() {
     return (
       <Screen centered>
         <BilingualText text={Strings.vault.unrecoverableTitle} variant="heading" />
-        <BigButton label={Strings.camera.close} onPress={() => router.back()} />
+        <BigButton label={Strings.camera.close} onPress={() => goBackOr(router, '/medications')} />
       </Screen>
     );
   }
