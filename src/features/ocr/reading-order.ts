@@ -24,8 +24,11 @@ import type { LinePoint, RecognizedTextLine } from './types.ts';
  * second half first.
  *
  * So each line's own slope, from its corner points, is used. A line joins a
- * row when its centre sits where the nearest piece of that row, continued
- * along the two pieces' slope, says it should be — within half a line height.
+ * row when the edge it presents to the nearest piece of that row sits where
+ * that piece's facing edge, continued along the two pieces' slope, says it
+ * should be — within half a line height. Edges rather than centres: a short
+ * tilted piece beside a long level line has its centre well away from the
+ * long line's, though the two meet exactly where the print runs on.
  * A curve is followed piece by piece, because each piece is compared with its
  * neighbour rather than with the start of the row, and a tilted photograph
  * tilts every row alike and is handled the same way.
@@ -34,18 +37,20 @@ import type { LinePoint, RecognizedTextLine } from './types.ts';
  *
  * It orders rows, not columns. On a label whose columns share rows, lines are
  * interleaved across them, as they always were; the parser classifies lines by
- * content for exactly that reason. Lines with no geometry keep their engine
- * order and go last, which also means readings recorded before geometry
- * existed — already sorted natively — pass through unchanged.
+ * content for exactly that reason.
+ *
+ * A line with no geometry cannot be placed, so it stays where the engine put
+ * it: straight after the line that preceded it there. Moving it to the end
+ * would cut it out of the middle of whatever it belonged to — `at bedtime`
+ * parted from the direction it finishes. Readings recorded before geometry
+ * existed, already sorted natively, therefore pass through unchanged.
  */
 export function orderLines(lines: readonly RecognizedTextLine[]): RecognizedTextLine[] {
   const placed: Placed[] = [];
-  const unplaced: RecognizedTextLine[] = [];
 
   lines.forEach((line, order) => {
     const position = place(line, order);
     if (position) placed.push(position);
-    else unplaced.push(line);
   });
 
   if (placed.length === 0) return [...lines];
@@ -64,23 +69,40 @@ export function orderLines(lines: readonly RecognizedTextLine[]): RecognizedText
   }
 
   // Rows are compared at one shared x, so that on a tilted photograph a short
-  // row at the high end of the tilt does not jump ahead of a long one.
+  // row at the high end of the tilt does not jump ahead of a long one. The
+  // projection uses the photograph's median slope, not the nearest piece's
+  // own: one short, steep piece projected across the whole label can land
+  // anywhere.
   const referenceX = placed.reduce((sum, line) => sum + line.cx, 0) / placed.length;
+  const tilt = median(placed.map((line) => line.slope));
   const rowHeightAt = (row: Placed[]) => {
     const nearest = row.reduce((a, b) =>
       Math.abs(b.cx - referenceX) < Math.abs(a.cx - referenceX) ? b : a
     );
-    return nearest.cy + nearest.slope * (referenceX - nearest.cx);
+    return nearest.cy + tilt * (referenceX - nearest.cx);
   };
 
-  const ordered = rows
+  const orderedPlaced = rows
     .map((row) => ({ row, height: rowHeightAt(row), first: Math.min(...row.map((l) => l.order)) }))
     .sort((a, b) => a.height - b.height || a.first - b.first)
-    .flatMap(({ row }) =>
-      [...row].sort((a, b) => a.left - b.left || a.order - b.order).map((entry) => entry.line)
-    );
+    .flatMap(({ row }) => [...row].sort((a, b) => a.left - b.left || a.order - b.order));
 
-  return [...ordered, ...unplaced];
+  // Each unplaced line follows the placed line that preceded it in engine
+  // order; any before the first placed line lead.
+  const following = new Map<number, RecognizedTextLine[]>();
+  let anchor = -1;
+  lines.forEach((line, order) => {
+    if (placed.some((entry) => entry.order === order)) {
+      anchor = order;
+    } else {
+      following.set(anchor, [...(following.get(anchor) ?? []), line]);
+    }
+  });
+
+  return [
+    ...(following.get(-1) ?? []),
+    ...orderedPlaced.flatMap((entry) => [entry.line, ...(following.get(entry.order) ?? [])]),
+  ];
 }
 
 /**
@@ -94,11 +116,14 @@ function misfit(row: readonly Placed[], candidate: Placed): number | null {
 
   const nearest = row.reduce((a, b) => (gap(b, candidate) < gap(a, candidate) ? b : a));
 
-  // The slope between two pieces of a curve is closest to the average of
-  // their own slopes — the tangent halfway between them.
-  const slope = (nearest.slope + candidate.slope) / 2;
-  const expected = nearest.cy + slope * (candidate.cx - nearest.cx);
-  const offset = Math.abs(candidate.cy - expected);
+  // Compare the two edges that face each other, each found along its own
+  // piece's slope, and carry the left one across the gap along the average
+  // of the two slopes — the tangent halfway between them on a curve.
+  const [left, right] = nearest.cx <= candidate.cx ? [nearest, candidate] : [candidate, nearest];
+  const leftEdge = left.cy + left.slope * (left.right - left.cx);
+  const rightEdge = right.cy + right.slope * (right.left - right.cx);
+  const expected = leftEdge + ((left.slope + right.slope) / 2) * (right.left - left.right);
+  const offset = Math.abs(rightEdge - expected);
 
   return offset <= ROW_TOLERANCE * Math.min(candidate.height, nearest.height) ? offset : null;
 }
@@ -195,4 +220,10 @@ function distance(a: LinePoint, b: LinePoint): number {
 
 function mean(values: readonly number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }

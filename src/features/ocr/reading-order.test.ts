@@ -122,14 +122,49 @@ test('places lines with a frame but no corners as if level', () => {
   assert.deepEqual(texts(orderLines(lines)), ['above', 'below']);
 });
 
-test('puts lines without geometry last, in engine order', () => {
+test('keeps a line without geometry after the line that preceded it', () => {
+  // Moving it to the end would part "at bedtime" from the direction it ends.
   const lines: RecognizedTextLine[] = [
-    { text: 'unplaced 1', confidence: null },
-    line('placed 2', 0, 50, 100, 20),
-    { text: 'unplaced 2', confidence: null },
-    line('placed 1', 0, 0, 100, 20),
+    line('LISINOPRIL 10 MG TAB', 0, 0, 300, 20),
+    line('Take 1 tablet by mouth', 0, 30, 300, 20),
+    { text: 'at bedtime', confidence: null },
+    line('Qty: 30', 0, 60, 300, 20),
   ];
-  assert.deepEqual(texts(orderLines(lines)), ['placed 1', 'placed 2', 'unplaced 1', 'unplaced 2']);
+  assert.deepEqual(texts(orderLines(lines)), [
+    'LISINOPRIL 10 MG TAB',
+    'Take 1 tablet by mouth',
+    'at bedtime',
+    'Qty: 30',
+  ]);
+});
+
+test('leads with lines without geometry that the engine put first', () => {
+  const lines: RecognizedTextLine[] = [
+    { text: 'unplaced', confidence: null },
+    line('second', 0, 50, 100, 20),
+    line('first', 0, 0, 100, 20),
+  ];
+  assert.deepEqual(texts(orderLines(lines)), ['unplaced', 'first', 'second']);
+});
+
+test('keeps a short tilted piece on the row of the level line it continues', () => {
+  // Compared centre to centre, the tilted piece sat too far from the long
+  // line's centre, formed a row of its own, and its steep slope projected
+  // across the label put it above the product line.
+  const lines = [
+    line('LISINOPRIL 10 MG TAB', 0, 100, 400, 20),
+    line('Take 1 tablet by mouth', 0, 130, 400, 20),
+    line('at bedtime', 405, 130, 80, 20, 0.13),
+    line('Qty: 30', 0, 160, 400, 20),
+    line('Refills: 2', 0, 190, 400, 20),
+  ];
+  assert.deepEqual(texts(orderLines(lines)), [
+    'LISINOPRIL 10 MG TAB',
+    'Take 1 tablet by mouth',
+    'at bedtime',
+    'Qty: 30',
+    'Refills: 2',
+  ]);
 });
 
 test('ignores a slope steep enough to mean sideways text', () => {

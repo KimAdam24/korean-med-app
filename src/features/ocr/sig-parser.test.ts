@@ -401,3 +401,118 @@ test('reads IU, mEq and percentage strengths', () => {
     strength: '1 %',
   });
 });
+
+// --- Directions printed in capitals, and where directions begin -------------------
+
+const lines = (...texts: string[]): RecognizedTextLine[] =>
+  texts.map((text) => ({ text, confidence: null }));
+
+/** A line with a frame, for the cases geometry decides. */
+function framed(text: string, left: number, top: number, width = 280): RecognizedTextLine {
+  return { text, confidence: null, frame: { left, top, width, height: 20 } };
+}
+
+test('withholds all-caps directions whose wrapped tail cannot be placed', () => {
+  // Without geometry, "IF NEEDED FOR PAIN" is either this direction's tail or
+  // a neighbouring column. Dropped, it turns an as-needed dose into a
+  // schedule; joined wrongly, it invents one. Neither may be shown.
+  for (const label of [
+    lines('OXYCODONE 5 MG TAB', 'TAKE 1 TABLET BY MOUTH EVERY 4 HOURS', 'IF NEEDED FOR PAIN'),
+    lines('METHOTREXATE 2.5 MG TAB', 'TAKE 6 TABLETS BY MOUTH', 'WEEKLY ON MONDAY'),
+    lines('TAKE 1 TABLET BY MOUTH', 'DAILY'),
+  ]) {
+    assert.equal(parseLabelFields(label).instructions, undefined, label[1]?.text);
+  }
+});
+
+test('joins an all-caps wrapped tail that geometry places directly below', () => {
+  const label = [
+    framed('OXYCODONE 5 MG TAB', 0, 0),
+    framed('TAKE 1 TABLET BY MOUTH EVERY 4 HOURS', 0, 30),
+    framed('IF NEEDED FOR PAIN', 0, 54),
+  ];
+  assert.equal(
+    parseLabelFields(label).instructions?.text,
+    'TAKE 1 TABLET BY MOUTH EVERY 4 HOURS IF NEEDED FOR PAIN'
+  );
+});
+
+test("steps over another column's wrapped warning to the direction's own tail", () => {
+  // Two columns sharing rows. The lowercase "antacids or iron" finishes the
+  // warning on the left; joined to the direction it would invert it.
+  const label = [
+    framed('Do not take with', 0, 100),
+    framed('Take 1 capsule by mouth', 300, 100),
+    framed('antacids or iron', 0, 124),
+    framed('twice daily', 300, 124),
+  ];
+  assert.equal(parseLabelFields(label).instructions?.text, 'Take 1 capsule by mouth twice daily');
+});
+
+test('does not start directions at a continuation phrase', () => {
+  // The opening line was misread ("TAXE"), so "TWICE DAILY" is all that
+  // matched — a frequency with no dose.
+  assert.equal(
+    parseLabelFields(lines('METOPROLOL 25 MG TAB', 'TAXE 1 TABLET BY MOUTH', 'TWICE DAILY'))
+      .instructions,
+    undefined
+  );
+  // And a sticker line that happens to open with one is not prefixed.
+  const eyeDrops = parseLabelFields(
+    lines('Latanoprost 0.005% soln', 'ONCE OPENED DISCARD', 'INSTILL 1 DROP IN EACH EYE', 'AT BEDTIME')
+  );
+  assert.ok(!eyeDrops.instructions?.text.includes('ONCE OPENED'));
+});
+
+test('keeps "as needed" when a warning follows it on the same line', () => {
+  const fields = parseLabelFields(
+    lines(
+      'HYDROCORTISONE 2.5% CREAM',
+      'APPLY TO AFFECTED AREA TWICE DAILY',
+      'AS NEEDED. FOR EXTERNAL USE ONLY.'
+    )
+  );
+  assert.ok(fields.instructions?.text.includes('AS NEEDED'));
+});
+
+test('does not read an expiry date as directions', () => {
+  const fields = parseLabelFields(lines('TAKE 1 TABLET BY MOUTH DAILY', 'USE BY 12/15/27'));
+  assert.equal(fields.instructions?.text, 'TAKE 1 TABLET BY MOUTH DAILY');
+});
+
+// --- Concentrations, combinations and leftovers ------------------------------------
+
+test('reads a concentration whole, never as a dose', () => {
+  // For insulin, 100 units is the strength of the pen, not what to inject.
+  assert.deepEqual(splitProduct('INSULIN GLARGINE 100 UNITS/ML'), {
+    name: 'INSULIN GLARGINE',
+    strength: '100 UNITS/ML',
+  });
+  assert.deepEqual(splitProduct('AMOXICILLIN 400 MG/5 ML SUSP'), {
+    name: 'AMOXICILLIN SUSP',
+    strength: '400 MG/5 ML',
+  });
+});
+
+test('shows neither name nor strength for a combination product', () => {
+  for (const text of [
+    'HYDROCODONE/APAP 5/325 MG TAB',
+    'AMOXICILLIN-CLAV 875-125 MG TAB',
+    'LOSARTAN-HCTZ 100 MG-25 MG TAB',
+    'ACETAMINOPHEN 300 MG AND CODEINE 30 MG TAB',
+  ]) {
+    assert.deepEqual(splitProduct(text), {}, text);
+  }
+});
+
+test('does not read a zero as a strength', () => {
+  assert.notEqual(classifyLine('LISINOPRIL 0 MG TAB'), 'product');
+  assert.equal(splitProduct('LISINOPRIL 0.5 MG TAB').strength, '0.5 MG');
+});
+
+test('does not take another field left on the product line as its name', () => {
+  assert.deepEqual(splitProduct('PILLNAMELOL 300 MG QTY: 30'), {
+    name: undefined,
+    strength: '300 MG',
+  });
+});

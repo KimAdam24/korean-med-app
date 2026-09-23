@@ -134,7 +134,6 @@ test('does not flag ordinary directions', () => {
     'INSTILL 1 DROP IN EACH EYE AT BEDTIME',
     'Take 500mg three times (3x) a day for five (5) days',
     'Take one tablet daily to treat high blood pressure',
-    'Take tablets with food to treat irregular metabolism.',
     'TAKE 1 TAB PO BID PRN PAIN',
     'Take 1 tablet by mouth q8h as needed for nausea',
     'DISSOLVE 1 TABLET UNDER THE TONGUE AS NEEDED',
@@ -166,14 +165,23 @@ test('does not flag ordinary directions', () => {
     'Take 1 tablet by mouth weekly on the same day each week',
     'Take 1 tablet by mouth at nighttime',
     'Continue taking even if you feel well',
-    'Place 1 tablet under the tongue and let dissolve',
     'Inhale 1 vial via nebulizer every 6 hours as needed',
     'Use 1 spray in each nostril daily',
     'Shake well before use',
     'Take 1 tablet by mouth daily. Do not take with milk.',
     'If you miss a dose take it as soon as you remember. Skip it if it is almost time for the next dose.',
     'Take 1 tablet by mouth as needed for mild pain',
-    'Take with some food so that you feel better',
+    // Optional plurals, times written short, and wording that sits one letter
+    // from a vocabulary word.
+    'TAKE 1-2 TABLET(S) BY MOUTH EVERY 6 HOURS AS NEEDED',
+    'APPLY TO AFFECTED AREA(S) TWICE DAILY',
+    'INSTILL 2 DROP(S) IN EACH EYE TWICE DAILY',
+    'TAKE 1 TABLET BY MOUTH WEEKLY. REMAIN UPRIGHT FOR 30 MINUTES',
+    'TAKE 1 TABLET BY MOUTH DAILY FOR MOOD',
+    'INJECT UNDER THE SKIN PER SLIDING SCALE BEFORE MEALS',
+    'TAKE 1 TABLET BY MOUTH EVERY 8HRS',
+    'TAKE 1 TABLET AT 8AM AND 2PM',
+    'Take 1 tablet by mouth three times a day',
   ];
 
   for (const text of clean) {
@@ -254,4 +262,68 @@ test('accepts a strength restated in brackets, judging both halves', () => {
   assert.equal(assessField('dosage', '50,000 IU').level, 'readable');
   assert.equal(assessField('dosage', '1.25 MG (000 UNIT)').level, 'damaged');
   assert.equal(assessField('dosage', '1.25 MG (50,000 UNIT').level, 'damaged');
+});
+
+// --- Numbers lost around counts and durations ---------------------------------------
+
+test('flags a count of times with its number gone', () => {
+  // The ceiling of an as-needed dose, lost: "up to 3 times" became "up to times".
+  assert.deepEqual(
+    damagedWords('instructions', 'TAKE 1 TABLET BY MOUTH UP TO TIMES DAILY AS NEEDED.'),
+    ['TIMES']
+  );
+  assert.equal(assessField('instructions', 'TAKE 1 TABLET BY MOUTH TIMES DAILY.').level, 'damaged');
+});
+
+test('flags a duration with its number gone', () => {
+  assert.deepEqual(damagedWords('instructions', 'TAKE 1 TABLET BY MOUTH 3 TIMES DAILY FOR DAYS'), [
+    'FOR',
+    'DAYS',
+  ]);
+});
+
+test('flags a digit misread as a letter', () => {
+  assert.deepEqual(damagedWords('instructions', 'TAKE 1 TABLET BY MOUTH EVERY A HOURS AS NEEDED'), [
+    'A',
+    'HOURS',
+  ]);
+  assert.deepEqual(damagedWords('instructions', 'TAKE 1 TABLET BY MOUTH EVERY 1O HOURS'), ['1O']);
+});
+
+test('flags a zero where a dose should be', () => {
+  assert.equal(
+    assessField('instructions', 'Take 1 capsule (0 units) by mouth every 7 days').level,
+    'damaged'
+  );
+  assert.equal(assessField('dosage', '0 MG').level, 'damaged');
+  assert.equal(assessField('dosage', '1.25 MG (0 UNIT)').level, 'damaged');
+});
+
+test('treats a direction that never says when as cut off', () => {
+  // What is left of "TAKE 1 TABLET BY MOUTH / DAILY" when the second line is
+  // lost. Opening verbs only: advice lines ("Shake well before use") carry
+  // no timing and are not directions.
+  for (const text of [
+    'TAKE 1 TABLET BY MOUTH',
+    'TAKE 6 TABLETS BY MOUTH',
+    'Take tablets with food to treat irregular metabolism.',
+    'Place 1 tablet under the tongue and let dissolve',
+  ]) {
+    const result = assessField('instructions', text);
+    assert.equal(result.level, 'damaged', text);
+    assert.ok(result.reasons.includes('incomplete'), text);
+  }
+  assert.equal(assessField('instructions', 'Shake well before use').level, 'readable');
+});
+
+test('accepts a concentration as a strength', () => {
+  assert.equal(assessField('dosage', '100 UNITS/ML').level, 'readable');
+  assert.equal(assessField('dosage', '400 MG/5 ML').level, 'readable');
+  assert.equal(assessField('dosage', '25 MCG/HR').level, 'readable');
+});
+
+test('flags a digit inside a name word', () => {
+  // An O misread as a zero. Digits at a word's edge are real: D2, B12.
+  assert.equal(assessField('name', 'CALCIFER0L CAP').level, 'damaged');
+  assert.equal(assessField('name', 'VITAMIN B12').level, 'readable');
 });

@@ -2,7 +2,7 @@
 // This is a value import, so it survives type erasure and has to resolve under
 // Node when the tests run — and Node knows nothing about the bundler's alias.
 import { findIngredient, nearestIngredient } from '../drugs/ingredients.ts';
-import { assessField, hasImpossibleCase } from './field-integrity.ts';
+import { assessField, hasImpossibleCase, isDirectionWord } from './field-integrity.ts';
 
 import type {
   ExtractedField,
@@ -78,21 +78,35 @@ const MAX_STRUCTURAL_CONFIDENCE = 0.75;
  * The unit ends at anything but a letter rather than at a word boundary:
  * there is no boundary between `%` and a following space, so `1% CREAM`
  * never matched.
+ *
+ * A concentration is read whole. `INSULIN GLARGINE 100 UNITS/ML` is a
+ * concentration, not a dose; read as `100 UNITS` it looks like one, and the
+ * `/ML` ended up in the name. So a per-volume or per-hour part — `/ML`,
+ * `/5 ML`, `/HR` — belongs to the strength, and a unit followed by any other
+ * `/` is not a strength at all. Zero is only the start of a decimal: `0 MG`
+ * is a digit lost, not a dose.
  */
 const STRENGTH =
-  /(0|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(\.\d+)?\s*(MG|MCG|G|ML|UNITS?|IU|MEQ|%)(?![A-Za-z])/gi;
+  /(0(?=\.\d)|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(\.\d+)?\s*(MG|MCG|G|ML|UNITS?|IU|MEQ|%)(?:\s*\/\s*(\d+(?:\.\d+)?)?\s*(ML|HR))?(?![A-Za-z/])/gi;
 
 function findStrength(text: string): { index: number; length: number; strength: string } | null {
   for (const match of text.matchAll(STRENGTH)) {
     // Starting mid-number (`0 UNIT` inside `000 UNIT`) or mid-word (the `2`
-    // of `D2`) means this is not where the strength begins.
+    // of `D2`) means this is not where the strength begins. Nor does the
+    // second half of a combination: `325 MG` in `5/325 MG`, `125 MG` in
+    // `875-125 MG`. Each half alone is a strength the product does not have.
     const before = match.index > 0 ? text[match.index - 1] : '';
     if (/[A-Za-z0-9.,]/.test(before)) continue;
+    if (/[-/]/.test(before) && /\d/.test(text[match.index - 2] ?? '')) continue;
+
+    const per = match[5]
+      ? `/${match[4] ? `${match[4]} ` : ''}${match[5].toUpperCase()}`
+      : '';
 
     return {
       index: match.index,
       length: match[0].length,
-      strength: `${match[1]}${match[2] ?? ''} ${match[3].toUpperCase()}`,
+      strength: `${match[1]}${match[2] ?? ''} ${match[3].toUpperCase()}${per}`,
     };
   }
   return null;
@@ -120,8 +134,19 @@ const AUXILIARY = [
   /^MAY CAUSE\b/i,
   /^DO NOT\b/i,
   /^AVOID\b/i,
-  /\bALCOHOL\b/i,
   /^EFFECT\b/i,
+];
+
+/**
+ * Warning phrases recognised anywhere in a line, not only at its start.
+ *
+ * Kept apart from the anchored ones because a line can *begin* the end of the
+ * directions and then carry a warning: "AS NEEDED. FOR EXTERNAL USE ONLY."
+ * Treated as a warning, that line took "AS NEEDED" with it, and an as-needed
+ * cream became a twice-daily one.
+ */
+const AUXILIARY_ANYWHERE = [
+  /\bALCOHOL\b/i,
   /\bUSE CAUTION\b/i,
   /\bOPERATING\b/i,
   /\bMOVING VEHICLE\b/i,
@@ -129,6 +154,9 @@ const AUXILIARY = [
   /\bKEEP OUT OF REACH\b/i,
   /\bFOR EXTERNAL USE\b/i,
 ];
+
+/** An expiry date, which opens with a verb that also opens directions. */
+const USE_BY = /^USE (BY|BEFORE)\b/i;
 
 /**
  * Which brand a generic was dispensed in place of: "Generic for: DRISDOL".
@@ -188,8 +216,14 @@ export function classifyLine(text: string): LineRole {
   // administration verbs, and misreading a warning as a direction would put
   // "take with food. alcohol may intensify this" into the dose line.
   if (AUXILIARY.some((pattern) => pattern.test(trimmed))) return 'auxiliary';
+  if (USE_BY.test(trimmed)) return 'dispensing';
 
-  if (SIG_OPENER.test(trimmed) || SIG_CONTINUATION.test(trimmed)) return 'directions';
+  // Before the anywhere-warnings: a line that opens by finishing the
+  // directions is part of them, whatever follows.
+  if (SIG_CONTINUATION.test(trimmed)) return 'directions';
+  if (AUXILIARY_ANYWHERE.some((pattern) => pattern.test(trimmed))) return 'auxiliary';
+
+  if (SIG_OPENER.test(trimmed)) return 'directions';
 
   if (DISPENSING.some((pattern) => pattern.test(trimmed))) return 'dispensing';
 
@@ -232,9 +266,17 @@ export function splitProduct(text: string): { name?: string; strength?: string }
 
   const name = `${text.slice(0, found.index)} ${text.slice(end)}`.replace(/\s+/g, ' ').trim();
 
-  // What is left may be nothing but a dose form (`CAP`) or punctuation. That
-  // is not a name, and saying so lets the caller look for the real one.
-  return { name: hasNameWords(name) ? name : undefined, strength };
+  // A second strength, or a fragment of one, left behind: a combination
+  // product — `100 MG-25 MG`, `300 MG AND CODEINE 30 MG`. The first number is
+  // not the product's strength, and the name now carries the rest of it.
+  // Neither can be shown.
+  if (findStrength(name) || /(^|\s)[-/]\s*\d/.test(name)) return {};
+
+  // What is left may be nothing but a dose form (`CAP`) or punctuation, or
+  // something that is not a name at all — `QTY: 30` on the same line. That is
+  // not a name, and saying so lets the caller look for the real one.
+  const usable = hasNameWords(name) && !/:/.test(name) && !/(^|\s)\d+(\s|$)/.test(name);
+  return { name: usable ? name : undefined, strength };
 }
 
 /**
@@ -439,9 +481,12 @@ export function parseLabelFields(lines: readonly RecognizedTextLine[]): Medicati
     }
   }
 
-  const sigLines = withContinuations(classified);
+  const { lines: sigLines, ambiguous } = collectDirections(classified);
 
-  if (sigLines.length > 0) {
+  // An ambiguous wrap is withheld whole. Either reading of it could be wrong
+  // — the tail dropped, or another column's words taken for it — and a
+  // direction missing its "if needed" is a different instruction.
+  if (sigLines.length > 0 && !ambiguous) {
     // Index order, which is correct within a column even when the columns
     // themselves are interleaved. Joined with a space: the line break is an
     // artefact of the label's width, not punctuation.
@@ -461,54 +506,121 @@ export function parseLabelFields(lines: readonly RecognizedTextLine[]): Medicati
  *
  * Labels wrap directions across lines, and the tail carries no marker saying so
  * — `egular motabosn.` is the second half of `...to treat irregular metabolism`
- * and looks like nothing on its own. Dropping it truncates the instruction
- * halfway, which is worse than useless: "Take tablets with food to" reads as a
- * complete thought that is missing its point.
+ * and looks like nothing on its own. Dropping it truncates the instruction,
+ * which is worse than useless: `TAKE 1 TABLET BY MOUTH EVERY 4 HOURS` without
+ * its `IF NEEDED FOR PAIN` is a schedule where there was a limit.
  *
- * Absorbing the *next* line unconditionally is not an option. On a
+ * Absorbing the next line unconditionally is not an option either. On a
  * column-interleaved label the next line belongs to the warning sticker, and
- * joining it produces directions nobody prescribed — the failure this parser
- * exists to avoid. So a line is absorbed only when all of these hold:
+ * joining it produces directions nobody prescribed.
  *
- *   - the directions so far do not end in terminal punctuation, so something is
- *     evidently missing;
- *   - the candidate could not be classified as anything else, so it is not a
- *     warning, a dispensing field or another product;
- *   - it begins lowercase, which a new field on a label almost never does.
+ * ## Deciding what is a continuation
  *
- * Geometry would settle this properly — a continuation sits directly below its
- * line and shares its left edge, while a neighbouring column does not — but the
- * engines do not currently hand boxes up. These three conditions are what can
- * be decided from text alone.
+ * Only while the directions so far lack terminal punctuation, and only a line
+ * that could not be classified as anything else. Then:
+ *
+ *   - **With geometry**, position decides. A continuation sits directly below
+ *     the line before it and shares the directions' left edge. A line that
+ *     does not is another column's: it is stepped over, and the search goes on
+ *     a line or two further for the one that does.
+ *   - **Without geometry**, text is all there is. A line that begins lowercase
+ *     is joined, since a new field on a label almost never does. An all-caps
+ *     line that reads like directions — mostly direction words — is exactly
+ *     what both a wrapped tail and a neighbouring column look like on a label
+ *     printed in capitals, so the directions are reported as ambiguous and
+ *     withheld rather than guessed at either way.
+ *
+ * ## Where directions start
+ *
+ * At an administration verb. A continuation phrase on its own — `TWICE DAILY`
+ * — is kept only once some direction has begun; before that it is the tail of
+ * an opening line the engine misread (`TAXE 1 TABLET`), or of a sticker
+ * (`ONCE OPENED DISCARD`), and shown alone it would be a frequency with no dose.
  */
-function withContinuations(
-  classified: readonly { line: RecognizedTextLine; role: LineRole }[]
-): RecognizedTextLine[] {
+function collectDirections(classified: readonly { line: RecognizedTextLine; role: LineRole }[]): {
+  lines: RecognizedTextLine[];
+  ambiguous: boolean;
+} {
   const collected: RecognizedTextLine[] = [];
+  const used = new Set<number>();
+  let begun = false;
 
   for (let index = 0; index < classified.length; index += 1) {
     const entry = classified[index];
-    if (entry.role !== 'directions') continue;
+    if (entry.role !== 'directions' || used.has(index)) continue;
+
+    const opens = SIG_OPENER.test(entry.line.text.trim());
+    if (!opens && !begun) continue;
+    begun = true;
 
     collected.push(entry.line);
+    used.add(index);
 
+    const blockStart = entry.line;
+    let previous = entry.line;
     let cursor = index + 1;
-    let tail = entry.line.text.trim();
+    let steppedOver = 0;
 
-    while (cursor < classified.length && !/[.!?]$/.test(tail)) {
+    while (cursor < classified.length && !/[.!?]$/.test(previous.text.trim())) {
       const candidate = classified[cursor];
+      const placement = sitsBelow(blockStart, previous, candidate.line);
+
+      if (placement === 'elsewhere') {
+        // Another column's line. Keep looking just past it.
+        if (++steppedOver > 2) break;
+        cursor += 1;
+        continue;
+      }
+
       if (candidate.role !== 'unknown') break;
-      if (!/^[a-z]/.test(candidate.line.text.trim())) break;
+
+      const text = candidate.line.text.trim();
+      const joins = placement === 'below' || /^[a-z]/.test(text);
+
+      if (!joins) {
+        if (readsLikeDirections(text)) return { lines: collected, ambiguous: true };
+        break;
+      }
 
       collected.push(candidate.line);
-      tail = candidate.line.text.trim();
+      used.add(cursor);
+      previous = candidate.line;
       cursor += 1;
     }
-
-    index = cursor - 1;
   }
 
-  return collected;
+  return { lines: collected, ambiguous: false };
+}
+
+/**
+ * Where `candidate` sits relative to the directions: directly below the last
+ * line of them and on their left edge, somewhere else, or unknown because a
+ * line has no geometry.
+ */
+function sitsBelow(
+  blockStart: RecognizedTextLine,
+  previous: RecognizedTextLine,
+  candidate: RecognizedTextLine
+): 'below' | 'elsewhere' | 'unknown' {
+  const start = blockStart.frame;
+  const above = previous.frame;
+  const line = candidate.frame;
+  if (!start || !above || !line) return 'unknown';
+
+  const height = Math.min(above.height, line.height);
+  const aligned = Math.abs(line.left - start.left) <= height;
+  const gap = line.top - (above.top + above.height);
+  const directlyBelow = gap > -height / 2 && gap <= height * 1.2;
+
+  return aligned && directlyBelow ? 'below' : 'elsewhere';
+}
+
+/** Mostly direction vocabulary: what a wrapped tail of directions reads like. */
+function readsLikeDirections(text: string): boolean {
+  const words = text.split(/\s+/).filter((word) => /[a-z0-9]/i.test(word));
+  if (words.length === 0) return false;
+  const known = words.filter(isDirectionWord).length;
+  return known / words.length >= 0.6;
 }
 
 /** Above this share of impossible-case tokens, treat the whole read as suspect. */

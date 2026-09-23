@@ -70,9 +70,14 @@ export type DamageKind =
   | 'not-a-word'
   /**
    * A quantity the surrounding words require is absent or broken: `units`
-   * with no number before it, `every days`, `000 units`.
+   * with no number before it, `every days`, `up to times daily`, `000 units`.
    */
   | 'missing-number'
+  /**
+   * A direction that never says when or how often — `TAKE 1 TABLET BY MOUTH`
+   * — which is what is left when the rest of it was cut off.
+   */
+  | 'incomplete'
   /**
    * The field starts or ends mid-word or mid-phrase: `-Thyroxine`, or
    * directions that stop on `every` or `up to`.
@@ -149,6 +154,7 @@ const SIG_VOCABULARY = new Set(
   break head ache sure rate lip gum lung fast spoon spoonful was
   nebulizer check pulse
   so feel feeling soon skip miss missed some that those mild light heat reach bath shower
+  upright mood sliding scale
   `
     .split(/\s+/)
     .filter(Boolean)
@@ -215,15 +221,52 @@ const DANGLING = new Set(
 /** `q4h`, `q12h` — every N hours, in sig shorthand. */
 const INTERVAL_SHORTHAND = /^q\d{1,2}h$/i;
 
-/** A quantity, possibly with a unit or multiplier attached: `3`, `1.5`, `500mg`, `3x`. */
-const NUMERIC = /^\d+([.,/]\d+)?(mg|mcg|ml|g|x|%)?$/i;
+/**
+ * A quantity, possibly with a unit, multiplier or time attached: `3`, `1.5`,
+ * `500mg`, `3x`, `8am`, `8hrs`.
+ */
+const NUMERIC = /^\d+([.,/]\d+)?(mg|mcg|ml|g|x|%|h|hr|hrs|am|pm|min|mins)?$/i;
+
+/**
+ * Words that say when or how often. Every dispensed direction has one; a
+ * direction without one has lost it.
+ */
+const TIMING = new Set(
+  `daily day days everyday week weeks weekly month months monthly hour hours hourly hr hrs
+  minute minutes min mins night nights nightly nighttime daytime anytime bedtime morning
+  mornings evening evenings noon afternoon today tomorrow meal meals mealtime mealtimes
+  breakfast lunch dinner supper times once twice every needed directed until am pm
+  prn bid tid qid qd qod qhs hs qam qpm ac pc`
+    .split(/\s+/)
+    .filter(Boolean)
+);
+
+/** The verbs directions open with — the same set the parser starts them at. */
+const OPENING_VERBS = new Set(
+  'take apply instill inject inhale use place chew swallow dissolve spray give'.split(' ')
+);
 
 /** A number fused to a word that is not a unit: `1tablet`. */
 const NUMBER_FUSED_TO_WORD = /^(\d+)([a-z]{2,})$/i;
 
-/** Letters only, lower-cased, stripped of surrounding punctuation and brackets. */
+/**
+ * Letters only, lower-cased, stripped of surrounding punctuation and brackets.
+ * A printed optional plural — `TABLET(S)`, `DROP(S)` — is the word itself.
+ */
 function core(token: string): string {
-  return token.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '').toLowerCase();
+  return token
+    .replace(/\((e?s)\)([^a-z0-9]*)$/i, '$2')
+    .replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '')
+    .toLowerCase();
+}
+
+/**
+ * Whether a word belongs to the vocabulary of directions, or is a number. The
+ * parser uses this to tell a wrapped tail of directions from other text.
+ */
+export function isDirectionWord(token: string): boolean {
+  const word = core(token);
+  return word.length > 0 && (NUMERIC.test(word) || isKnownSigWord(word));
 }
 
 function isKnownSigWord(word: string): boolean {
@@ -288,6 +331,8 @@ function isTruncatedSigWord(word: string): boolean {
 function isQuantity(token: string): boolean {
   if (/[½¼¾⅓⅔]/.test(token)) return true;
   const word = core(token);
+  // A bare zero is a digit lost, never an amount to take.
+  if (word === '0') return false;
   return (/^\d/.test(word) && !hasLeadingZero(word)) || SPELLED_QUANTITIES.has(word);
 }
 
@@ -308,9 +353,13 @@ function tokenDamage(token: string, kind: FieldKind): DamageKind | null {
 
   if (kind !== 'instructions') return null;
 
-  if (hasLeadingZero(word)) return 'missing-number';
+  if (hasLeadingZero(word) || word === '0') return 'missing-number';
 
   if (NUMERIC.test(word) || isKnownSigWord(word)) return null;
+
+  // A digit with one stray letter: `1O` for `10`, `4A` for `4`. Units that
+  // are one letter are already numeric above.
+  if (/^\d+[a-z]$/.test(word)) return 'not-a-word';
 
   const fused = NUMBER_FUSED_TO_WORD.exec(word);
   if (fused && isKnownSigWord(fused[2])) return 'merged-words';
@@ -346,13 +395,21 @@ function structuralDamage(tokens: readonly string[]): { position: number; damage
       found.push({ position, damage: 'not-a-word' });
     }
 
-    if (DOSE_UNITS.has(word) && !(position > 0 && isQuantity(tokens[position - 1]))) {
+    // A unit, or a count of times, needs its number: "up to times daily" is
+    // "up to 3 times daily" with the ceiling gone.
+    if (
+      (DOSE_UNITS.has(word) || word === 'times') &&
+      !(position > 0 && isQuantity(tokens[position - 1]))
+    ) {
       found.push({ position, damage: 'missing-number' });
     }
 
-    // "every days" is "every N days" with the N lost. Both words are marked,
-    // because the gap between them is where the damage is.
-    if (word === 'every' && PLURAL_INTERVALS.has(words[position + 1] ?? '')) {
+    // "every days" and "for days" are "every N days" and "for N days" with the
+    // N lost; "every a hours" is the N misread as a letter. Both words are
+    // marked, because the gap between them is where the damage is.
+    const next = words[position + 1] ?? '';
+    const lostBefore = PLURAL_INTERVALS.has(next) || (next === 'times' && word.length === 1);
+    if ((word === 'every' || word === 'for' || LONE_LETTERS.has(word)) && lostBefore) {
       found.push({ position, damage: 'missing-number' });
       found.push({ position: position + 1, damage: 'missing-number' });
     }
@@ -363,6 +420,17 @@ function structuralDamage(tokens: readonly string[]): { position: number; damage
   const last = words.map((word) => word.length > 0).lastIndexOf(true);
   if (last >= 0 && DANGLING.has(words[last]) && !(words[last] === 'a' && words[last - 1] === 'vitamin')) {
     found.push({ position: last, damage: 'clipped' });
+  }
+
+  // A direction that opens with a verb of administration and never says when:
+  // the frequency was on a line that did not make it. Marked at the end,
+  // where the missing part would have been.
+  const opens = OPENING_VERBS.has(words.find((word) => word.length > 0) ?? '');
+  const timed = words.some(
+    (word) => TIMING.has(word) || INTERVAL_SHORTHAND.test(word) || /^\d+(am|pm|h|hr|hrs)$/.test(word)
+  );
+  if (last >= 0 && opens && !timed) {
+    found.push({ position: last, damage: 'incomplete' });
   }
 
   return found;
@@ -386,6 +454,10 @@ export function assessField(kind: FieldKind, text: string): FieldIntegrity {
     // that ingredient misread than an unknown drug. Exact matches and unknown
     // names are both fine; only the near miss is informative.
     if (!damage && kind === 'name' && nearestIngredient(piece) !== null) damage = 'near-miss';
+
+    // A digit between letters inside a name word is an O or an I misread:
+    // `CALCIFER0L`. Digits at a word's edge are real — `D2`, `B12`.
+    if (!damage && kind === 'name' && /[a-z]\d+[a-z]/i.test(piece)) damage = 'not-a-word';
 
     if (damage) reasons.add(damage);
     return { text: piece, damaged: damage !== null };
@@ -430,17 +502,19 @@ export function assessField(kind: FieldKind, text: string): FieldIntegrity {
   };
 }
 
-const STRENGTH_NUMBER = String.raw`(?:0|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(?:\.\d+)?`;
+const STRENGTH_NUMBER = String.raw`(?:0(?=\.\d)|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(?:\.\d+)?`;
 const STRENGTH_UNIT = String.raw`(?:MG|MCG|G|ML|UNITS?|IU|MEQ|%)`;
+/** Per volume or per hour: `/ML`, `/5 ML`, `/HR`. */
+const STRENGTH_PER = String.raw`(?:\s*\/\s*(?:\d+(?:\.\d+)?\s*)?(?:ML|HR))?`;
 
 /**
  * A strength as the parser formats one: `300 MG`, `0.5 MG`, `50,000 UNIT`,
- * optionally restated in brackets — `1.25 MG (50,000 UNIT)`. Thousands are
- * grouped in threes, and nothing but a decimal below one starts with a zero,
- * in both halves.
+ * a concentration — `100 UNITS/ML`, `400 MG/5 ML` — optionally restated in
+ * brackets: `1.25 MG (50,000 UNIT)`. Thousands are grouped in threes, and
+ * nothing but a decimal below one starts with a zero, in both halves.
  */
 const WELL_FORMED_STRENGTH = new RegExp(
-  String.raw`^${STRENGTH_NUMBER}\s*${STRENGTH_UNIT}(?:\s*\(${STRENGTH_NUMBER}\s*${STRENGTH_UNIT}\))?$`,
+  String.raw`^${STRENGTH_NUMBER}\s*${STRENGTH_UNIT}${STRENGTH_PER}(?:\s*\(${STRENGTH_NUMBER}\s*${STRENGTH_UNIT}\))?$`,
   'i'
 );
 
