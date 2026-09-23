@@ -1,6 +1,9 @@
 {
   "name": "korean-med-assistant",
   "main": "expo-router/entry",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.19",

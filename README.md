@@ -22,6 +22,10 @@ Two rules shape most of the design decisions in this repo:
 These are native modules (camera, keychain, biometrics), so **Expo Go will not
 work** — the app needs a development build.
 
+Node 22.13 or later is required (React Native 0.86's floor). EAS builds use
+22.23.1, pinned in `eas.json` and `.nvmrc`; use the same locally so the lock
+file is written by the npm that will install it.
+
 ```bash
 npm install
 
