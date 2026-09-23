@@ -34,8 +34,8 @@ import {
 } from '@/features/drugs/rxnorm';
 import { addMedication } from '@/features/medications/medication-store';
 import { LabelOcr } from '../../modules/label-ocr';
-import { interpretLines } from '@/features/ocr/device-recognizer';
-import { DevLineList } from '@/features/ocr/dev-line-list';
+import { interpretLines } from '@/features/ocr/interpret-lines';
+import { DevLineList, logRecognizedLines } from '@/features/ocr/dev-line-list';
 import { assessField } from '@/features/ocr/field-integrity';
 import { medicationFromReading } from '@/features/ocr/reading-to-record';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
@@ -176,6 +176,9 @@ export default function CameraScreen() {
       setPhase({ kind: 'reading' });
       try {
         const lines = await LabelOcr.recognizeTextAsync(imageUri);
+        // Development builds only, like the camera path: these lines are what
+        // an evaluation entry is made from.
+        logRecognizedLines('photo', lines);
         const result = interpretLines(lines);
         if (result.status === 'recognized') {
           setPhase({
@@ -590,6 +593,12 @@ export default function CameraScreen() {
  * damage was actually found — specific, so it means something.
  *
  * ## A degraded reading
+ *
+ * Either the page itself read badly, or two of the three fields came back
+ * missing or damaged — `assessReadQuality` decides, so this screen, the
+ * development probe and the screen-reader announcement cannot disagree. A calm
+ * "compare this with the bottle" over one usable field is the wrong register:
+ * there is nothing to compare.
  *
  * Nothing in it should be relied on, so the fields stop leading. The first
  * version of this showed a warning banner and then a warning on every field,

@@ -67,7 +67,12 @@ export type QualityReason =
    */
   | 'misread-name'
   /** Text came back, but none of it could be placed into a field. */
-  | 'nothing-understood';
+  | 'nothing-understood'
+  /**
+   * Two or more of name, strength and directions are missing or damaged. The
+   * page may look fine; what the reader would be shown does not.
+   */
+  | 'fields-unreadable';
 
 export type ReadQuality = {
   /**

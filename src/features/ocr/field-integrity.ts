@@ -1,7 +1,6 @@
 // Relative with extensions: value imports in tested modules must resolve under
 // plain Node, which does not know the bundler's `@/` alias.
 import { editDistance, nearestIngredient } from '../drugs/ingredients.ts';
-import { hasImpossibleCase } from './sig-parser.ts';
 
 /**
  * Whether a single field's text can be shown as what it claims to be.
@@ -33,6 +32,24 @@ import { hasImpossibleCase } from './sig-parser.ts';
  * damage with a shape: a clipped edge, impossible capitalisation, or a near
  * miss against the ingredient lexicon.
  *
+ * ## Words are not enough
+ *
+ * Checking each word against the vocabulary catches damage *inside* a word.
+ * It cannot catch damage *between* them, and the worst misreads are made of
+ * well-formed words. A real vial printed
+ *
+ *     Take 1 capsule (50,000 units) by mouth every N days
+ *
+ * (N under a finger in the photograph) and was read as
+ *
+ *     Take 1 capsule (b units) by mouth eve days
+ *
+ * — every word of which passed. Both dosing numbers are gone, and what is
+ * left still reads as a sentence. So directions are also checked for the
+ * structure a dose needs: a unit has a quantity before it, `every` has an
+ * interval after it, a word is not a stray letter or a vocabulary word cut
+ * short, and the text does not stop mid-phrase.
+ *
  * ## Which way errors fall
  *
  * A false positive tells the user to read the bottle themselves, which is
@@ -47,9 +64,19 @@ export type DamageKind =
   | 'merged-words'
   /** One character from a known word without being it: `teat`, `egular`. */
   | 'near-miss'
-  /** A letter sequence that is not shaped like a word: `xqzt`. */
+  /** A known word with its start or end missing: `eve` for `every`, `ery`. */
+  | 'truncated'
+  /** Not shaped like a word: `xqzt`, or a stray letter like the `b` in `(b units)`. */
   | 'not-a-word'
-  /** The field starts or ends mid-character: `-Thyroxine`. */
+  /**
+   * A quantity the surrounding words require is absent or broken: `units`
+   * with no number before it, `every days`, `000 units`.
+   */
+  | 'missing-number'
+  /**
+   * The field starts or ends mid-word or mid-phrase: `-Thyroxine`, or
+   * directions that stop on `every` or `up to`.
+   */
   | 'clipped';
 
 export type IntegritySpan = {
@@ -102,6 +129,7 @@ const SIG_VOCABULARY = new Set(
   weekly month months monthly hour hours hourly minute minutes every other morning
   mornings evening evenings night nightly nights noon bedtime afternoon today tomorrow
   before after during while until then again first next last one two per a an
+  within upon another nighttime daytime anytime everyday
 
   with without food foods meal meals mealtime mealtimes breakfast lunch dinner supper
   snack milk water juice glass full empty stomach needed need necessary required pain
@@ -115,7 +143,71 @@ const SIG_VOCABULARY = new Set(
   swelling muscle muscles joint joints acid metabolism
 
   po bid tid qid qd qod qhs hs prn qam qpm ac pc sl od os ou ad au gtt gtts
+
+  x g am pm hr hrs min mins wk wks ea gt dr
+  even very let ice side sides out top are lay via bed tea pat pack packs halve
+  break head ache sure rate lip gum lung fast spoon spoonful was
+  nebulizer check pulse
+  so feel feeling soon skip miss missed some that those mild light heat reach bath shower
   `
+    .split(/\s+/)
+    .filter(Boolean)
+);
+
+/*
+ * Some entries above exist to keep a check from misfiring rather than because
+ * they are common:
+ *
+ *   - `within`, `another`, `nighttime` and the like are compounds of two
+ *     vocabulary words, and would otherwise read as words run together.
+ *   - The short abbreviations (`hr`, `wk`, `ea`) and the last group are
+ *     ordinary instruction words that happen to be the start or end of a
+ *     longer one — `even` of `evening`, `let` of `tablet`, `via` of `vial`,
+ *     `bed` of `bedtime` — and would otherwise be flagged as that word cut
+ *     short. `hrs` and `wks` would also fail the vowel test.
+ *
+ *   - `feel`, `soon`, `skip`, `some`, `that`, `mild` and the rest of the
+ *     final line are one letter from a vocabulary word (`feet`, `noon`,
+ *     `skin`, `same`, `than`, `milk`) and would otherwise be near misses.
+ *     "Take the missed dose as soon as you remember" is common wording.
+ *
+ * Missing ones surface as false positives: safe, but add them when found.
+ *
+ * `ever` and `table` are left out on purpose. They are the likeliest
+ * surviving halves of `every` and `tablet`, and neither belongs in directions.
+ */
+
+/**
+ * Units that are meaningless without a number in front of them.
+ *
+ * Dose forms (`tablet`, `capsule`) are not here: "take tablets with food" is a
+ * complete instruction. "Take units" is not.
+ */
+const DOSE_UNITS = new Set(['unit', 'units', 'mg', 'mcg', 'ml', 'g', 'iu']);
+
+/** Plurals that, straight after `every`, mean the number between them was lost. */
+const PLURAL_INTERVALS = new Set([
+  'days', 'weeks', 'months', 'hours', 'minutes', 'nights', 'hrs', 'mins', 'wks',
+]);
+
+const SPELLED_QUANTITIES = new Set(
+  'one two three four five six seven eight nine ten eleven twelve fifteen twenty thirty forty fifty hundred thousand half'.split(
+    ' '
+  )
+);
+
+/** Letters that stand alone legitimately in directions: `a`, `3 x daily`, `1 g`. */
+const LONE_LETTERS = new Set(['a', 'x', 'g']);
+
+/**
+ * Words directions never end on. Stopping on one means the rest was cut off,
+ * and what was cut is usually the part that matters — `up to` loses its
+ * ceiling, `every` its interval.
+ */
+const DANGLING = new Set(
+  `every other to for with without within by of per at before after and or than up the
+  a an each under into onto until in on then if as not no from about your do dont may
+  can should must is be`
     .split(/\s+/)
     .filter(Boolean)
 );
@@ -173,6 +265,40 @@ function isNotAWord(word: string): boolean {
   return word.length >= 3 && /^[a-z]+$/.test(word) && !/[aeiouy]/.test(word);
 }
 
+/**
+ * The start or end of a vocabulary word, without being a word itself: `eve`
+ * of `every`, `ery` of `every`, `mor` of `morning`.
+ *
+ * This is how a label curving away from the lens, or a finger over its edge,
+ * damages text — the word is cut rather than misread, so it is too far from
+ * the original for a one-character near miss to catch. Ends need three
+ * letters to count, since two-letter endings are shared by too many words.
+ */
+function isTruncatedSigWord(word: string): boolean {
+  if (word.length < 2 || !/^[a-z]+$/.test(word)) return false;
+  for (const known of SIG_VOCABULARY) {
+    if (known.length < 4 || known.length <= word.length) continue;
+    if (known.startsWith(word)) return true;
+    if (word.length >= 3 && known.endsWith(word)) return true;
+  }
+  return false;
+}
+
+/** A number, a range, or a quantity in words — what a unit needs in front of it. */
+function isQuantity(token: string): boolean {
+  if (/[½¼¾⅓⅔]/.test(token)) return true;
+  const word = core(token);
+  return (/^\d/.test(word) && !hasLeadingZero(word)) || SPELLED_QUANTITIES.has(word);
+}
+
+/**
+ * `000`, `05` — a number with digits missing from its front. What is left of
+ * `50,000` when the `50,` is lost. `0.5` is a real quantity and is not this.
+ */
+function hasLeadingZero(word: string): boolean {
+  return /^0\d/.test(word);
+}
+
 function tokenDamage(token: string, kind: FieldKind): DamageKind | null {
   const word = core(token);
   if (word.length === 0) return null;
@@ -182,6 +308,8 @@ function tokenDamage(token: string, kind: FieldKind): DamageKind | null {
 
   if (kind !== 'instructions') return null;
 
+  if (hasLeadingZero(word)) return 'missing-number';
+
   if (NUMERIC.test(word) || isKnownSigWord(word)) return null;
 
   const fused = NUMBER_FUSED_TO_WORD.exec(word);
@@ -189,11 +317,55 @@ function tokenDamage(token: string, kind: FieldKind): DamageKind | null {
 
   if (isMergedSigWords(word)) return 'merged-words';
   if (isNearMissSigWord(word)) return 'near-miss';
+  if (isTruncatedSigWord(word)) return 'truncated';
   if (isNotAWord(word)) return 'not-a-word';
 
   // Unknown but well-formed — "hypertension", say. Not evidence of damage:
   // indications and drug-specific advice legitimately fall outside the set.
   return null;
+}
+
+/**
+ * Damage visible only in how the words of a direction relate to each other.
+ *
+ * Takes the direction's words in order and returns the positions that are
+ * wrong. Each check here is a rule a dispensed direction always follows, so a
+ * break in it is evidence of damage rather than of an unusual prescription.
+ */
+function structuralDamage(tokens: readonly string[]): { position: number; damage: DamageKind }[] {
+  const words = tokens.map(core);
+  const found: { position: number; damage: DamageKind }[] = [];
+
+  words.forEach((word, position) => {
+    const previous = position > 0 ? words[position - 1] : undefined;
+
+    // A single letter is a character that survived when the rest of its word
+    // did not: the `b` of `(b units)` is what the engine made of `50,000`.
+    // Vitamin letters are the exception that appears in directions.
+    if (/^[a-z]$/.test(word) && !LONE_LETTERS.has(word) && previous !== 'vitamin') {
+      found.push({ position, damage: 'not-a-word' });
+    }
+
+    if (DOSE_UNITS.has(word) && !(position > 0 && isQuantity(tokens[position - 1]))) {
+      found.push({ position, damage: 'missing-number' });
+    }
+
+    // "every days" is "every N days" with the N lost. Both words are marked,
+    // because the gap between them is where the damage is.
+    if (word === 'every' && PLURAL_INTERVALS.has(words[position + 1] ?? '')) {
+      found.push({ position, damage: 'missing-number' });
+      found.push({ position: position + 1, damage: 'missing-number' });
+    }
+  });
+
+  // Judged on the last word that has any letters or digits, so a trailing
+  // stray full stop does not hide a dangling `every`.
+  const last = words.map((word) => word.length > 0).lastIndexOf(true);
+  if (last >= 0 && DANGLING.has(words[last]) && !(words[last] === 'a' && words[last - 1] === 'vitamin')) {
+    found.push({ position: last, damage: 'clipped' });
+  }
+
+  return found;
 }
 
 /**
@@ -219,6 +391,15 @@ export function assessField(kind: FieldKind, text: string): FieldIntegrity {
     return { text: piece, damaged: damage !== null };
   });
 
+  if (kind === 'instructions') {
+    const wordSpans = spans.flatMap((span, index) => (/\S/.test(span.text) ? [index] : []));
+    for (const { position, damage } of structuralDamage(wordSpans.map((index) => spans[index].text))) {
+      reasons.add(damage);
+      const index = wordSpans[position];
+      spans[index] = { ...spans[index], damaged: true };
+    }
+  }
+
   const trimmed = text.trim();
 
   // A field starting or ending on punctuation lost a character to the frame
@@ -236,9 +417,10 @@ export function assessField(kind: FieldKind, text: string): FieldIntegrity {
   }
 
   // A strength is a number and a unit, and nothing else. Anything more is not
-  // a strength the app should present as one.
-  if (kind === 'dosage' && !/^\d+(\.\d+)?\s*(MG|MCG|G|ML|UNITS?|%)$/i.test(trimmed)) {
-    reasons.add('not-a-word');
+  // a strength the app should present as one — and neither is a number that
+  // has lost its front, like the `000 UNIT` left of `50,000 UNIT`.
+  if (kind === 'dosage' && !WELL_FORMED_STRENGTH.test(trimmed)) {
+    reasons.add(hasLeadingZero(trimmed) ? 'missing-number' : 'not-a-word');
   }
 
   return {
@@ -246,4 +428,44 @@ export function assessField(kind: FieldKind, text: string): FieldIntegrity {
     reasons: [...reasons],
     spans,
   };
+}
+
+/**
+ * A strength as the parser formats one: `300 MG`, `0.5 MG`, `50,000 UNIT`.
+ * Thousands are grouped in threes, and nothing but a decimal below one starts
+ * with a zero.
+ */
+const WELL_FORMED_STRENGTH =
+  /^(0|[1-9]\d{0,2}(,\d{3})+|[1-9]\d*)(\.\d+)?\s*(MG|MCG|G|ML|UNITS?|%)$/i;
+
+/**
+ * Units whose standard spelling mixes case. `5 mL` is how liquid doses are
+ * printed, and read as a word it has a capital after a lower-case letter.
+ */
+const MIXED_CASE_UNITS = new Set(['mL', 'mEq', 'dL', 'mcL']);
+
+/**
+ * A token whose capitalisation is impossible for a real word — neither all
+ * lower, all upper, nor capitalised. `FOoD` and `aTY` are the engine confusing
+ * letterforms, and a page with many of them was read badly.
+ *
+ * Lives here rather than in the parser, which also uses it, so that the
+ * parser can depend on this module without the two depending on each other.
+ */
+export function hasImpossibleCase(token: string): boolean {
+  /**
+   * Judged per part, split on hyphens and slashes. Stripping the punctuation
+   * and judging the whole token would read `L-Thyroxine` as `LThyroxine` — a
+   * capital in the middle of a word — and flag a correctly printed drug name
+   * as garbled. Hyphenated prefixes (`L-`, `D-`, `Co-`) are common on labels.
+   */
+  return token.split(/[-/]/).some((part) => {
+    const letters = part.replace(/[^A-Za-z]/g, '');
+    if (letters.length < 2 || MIXED_CASE_UNITS.has(letters)) return false;
+    return !(
+      letters === letters.toLowerCase() ||
+      letters === letters.toUpperCase() ||
+      letters === letters[0].toUpperCase() + letters.slice(1).toLowerCase()
+    );
+  });
 }

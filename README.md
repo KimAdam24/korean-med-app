@@ -31,6 +31,7 @@ usual.
 ```bash
 npm run typecheck   # app and tests
 npm run test:unit   # pure-logic tests, run on Node
+npm run eval        # OCR scorecard against real label readings
 npm run lint
 ```
 
@@ -92,15 +93,24 @@ the photograph itself; barcode-first sends eleven digits. If even that is
 unacceptable, the alternative is bundling an offline copy of the NDC directory,
 which is large but not impossible.
 
-### OCR reads text but does not yet interpret it
+### Label reading is heuristic, and measured against very few labels
 
 `modules/label-ocr` is a local Expo module: Apple Vision on iOS, ML Kit via Play
 Services on Android, both entirely on-device. It returns ordered lines of text.
 
-It does **not** yet decide which line is the drug name and which is the dose.
-`recognizeLabel` returns those lines as `rawText` with no fields populated, and
-because `needsConfirmation` treats an absent field as unconfirmed, nothing can
-present a guess as a reading. Sig parsing is the next piece.
+`sig-parser` picks the name, strength and directions out of those lines by
+content, and `field-integrity` decides whether each can be shown as a value or
+only as damaged text. Both are heuristics. The rule they are built to keep is
+that a field is either right or visibly withheld — never shown clean and wrong
+— and `src/features/ocr/eval` measures exactly that against real readings:
+`npm run eval` prints the scorecard, and the unit tests fail on any field shown
+as a value that is not what the label says.
+
+The corpus behind that is tiny: one stock template and one real vial whose
+lines are still to be added. Until it holds ten to twenty real labels, photographed
+the way users will photograph them, a clean scorecard means little. Photographs
+are never added — only the engine's lines, redacted in shape; the corpus header
+says how.
 
 We wrote this rather than taking a dependency because no community OCR library
 is both maintained and current: `expo-text-extractor`'s last substantive commit

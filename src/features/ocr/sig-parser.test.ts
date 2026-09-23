@@ -10,6 +10,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { TEMPLATE_PILLNAMELOL_LINES } from './eval/corpus.ts';
 import {
   assessReadQuality,
   classifyLine,
@@ -19,34 +20,11 @@ import {
 import type { RecognizedTextLine } from './types.ts';
 
 /**
- * Every line is null on purpose: this fixture was captured while the Android
- * module was discarding ML Kit's confidence, and it now stands in for an
- * engine that reports none.
+ * The template label from the evaluation corpus — one verbatim copy, shared,
+ * so the capture cannot drift between the two. Its confidence is null
+ * throughout; the corpus says why.
  */
-const LABEL: RecognizedTextLine[] = [
-  'ISSUED BY:',
-  'NICOLE WILSON',
-  'SMITH. NAME M.D.',
-  '123 S. MAIN ST.',
-  'V. MAIN ST.',
-  'ROSWELL, NM 12345',
-  'ROSWELL, NM 12345',
-  'MAY CAUSE DROWSINESS: TAKE WITH',
-  '300 MG PILLNAMELOL',
-  'FOOD. ALCOHOL MAY INTENSIFY THIS',
-  'TAKE 1 TABLET BY MOUTHUP TO 3 TIMES DAILY',
-  'EFFECT. USE CAUTION WHEN OPERATING',
-  'AS NEEDED. TAKE WITH FOoD.',
-  'A MOVING VEHICLE OR DANGEROUS',
-  'MACHINERY.',
-  'aTY: 20',
-  'Pharmacy ams',
-  'REFILLS REMAINING: 1',
-  'RX #:123456',
-  'EDITABLE',
-  'THMMD',
-  'TEMPLATE,',
-].map((text) => ({ text, confidence: null }));
+const LABEL = TEMPLATE_PILLNAMELOL_LINES;
 
 test('finds the drug name and strength', () => {
   const fields = parseLabelFields(LABEL);
@@ -269,4 +247,45 @@ test('flags a page full of impossible capitalisation', () => {
   }));
   const quality = assessReadQuality(garbled, parseLabelFields(garbled));
   assert.ok(quality.reasons.includes('garbled-tokens'));
+});
+
+// --- Strength: thousands, and numbers split at their comma ---------------------
+
+test('reads a strength with a thousands separator as one number', () => {
+  assert.deepEqual(splitProduct('VITAMIN D2 50,000 UNIT CAPSULE'), {
+    name: 'VITAMIN D2 CAPSULE',
+    strength: '50,000 UNIT',
+  });
+  // Leftmost strength wins, as before.
+  assert.equal(splitProduct('VITAMIN D2 1.25MG(50,000 UNIT)').strength, '1.25 MG');
+});
+
+test('never finds a strength in the tail of a split number', () => {
+  // A vitamin D label prints 1.25MG(50,000 UNIT). If the line wraps at the
+  // comma, the second half must not pass for a strength of its own.
+  assert.notEqual(classifyLine('000 UNIT)'), 'product');
+  assert.deepEqual(splitProduct('000 UNIT CAPSULE'), {});
+  assert.deepEqual(splitProduct('(50,00 UNIT)'), {});
+  // Nor in the digit of a name like D2.
+  assert.deepEqual(splitProduct('VITAMIN D2'), {});
+});
+
+// --- Verdict: judged by what the reader would be shown -------------------------
+
+test('calls a read degraded when two of three fields failed', () => {
+  // The Vitamin D2 vial as it came back: no product line survived, and the
+  // directions were damaged. Nothing on the page tripped the older signals.
+  const vial: RecognizedTextLine[] = [
+    { text: 'Take 1 capsule (b units) by mouth eve days', confidence: 0.9 },
+  ];
+  const quality = assessReadQuality(vial, parseLabelFields(vial));
+  assert.equal(quality.level, 'degraded');
+  assert.ok(quality.reasons.includes('fields-unreadable'));
+});
+
+test('does not call a read degraded for one missing field', () => {
+  // A photo of the front of the bottle: name and strength, no directions.
+  const front: RecognizedTextLine[] = [{ text: 'PILLNAMELOL 300 MG', confidence: 0.9 }];
+  const quality = assessReadQuality(front, parseLabelFields(front));
+  assert.equal(quality.level, 'ok', `unexpected reasons: ${quality.reasons.join(', ')}`);
 });

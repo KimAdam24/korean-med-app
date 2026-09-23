@@ -12,7 +12,7 @@ import { addMedication } from '@/features/medications/medication-store';
 
 import { LabelOcr } from '../../../modules/label-ocr';
 import { DevLineList, logRecognizedLines } from './dev-line-list';
-import { interpretLines } from './device-recognizer';
+import { interpretLines } from './interpret-lines';
 import { assessField, type FieldKind } from './field-integrity';
 import { medicationFromReading } from './reading-to-record';
 import {

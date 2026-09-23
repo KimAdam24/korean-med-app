@@ -2,6 +2,7 @@
 // This is a value import, so it survives type erasure and has to resolve under
 // Node when the tests run — and Node knows nothing about the bundler's alias.
 import { nearestIngredient } from '../drugs/ingredients.ts';
+import { assessField, hasImpossibleCase } from './field-integrity.ts';
 
 import type {
   ExtractedField,
@@ -65,8 +66,32 @@ const UNKNOWN_ENGINE_CONFIDENCE = 0.5;
  */
 const MAX_STRUCTURAL_CONFIDENCE = 0.75;
 
-/** Strength as printed: a number, optional decimal, and a dose unit. */
-const STRENGTH = /\b(\d+(?:\.\d+)?)\s*(MG|MCG|G|ML|UNITS?|%)\b/i;
+/**
+ * Strength as printed: a number, optional decimal, and a dose unit.
+ *
+ * The number is read strictly. A vitamin D label prints `1.25MG(50,000 UNIT)`,
+ * and a looser pattern splits `50,000` at its comma and finds `000 UNIT` — a
+ * strength that looks well-formed and is not on the label. Thousands are
+ * therefore grouped in threes, nothing but a decimal below one starts with a
+ * zero, and `findStrength` rejects a match that begins inside another number.
+ */
+const STRENGTH = /(0|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(\.\d+)?\s*(MG|MCG|G|ML|UNITS?|%)\b/gi;
+
+function findStrength(text: string): { index: number; length: number; strength: string } | null {
+  for (const match of text.matchAll(STRENGTH)) {
+    // Starting mid-number (`0 UNIT` inside `000 UNIT`) or mid-word (the `2`
+    // of `D2`) means this is not where the strength begins.
+    const before = match.index > 0 ? text[match.index - 1] : '';
+    if (/[A-Za-z0-9.,]/.test(before)) continue;
+
+    return {
+      index: match.index,
+      length: match[0].length,
+      strength: `${match[1]}${match[2] ?? ''} ${match[3].toUpperCase()}`,
+    };
+  }
+  return null;
+}
 
 /** How a direction line opens. Route and frequency follow; the verb leads. */
 const SIG_OPENER =
@@ -154,7 +179,7 @@ export function classifyLine(text: string): LineRole {
 
   // A strength is the strongest single signal that a line names the product,
   // but only once everything that legitimately contains numbers is excluded.
-  if (STRENGTH.test(trimmed)) return 'product';
+  if (findStrength(trimmed)) return 'product';
 
   return 'unknown';
 }
@@ -168,15 +193,14 @@ export function classifyLine(text: string): LineRole {
  * box, and a reformatted name is a worse match than a shouted one.
  */
 export function splitProduct(text: string): { name?: string; strength?: string } {
-  const match = STRENGTH.exec(text);
-  if (!match) return {};
+  const found = findStrength(text);
+  if (!found) return {};
 
-  const strength = `${match[1]} ${match[2].toUpperCase()}`;
-  const name = `${text.slice(0, match.index)} ${text.slice(match.index + match[0].length)}`
+  const name = `${text.slice(0, found.index)} ${text.slice(found.index + found.length)}`
     .replace(/\s+/g, ' ')
     .trim();
 
-  return { name: name.length > 0 ? name : undefined, strength };
+  return { name: name.length > 0 ? name : undefined, strength: found.strength };
 }
 
 function field(text: string, lines: readonly RecognizedTextLine[]): ExtractedField {
@@ -294,29 +318,6 @@ function withContinuations(
   return collected;
 }
 
-/**
- * A token whose capitalisation is impossible for a real word — neither all
- * lower, all upper, nor capitalised. `FOoD` and `aTY` are the engine confusing
- * letterforms, and a page with many of them was read badly.
- */
-export function hasImpossibleCase(token: string): boolean {
-  /**
-   * Judged per part, split on hyphens and slashes. Stripping the punctuation
-   * and judging the whole token would read `L-Thyroxine` as `LThyroxine` — a
-   * capital in the middle of a word — and flag a correctly printed drug name
-   * as garbled. Hyphenated prefixes (`L-`, `D-`, `Co-`) are common on labels.
-   */
-  return token.split(/[-/]/).some((part) => {
-    const letters = part.replace(/[^A-Za-z]/g, '');
-    if (letters.length < 2) return false;
-    return !(
-      letters === letters.toLowerCase() ||
-      letters === letters.toUpperCase() ||
-      letters === letters[0].toUpperCase() + letters.slice(1).toLowerCase()
-    );
-  });
-}
-
 /** Above this share of impossible-case tokens, treat the whole read as suspect. */
 const GARBLED_TOKEN_RATIO = 0.25;
 
@@ -385,6 +386,24 @@ export function assessReadQuality(
   const understood = Boolean(fields.name || fields.dosage || fields.instructions);
   if (!understood && lines.length >= 5) {
     reasons.push('nothing-understood');
+  }
+
+  /**
+   * Two or more of the three fields are missing or damaged.
+   *
+   * The signals above look at the page. This one looks at what the reader
+   * would be shown, and it exists because a read can be unremarkable on the
+   * page — no clipped name, no garbled casing — and still leave one usable
+   * field out of three. The vial that prompted it came back with no name, no
+   * strength and damaged directions, under a calm "compare this with the
+   * bottle". There was nothing to compare; the thing to do was retake it.
+   */
+  const failed = (['name', 'dosage', 'instructions'] as const).filter((kind) => {
+    const text = fields[kind]?.text;
+    return !text || assessField(kind, text).level === 'damaged';
+  }).length;
+  if (failed >= 2) {
+    reasons.push('fields-unreadable');
   }
 
   return { level: reasons.length > 0 ? 'degraded' : 'ok', reasons };
