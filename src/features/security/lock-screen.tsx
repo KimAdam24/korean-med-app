@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
@@ -7,11 +7,19 @@ import { Icon } from '@/components/icon';
 import { PinPad } from '@/components/pin-pad';
 import { ALL_EDGES, Screen } from '@/components/screen';
 import { IconSize } from '@/constants/theme';
+import { clearProfile } from '@/features/medications/medication-store';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, formatLockout, type Bilingual } from '@/i18n/strings';
 
 import { useAppLock } from './app-lock-context';
-import { PIN_LENGTH, isWellFormedPin, lockoutRemainingMs, setPin, verifyPin } from './pin';
+import {
+  PIN_LENGTH,
+  clearPin,
+  isWellFormedPin,
+  lockoutRemainingMs,
+  setPin,
+  verifyPin,
+} from './pin';
 
 /**
  * The screen shown in front of the medication profile (spec §3.3).
@@ -55,6 +63,18 @@ export function LockScreen() {
       pinAvailable={capability.pinSet}
       onDeviceUnlock={requestDeviceUnlock}
       onPinAccepted={markUnlocked}
+      // Only where the phone has no lock of its own. There, nothing else can
+      // prove who is holding it, so a forgotten PIN has one honest way out —
+      // and it had none: the erase lived in Settings, behind this very lock.
+      onEraseEverything={
+        capability.deviceSecured
+          ? undefined
+          : async () => {
+              await clearProfile();
+              await clearPin();
+              await refresh();
+            }
+      }
     />
   );
 }
@@ -66,11 +86,13 @@ function Unlock({
   pinAvailable,
   onDeviceUnlock,
   onPinAccepted,
+  onEraseEverything,
 }: {
   canUseDevice: boolean;
   pinAvailable: boolean;
   onDeviceUnlock: () => Promise<{ kind: string }>;
   onPinAccepted: () => void;
+  onEraseEverything?: () => Promise<void>;
 }) {
   // Start on the PIN when the OS has nothing to offer, so the user is not shown
   // a button that cannot work.
@@ -109,11 +131,30 @@ function Unlock({
    * Prompt once, unattended, when the screen first appears — the behaviour of
    * every banking app this user has met. The ref guards against a second prompt
    * from a re-render, which throws on iOS while one is already open.
+   *
+   * Only while the app is in front. This screen also appears as the app goes
+   * to the background — that is what locking on leave means — and a prompt
+   * started then is dropped by Android without ever answering, which left the
+   * unlock button doing nothing until the app was force-quit. It waits for the
+   * user to come back instead.
    */
   useEffect(() => {
     if (prompted.current || showPin || !canUseDevice) return;
-    prompted.current = true;
-    void tryDevice();
+
+    const promptOnce = () => {
+      if (prompted.current) return;
+      prompted.current = true;
+      void tryDevice();
+    };
+
+    if (AppState.currentState === 'active') {
+      promptOnce();
+      return;
+    }
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') promptOnce();
+    });
+    return () => subscription.remove();
   }, [canUseDevice, showPin, tryDevice]);
 
   if (showPin) {
@@ -121,6 +162,7 @@ function Unlock({
       <EnterPin
         message={message}
         onAccepted={onPinAccepted}
+        onEraseEverything={onEraseEverything}
         onUseDevice={canUseDevice ? () => {
           setMessage(null);
           setShowPin(false);
@@ -161,26 +203,47 @@ function EnterPin({
   message,
   onAccepted,
   onUseDevice,
+  onEraseEverything,
 }: {
   message: Bilingual | null;
   onAccepted: () => void;
   onUseDevice?: () => void;
+  onEraseEverything?: () => Promise<void>;
 }) {
   const [pin, setPinValue] = useState('');
   const [error, setError] = useState<Bilingual | null>(message);
   const [lockedMs, setLockedMs] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState<'no' | 'explain' | 'confirm' | 'erasing'>('no');
 
   // A lockout begun in a previous session is still running; find out before the
   // user spends an attempt discovering it.
   useEffect(() => {
-    lockoutRemainingMs().then((remaining) => {
-      if (remaining > 0) {
-        setLockedMs(remaining);
-        setError(formatLockout(Strings.pin.lockedOut, remaining));
+    lockoutRemainingMs().then(
+      (remaining) => {
+        if (remaining > 0) {
+          setLockedMs(remaining);
+          setError(formatLockout(Strings.pin.lockedOut, remaining));
+        }
+      },
+      () => {
+        // Unknown is not locked; the next attempt will say if it is.
       }
-    });
+    );
   }, []);
+
+  /**
+   * Re-opens the keypad when a lockout ends. Nothing did: the pad stayed
+   * disabled for good, under a message saying to try again in a minute.
+   */
+  useEffect(() => {
+    if (lockedMs <= 0) return;
+    const timer = setTimeout(() => {
+      setLockedMs(0);
+      setError(null);
+    }, lockedMs);
+    return () => clearTimeout(timer);
+  }, [lockedMs]);
 
   const submit = useCallback(
     async (candidate: string) => {
@@ -210,6 +273,12 @@ function EnterPin({
             setPinValue('');
             setError(Strings.lock.biometricUnavailable);
         }
+      } catch {
+        // A stored PIN record that cannot be read. Not a wrong guess, and not
+        // a crash: the entry is cleared, and on a phone without its own lock
+        // the way out below is still there.
+        setPinValue('');
+        setError(Strings.lock.rejected);
       } finally {
         setBusy(false);
       }
@@ -225,6 +294,58 @@ function EnterPin({
     if (next.length === PIN_LENGTH) void submit(next);
   };
 
+  if (forgot === 'erasing') {
+    return (
+      <Sheet>
+        <ActivityIndicator size="large" />
+      </Sheet>
+    );
+  }
+
+  if (forgot === 'explain' && onEraseEverything) {
+    return (
+      <Sheet scroll>
+        <BilingualText text={Strings.settings.forgotPin} variant="heading" align="center" />
+        <BilingualText text={Strings.settings.forgotPinNoDevice} align="center" />
+        <BigButton
+          label={Strings.settings.eraseTitle}
+          icon="erase"
+          tone="caution"
+          onPress={() => setForgot('confirm')}
+        />
+        <BigButton
+          label={Strings.medications.cancel}
+          tone="secondary"
+          onPress={() => setForgot('no')}
+        />
+      </Sheet>
+    );
+  }
+
+  if (forgot === 'confirm' && onEraseEverything) {
+    // The same question Settings asks, with the way out first.
+    return (
+      <Sheet scroll>
+        <BilingualText text={Strings.settings.eraseTitle} variant="heading" align="center" />
+        <BilingualText text={Strings.settings.eraseBody} align="center" />
+        <BigButton label={Strings.medications.cancel} onPress={() => setForgot('no')} />
+        <BigButton
+          label={Strings.settings.eraseConfirm}
+          icon="erase"
+          tone="caution"
+          onPress={async () => {
+            setForgot('erasing');
+            try {
+              await onEraseEverything();
+            } catch {
+              setForgot('confirm');
+            }
+          }}
+        />
+      </Sheet>
+    );
+  }
+
   return (
     <Sheet scroll>
       <LockEmblem />
@@ -236,6 +357,13 @@ function EnterPin({
 
       {onUseDevice && (
         <BigButton label={Strings.lock.useDevice} tone="secondary" onPress={onUseDevice} />
+      )}
+      {onEraseEverything && (
+        <BigButton
+          label={Strings.settings.forgotPin}
+          tone="secondary"
+          onPress={() => setForgot('explain')}
+        />
       )}
     </Sheet>
   );
@@ -280,6 +408,10 @@ function CreatePin({ onCreated }: { onCreated: () => void }) {
       try {
         await setPin(next);
         onCreated();
+      } catch {
+        // Not saved. Start again rather than leave a pad that did nothing.
+        setFirst(null);
+        setPinValue('');
       } finally {
         setBusy(false);
       }

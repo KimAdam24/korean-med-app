@@ -84,6 +84,8 @@ export function DevFileProbe() {
 
       setState({ kind: 'reading' });
 
+      // The picker's cache copy is kept while the probe shows its preview,
+      // and removed by the launch sweep (`sweepPhotoCaches`). Development only.
       const file = new File(picked.uri);
       const lines = await LabelOcr.recognizeTextAsync(picked.uri);
       logRecognizedLines('file', lines);

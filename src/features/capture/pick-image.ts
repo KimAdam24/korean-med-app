@@ -11,14 +11,15 @@ import * as ImagePicker from 'expo-image-picker';
  * better input, not a worse one, and it reads better too: no motion blur, no
  * autofocus hunting.
  *
- * ## Why the user's file is never touched
+ * ## What is deleted, and what never is
  *
- * `withTransientCapture` owns the photograph it takes and deletes it, because
- * the app created it. This is the opposite case: the file belongs to the user
- * and predates us. It is read and nothing else — not copied, not moved, and
- * emphatically not deleted. The §4 guarantee was never really "photos are
- * deleted"; it is "the image is never kept or sent", which holds for both paths
- * by different means.
+ * The picker does not hand over the user's file. It writes a full-resolution
+ * copy into this app's cache — `ImagePicker/`, on both platforms — and returns
+ * that. An earlier version of this comment said the image was "not copied",
+ * which was wrong, and the copy was left behind. The copy is the app's, so it
+ * is deleted once read (`discardPickedCopy`), as a camera capture is; the
+ * original in the user's library is never touched. The §4 guarantee — the
+ * image is never kept or sent — holds for both paths the same way.
  *
  * ## Permissions
  *
@@ -29,7 +30,10 @@ import * as ImagePicker from 'expo-image-picker';
  */
 
 export type PickedImage = {
-  /** A file URI the recogniser can read. Belongs to the user; do not delete it. */
+  /**
+   * The picker's copy in this app's cache — never the user's original. Delete
+   * it with `discardPickedCopy` once read.
+   */
   readonly uri: string;
   readonly width: number;
   readonly height: number;

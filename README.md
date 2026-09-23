@@ -9,6 +9,10 @@ Two rules shape most of the design decisions in this repo:
 - **Photographs are never stored.** An image exists only long enough to be read,
   and the capture path deletes it before returning — and refuses to hand back
   pixels it could not delete. See `src/features/capture/transient-capture.ts`.
+  A photo chosen from the gallery arrives as the picker's copy in the app's
+  cache, never the user's original, and that copy is deleted the same way. Both
+  caches are emptied at every launch, for a run that died mid-read. See
+  `src/features/capture/photo-caches.ts`.
 - **The profile is the user's alone.** Medication records are encrypted at rest
   under a key that never leaves this device's keychain. See
   `src/features/security/`.
@@ -156,6 +160,16 @@ hyphens that would say which. Each scan therefore yields up to three candidate
 11-digit codes, and RxNorm is asked about all of them. Usually exactly one
 exists. When more than one does, the app asks the user rather than picking —
 `src/features/drugs/ndc.ts` explains why at length.
+
+### The app switcher can show medication data
+
+iOS snapshots the screen for the app switcher, and Android for recents, as the
+app leaves the foreground — before the lock has redrawn. Someone holding the
+unlocked phone can read medicine names there. `expo-screen-capture` covers
+both (`enableAppSwitcherProtectionAsync` on iOS, `FLAG_SECURE` on Android), but
+it is a new native dependency, and on Android it also blocks screenshots —
+which a caregiver may rely on to share a list. Not added until that trade is
+decided.
 
 ### The PIN lockout can be shortened by changing the device clock
 

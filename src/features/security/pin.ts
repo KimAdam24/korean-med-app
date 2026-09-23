@@ -203,7 +203,25 @@ export type PinVerification =
   /** No PIN has been set, so there is nothing to verify against. */
   | { readonly outcome: 'not-set' };
 
-export async function verifyPin(pin: string): Promise<PinVerification> {
+/**
+ * Checks a PIN, one check at a time.
+ *
+ * The attempt counter is a read-modify-write in SecureStore. Run concurrently —
+ * digits typed while a check is still deriving its key — six wrong guesses
+ * were counted as one and the lockout never began.
+ */
+export function verifyPin(pin: string): Promise<PinVerification> {
+  const run = pendingCheck.then(
+    () => checkPin(pin),
+    () => checkPin(pin)
+  );
+  pendingCheck = run.catch(() => undefined);
+  return run;
+}
+
+let pendingCheck: Promise<unknown> = Promise.resolve();
+
+async function checkPin(pin: string): Promise<PinVerification> {
   const remaining = await lockoutRemainingMs();
   if (remaining > 0) {
     return { outcome: 'locked-out', lockedForMs: remaining };

@@ -167,3 +167,19 @@ export async function unlockWithDevice(promptMessage: string, cancelLabel: strin
 
 /** Re-exported so the lock screen imports one module rather than two. */
 export { verifyPin, type PinVerification };
+
+/**
+ * Abandons an authentication prompt that will never answer.
+ *
+ * Android only, where it is needed: a prompt started while the app is going to
+ * the background is silently dropped by the system, and its promise never
+ * settles. iOS has nothing to cancel and no equivalent call.
+ */
+export async function cancelPendingUnlock(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    await LocalAuthentication.cancelAuthenticate();
+  } catch {
+    // Nothing was pending after all.
+  }
+}

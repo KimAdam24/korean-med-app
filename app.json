@@ -20,7 +20,9 @@
       },
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
-        "android.permission.READ_EXTERNAL_STORAGE"
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ],
       "permissions": [
         "android.permission.CAMERA",
@@ -39,6 +41,7 @@
         "expo-camera",
         {
           "cameraPermission": "약병의 글씨를 읽기 위해 카메라를 사용합니다. 사진은 저장하지 않습니다.",
+          "microphonePermission": false,
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }
@@ -67,7 +70,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": false
+          "photosPermission": false,
+          "microphonePermission": false
         }
       ],
       "./modules/label-ocr/app.plugin.js"

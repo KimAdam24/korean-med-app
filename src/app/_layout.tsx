@@ -1,7 +1,9 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
+import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { sweepPhotoCaches } from '@/features/capture/photo-caches';
 import { AppLockProvider, useAppLock } from '@/features/security/app-lock-context';
 import { LockScreen } from '@/features/security/lock-screen';
 import { Strings } from '@/i18n/strings';
@@ -33,6 +35,12 @@ function navigationTheme(scheme: 'light' | 'dark'): Theme {
 
 export default function RootLayout() {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+
+  // Anything in the photo caches at launch was left by a run that did not
+  // finish reading it. See `photo-caches`.
+  useEffect(() => {
+    sweepPhotoCaches();
+  }, []);
 
   return (
     <ThemeProvider value={navigationTheme(scheme)}>

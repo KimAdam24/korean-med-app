@@ -142,7 +142,9 @@ function discardCaptureFile(uri: string): void {
   // Web never wrote a file: `uri` is the image itself, as a data URL, and it
   // becomes unreachable when the caller's reference goes out of scope.
   if (Platform.OS === 'web') return;
-  if (!uri.startsWith('file://')) return;
+  // On a device every capture is a file. Anything else cannot be deleted from
+  // here, so it must not be reported as deleted.
+  if (!uri.startsWith('file://')) throw new PhotoNotDiscardedError();
 
   const file = new File(uri);
   try {

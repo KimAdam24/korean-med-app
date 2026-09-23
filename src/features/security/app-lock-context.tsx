@@ -1,9 +1,27 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
 
 import { Strings } from '@/i18n/strings';
 
-import { probeLockCapability, unlockWithDevice, type LockCapability, type UnlockOutcome } from './app-lock';
+import {
+  cancelPendingUnlock,
+  probeLockCapability,
+  unlockWithDevice,
+  type LockCapability,
+  type UnlockOutcome,
+} from './app-lock';
+import { forgetPreviousInstall } from './install-marker';
+
+/**
+ * How long the app may sit behind system UI it opened before that stops
+ * counting as the user still being here. Generous, because choosing a photo
+ * can take a while for someone unfamiliar with the gallery; finite, because a
+ * picker left open on a phone put down is not a reason to stay unlocked.
+ */
+const SYSTEM_UI_GRACE_MS = 5 * 60_000;
+
+const lockIfUnlocked = (current: LockStatus): LockStatus =>
+  current === 'unlocked' ? 'locked' : current;
 
 /**
  * Holds whether the app is currently unlocked (spec §3.3).
@@ -88,9 +106,24 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    probeLockCapability().then((next) => {
-      if (!cancelled) applyCapability(next);
-    });
+    // A failed probe used to leave the lock screen on "checking" for good.
+    // It is retried a few times before giving up; SecureStore failures are
+    // transient far more often than not.
+    const attempt = (remaining: number) => {
+      probeLockCapability().then(
+        (next) => {
+          if (!cancelled) applyCapability(next);
+        },
+        () => {
+          if (!cancelled && remaining > 0) setTimeout(() => attempt(remaining - 1), 1000);
+        }
+      );
+    };
+    // Before the first probe, which would otherwise find a previous
+    // installation's PIN. Failure to check is not a reason to stop.
+    forgetPreviousInstall()
+      .catch(() => undefined)
+      .finally(() => attempt(3));
     return () => {
       cancelled = true;
     };
@@ -112,10 +145,37 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
    * arrives to a component that no longer exists and the interaction silently
    * fails. `systemUi` marks those windows so they are not mistaken for leaving.
    */
+  const backgroundedBehindSystemUi = useRef<number | null>(null);
+
   useEffect(() => {
     const onChange = (next: AppStateStatus) => {
-      if (next === 'background' && systemUi.current === 0) {
-        setStatus((current) => (current === 'unlocked' ? 'locked' : current));
+      if (next === 'background') {
+        // iOS never backgrounds the app for the system UI it opens — pickers,
+        // permission alerts and Face ID all come up over it as `inactive` —
+        // so there a background is the user leaving, whatever is open.
+        if (systemUi.current === 0 || Platform.OS === 'ios') {
+          setStatus(lockIfUnlocked);
+        } else {
+          backgroundedBehindSystemUi.current = Date.now();
+        }
+        return;
+      }
+
+      if (next === 'active' && backgroundedBehindSystemUi.current !== null) {
+        const away = Date.now() - backgroundedBehindSystemUi.current;
+        backgroundedBehindSystemUi.current = null;
+        if (away <= SYSTEM_UI_GRACE_MS) return;
+
+        // Gone too long to still be answering the picker. Anything still
+        // counted as open is stuck — most likely a device prompt the system
+        // dropped — and would otherwise keep the app unlocked, and the next
+        // prompt blocked, for the rest of the session.
+        setStatus(lockIfUnlocked);
+        systemUi.current = 0;
+        if (authenticating.current) {
+          authenticating.current = false;
+          void cancelPendingUnlock();
+        }
       }
     };
     const subscription = AppState.addEventListener('change', onChange);

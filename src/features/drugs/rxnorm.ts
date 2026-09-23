@@ -190,9 +190,13 @@ export async function resolveNdcCandidates(
       candidates.map((candidate) => lookupOne(candidate, controller.signal))
     );
 
-    // If every request failed at the transport level we never learned anything,
-    // which is "offline" rather than "not found".
-    if (settled.every((outcome) => outcome.status === 'rejected')) {
+    // If any request failed at the transport level, what came back is only
+    // part of the answer. A single match among candidates where another could
+    // not be checked is not an identification — the unchecked one might have
+    // matched too, and "which of these two" is exactly the question that must
+    // not be settled by a timeout. So a partial failure is "offline", as a
+    // total one is.
+    if (settled.some((outcome) => outcome.status === 'rejected')) {
       return { status: 'offline' };
     }
 

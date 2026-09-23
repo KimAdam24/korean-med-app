@@ -60,6 +60,9 @@ export default function SettingsScreen() {
   const { capability, requestDeviceUnlock, refresh } = useAppLock();
   const [step, setStep] = useState<Step>({ kind: 'menu' });
   const [entry, setEntry] = useState('');
+  // The pad is closed while a check runs, so a guess cannot be typed ahead of
+  // the answer to the last one.
+  const [checking, setChecking] = useState(false);
 
   const erase = useCallback(async () => {
     setStep({ kind: 'working' });
@@ -84,7 +87,16 @@ export default function SettingsScreen() {
       setEntry('');
 
       if (step.stage === 'current') {
-        const result = await verifyPin(next);
+        setChecking(true);
+        let result: Awaited<ReturnType<typeof verifyPin>>;
+        try {
+          result = await verifyPin(next);
+        } catch {
+          setStep({ kind: 'change-pin', stage: 'current', error: Strings.lock.rejected });
+          return;
+        } finally {
+          setChecking(false);
+        }
         if (result.outcome === 'correct') {
           setStep({ kind: 'change-pin', stage: 'new' });
         } else {
@@ -224,7 +236,12 @@ export default function SettingsScreen() {
           <BilingualText text={step.error} variant="label" align="center" color={theme.warnText} />
         ) : null}
 
-        <PinPad value={entry} length={PIN_LENGTH} onChange={handlePinEntry} />
+        <PinPad
+          value={entry}
+          length={PIN_LENGTH}
+          onChange={handlePinEntry}
+          disabled={checking}
+        />
 
         <View style={styles.pinActions}>
           {step.stage === 'current' ? (

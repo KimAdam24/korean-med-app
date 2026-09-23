@@ -1,6 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 
 import {
+  VaultUnreadableError,
   destroyVault,
   mutateVault,
   readVault,
@@ -97,14 +98,26 @@ export async function loadProfile(): Promise<ProfileLoadResult> {
  * All mutations funnel through here so every one of them is a single atomic
  * read-modify-write, and so a document the app cannot parse is never silently
  * replaced by one it can.
+ *
+ * That promise was not kept until a review found the fallback: a document
+ * this build could not parse was treated as empty, so saving one new medicine
+ * — after an app update rolled back, say — replaced the whole list with it. A
+ * document in a shape this build does not know is now refused outright, and a
+ * record it cannot read is written back exactly as it was found rather than
+ * dropped: it may be perfectly good data from a newer version.
  */
 function updateProfile(
   change: (profile: MedicationProfile) => MedicationProfile
 ): Promise<MedicationProfile> {
-  return mutateVault<MedicationProfile>(EMPTY_PROFILE, (current) => {
-    const parsed = parseProfile(current) ?? EMPTY_PROFILE;
-    return change(parsed);
-  });
+  return mutateVault<unknown>(EMPTY_PROFILE, (current) => {
+    const parsed = parseProfile(current);
+    if (!parsed) throw new VaultUnreadableError('undecryptable');
+
+    const raw = (current as { medications: unknown[] }).medications;
+    const unreadable = raw.filter((record) => !isMedicationRecord(record));
+    const next = change(parsed);
+    return { ...(current as object), ...next, medications: [...next.medications, ...unreadable] };
+  }).then((written) => parseProfile(written) ?? EMPTY_PROFILE);
 }
 
 export async function addMedication(input: NewMedication): Promise<MedicationRecord> {

@@ -104,6 +104,13 @@ async function readUnlocked<T>(): Promise<VaultReadResult<T>> {
   const key = await loadVaultKey();
 
   if (!file.exists) {
+    // A replace that was interrupted between removing the old file and moving
+    // the new one into place leaves the new one as the temp file. Reporting
+    // "empty" then would tell the user their medicines are gone while they sit
+    // beside it — and the next write would overwrite them for good.
+    const recovered = key ? await recoverInterruptedWrite<T>(key) : null;
+    if (recovered) return recovered;
+
     // No file and no key is a first run. No file but a key is also fine: the
     // key was created eagerly and nothing has been saved through it yet.
     return { status: 'empty' };
@@ -113,6 +120,35 @@ async function readUnlocked<T>(): Promise<VaultReadResult<T>> {
     return { status: 'unrecoverable', reason: 'key-missing' };
   }
 
+  return open<T>(file, key);
+}
+
+/**
+ * Promotes the temp file to the vault if it holds a complete document. The
+ * GCM tag is the proof: a temp file cut short by the interruption fails it,
+ * and is left alone as the stale leftover it is.
+ */
+async function recoverInterruptedWrite<T>(
+  key: Awaited<ReturnType<typeof loadVaultKey>> & object
+): Promise<VaultReadResult<T> | null> {
+  const temp = new File(vaultDirectory(), VAULT_TEMP_FILENAME);
+  if (!temp.exists) return null;
+
+  const result = await open<T>(temp, key);
+  if (result.status !== 'ok') return null;
+
+  try {
+    temp.moveSync(vaultFile(), { overwrite: true });
+  } catch {
+    // Still readable from where it is; the next read tries the move again.
+  }
+  return result;
+}
+
+async function open<T>(
+  file: File,
+  key: Awaited<ReturnType<typeof loadVaultKey>> & object
+): Promise<VaultReadResult<T>> {
   try {
     const stored = await file.bytes();
     if (stored.length === 0 || stored[0] !== FORMAT_VERSION) {
@@ -218,4 +254,12 @@ export function destroyVault(): Promise<void> {
       }
     }
   });
+}
+
+/**
+ * Whether a vault file is on disk, complete or mid-replace. Used only to tell a
+ * fresh installation from an existing one; says nothing about readability.
+ */
+export function hasStoredVault(): boolean {
+  return vaultFile().exists || new File(vaultDirectory(), VAULT_TEMP_FILENAME).exists;
 }

@@ -23,6 +23,7 @@ import { Icon, type IconName } from '@/components/icon';
 import { ReadingField } from '@/components/reading-field';
 import { CameraChrome, Fonts, Radius, Spacing } from '@/constants/theme';
 import { probeCapture, type CaptureProbe } from '@/features/capture/dev-capture-probe';
+import { discardPickedCopy } from '@/features/capture/photo-caches';
 import {
   PhotoNotDiscardedError,
   withTransientCapture,
@@ -129,6 +130,20 @@ export default function CameraScreen() {
   const scanning = useRef(false);
 
   /**
+   * Whether this screen is still open. A barcode save waits on a network
+   * lookup for up to several seconds; closed in the meantime, the user may
+   * already be erasing everything in Settings, and a save landing afterwards
+   * would put a medicine — and a new key — into the profile they just erased.
+   */
+  const open = useRef(true);
+  useEffect(
+    () => () => {
+      open.current = false;
+    },
+    []
+  );
+
+  /**
    * Tells a screen-reader user, the moment a result appears, if any of it
    * could not be read.
    *
@@ -162,9 +177,11 @@ export default function CameraScreen() {
    * both paths end in the same fields, the same quality verdict and the same
    * save, and two copies of that would drift.
    *
-   * The file is the user's. It is read and nothing else — no
-   * `withTransientCapture`, because that function's contract is to delete what
-   * it was given, which would destroy a photograph the app did not create.
+   * The picker never hands over the user's original — only a copy it wrote
+   * into this app's cache, which is ours and is deleted once read, exactly as
+   * a camera capture is. The original in the user's library is never touched.
+   * If the copy cannot be deleted, that is reported instead of the reading,
+   * as it is for the camera.
    */
   const { imageUri } = useLocalSearchParams<{ imageUri?: string }>();
   const readImported = useRef(false);
@@ -175,34 +192,27 @@ export default function CameraScreen() {
 
     (async () => {
       setPhase({ kind: 'reading' });
+      let next: Phase;
       try {
         const lines = await LabelOcr.recognizeTextAsync(imageUri);
         // Development builds only, like the camera path: these lines are what
         // an evaluation entry is made from.
         logRecognizedLines('photo', lines);
         const result = interpretLines(lines);
-        if (result.status === 'recognized') {
-          setPhase({
-            kind: 'result',
-            fields: result.fields,
-            lines: result.lines,
-            quality: result.quality,
-          });
-        } else {
-          setPhase({
-            kind: 'problem',
-            message: Strings.problem.unreadable,
-            // Nothing was captured, so there is no photo of ours to report on.
-            photoDiscarded: true,
-          });
-        }
+        next =
+          result.status === 'recognized'
+            ? { kind: 'result', fields: result.fields, lines: result.lines, quality: result.quality }
+            : { kind: 'problem', message: Strings.problem.unreadable, photoDiscarded: true };
       } catch {
-        setPhase({
-          kind: 'problem',
-          message: Strings.problem.captureFailed,
-          photoDiscarded: true,
-        });
+        next = { kind: 'problem', message: Strings.problem.captureFailed, photoDiscarded: true };
       }
+
+      try {
+        discardPickedCopy(imageUri);
+      } catch {
+        next = { kind: 'problem', message: Strings.problem.notDiscarded, photoDiscarded: false };
+      }
+      setPhase(next);
     })();
   }, [imageUri]);
 
@@ -269,6 +279,7 @@ export default function CameraScreen() {
        * treating as safe.
        */
       const ingredients = await fetchIngredients(drug.rxcui);
+      if (!open.current) return;
 
       await addMedication({
         // RxNorm's concept name, verbatim. Not translated and not reformatted —

@@ -26,29 +26,15 @@ export function useProfile(): {
   const [state, setState] = useState<ProfileState>({ status: 'loading' });
 
   const read = useCallback(async () => {
-    const result: ProfileLoadResult = await loadProfile();
-
-    switch (result.status) {
-      case 'ok':
-        setState({ status: 'ready', profile: result.value });
-        return;
-      case 'empty':
-        // Nothing saved yet is a perfectly good profile with no medicines in
-        // it, not a failure to read one.
-        setState({ status: 'ready', profile: EMPTY_PROFILE });
-        return;
-      case 'unrecoverable':
-        setState({ status: 'unrecoverable', reason: result.reason });
-    }
+    setState(stateFor(await loadWithRetry()));
   }, []);
 
+  // A `then` rather than calling `read`: state is set when the read answers,
+  // never synchronously inside the effect.
   useEffect(() => {
     let cancelled = false;
-    loadProfile().then((result) => {
-      if (cancelled) return;
-      if (result.status === 'ok') setState({ status: 'ready', profile: result.value });
-      else if (result.status === 'empty') setState({ status: 'ready', profile: EMPTY_PROFILE });
-      else setState({ status: 'unrecoverable', reason: result.reason });
+    void loadWithRetry().then((result) => {
+      if (!cancelled) setState(stateFor(result));
     });
     return () => {
       cancelled = true;
@@ -56,4 +42,34 @@ export function useProfile(): {
   }, []);
 
   return { state, reload: read };
+}
+
+/**
+ * A thrown read — a keychain call that failed — is not the same as data that
+ * cannot be decrypted, and often succeeds a moment later. It used to leave the
+ * screen on "loading" for good. One retry, then the honest answer.
+ */
+async function loadWithRetry(): Promise<ProfileLoadResult | 'failed'> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await loadProfile();
+    } catch {
+      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+  return 'failed';
+}
+
+function stateFor(result: ProfileLoadResult | 'failed'): ProfileState {
+  if (result === 'failed') return { status: 'unrecoverable', reason: 'undecryptable' };
+  switch (result.status) {
+    case 'ok':
+      return { status: 'ready', profile: result.value };
+    case 'empty':
+      // Nothing saved yet is a perfectly good profile with no medicines in
+      // it, not a failure to read one.
+      return { status: 'ready', profile: EMPTY_PROFILE };
+    case 'unrecoverable':
+      return { status: 'unrecoverable', reason: result.reason };
+  }
 }
