@@ -35,7 +35,11 @@ export type EvalCase = {
   readonly id: string;
   /** What was photographed and how. Conditions are what make a case hard. */
   readonly description: string;
-  readonly source: 'real-label' | 'template';
+  /**
+   * `synthetic` lines were written by hand to a label's shape, not produced
+   * by an engine; see `corpus-synthetic`.
+   */
+  readonly source: 'real-label' | 'template' | 'synthetic';
   /** `null` until the lines are captured and the engine is known. */
   readonly engine: 'android-mlkit' | 'ios-vision' | null;
   readonly truth: { readonly [K in FieldKind]: Truth };

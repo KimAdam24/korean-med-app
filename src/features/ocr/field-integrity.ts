@@ -154,7 +154,7 @@ const SIG_VOCABULARY = new Set(
   break head ache sure rate lip gum lung fast spoon spoonful was
   nebulizer check pulse
   so feel feeling soon skip miss missed some that those mild light heat reach bath shower
-  upright mood sliding scale
+  upright mood sliding scale external
   `
     .split(/\s+/)
     .filter(Boolean)
@@ -503,6 +503,8 @@ export function assessField(kind: FieldKind, text: string): FieldIntegrity {
 }
 
 const STRENGTH_NUMBER = String.raw`(?:0(?=\.\d)|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(?:\.\d+)?`;
+/** A strength's numbers: one, or a slash-separated combination — `5/325`. */
+const STRENGTH_NUMBERS = String.raw`${STRENGTH_NUMBER}(?:\/${STRENGTH_NUMBER})*`;
 const STRENGTH_UNIT = String.raw`(?:MG|MCG|G|ML|UNITS?|IU|MEQ|%)`;
 /** Per volume or per hour: `/ML`, `/5 ML`, `/HR`. */
 const STRENGTH_PER = String.raw`(?:\s*\/\s*(?:\d+(?:\.\d+)?\s*)?(?:ML|HR))?`;
@@ -514,15 +516,16 @@ const STRENGTH_PER = String.raw`(?:\s*\/\s*(?:\d+(?:\.\d+)?\s*)?(?:ML|HR))?`;
  * nothing but a decimal below one starts with a zero, in both halves.
  */
 const WELL_FORMED_STRENGTH = new RegExp(
-  String.raw`^${STRENGTH_NUMBER}\s*${STRENGTH_UNIT}${STRENGTH_PER}(?:\s*\(${STRENGTH_NUMBER}\s*${STRENGTH_UNIT}\))?$`,
+  String.raw`^${STRENGTH_NUMBERS}\s*${STRENGTH_UNIT}${STRENGTH_PER}(?:\s*\(${STRENGTH_NUMBER}\s*${STRENGTH_UNIT}\))?$`,
   'i'
 );
 
 /**
- * Units whose standard spelling mixes case. `5 mL` is how liquid doses are
- * printed, and read as a word it has a capital after a lower-case letter.
+ * Terms whose standard spelling mixes case: units (`5 mL`, `10 mEq`) and the
+ * salts printed after a drug name (`Metformin HCl`). Read as words, each has a
+ * capital after a lower-case letter.
  */
-const MIXED_CASE_UNITS = new Set(['mL', 'mEq', 'dL', 'mcL']);
+const MIXED_CASE_UNITS = new Set(['mL', 'mEq', 'dL', 'mcL', 'HCl', 'HBr', 'KCl', 'NaCl']);
 
 /**
  * A token whose capitalisation is impossible for a real word — neither all

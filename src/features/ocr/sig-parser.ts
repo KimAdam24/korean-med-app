@@ -85,9 +85,14 @@ const MAX_STRUCTURAL_CONFIDENCE = 0.75;
  * `/5 ML`, `/HR` — belongs to the strength, and a unit followed by any other
  * `/` is not a strength at all. Zero is only the start of a decimal: `0 MG`
  * is a digit lost, not a dose.
+ *
+ * A combination written with slashes — `HYDROCODONE/APAP 5/325 MG` — is one
+ * strength, printed as one, and is read whole. Only that form: a hyphen
+ * (`875-125 MG`) reads the same as a range, and two strengths with a name
+ * between them are two fields tangled together; both stay withheld.
  */
 const STRENGTH =
-  /(0(?=\.\d)|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(\.\d+)?\s*(MG|MCG|G|ML|UNITS?|IU|MEQ|%)(?:\s*\/\s*(\d+(?:\.\d+)?)?\s*(ML|HR))?(?![A-Za-z/])/gi;
+  /((?:0(?=\.\d)|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(?:\.\d+)?(?:\/(?:0(?=\.\d)|[1-9]\d*)(?:\.\d+)?)*)()\s*(MG|MCG|G|ML|UNITS?|IU|MEQ|%)(?:\s*\/\s*(\d+(?:\.\d+)?)?\s*(ML|HR))?(?![A-Za-z/])/gi;
 
 function findStrength(text: string): { index: number; length: number; strength: string } | null {
   for (const match of text.matchAll(STRENGTH)) {

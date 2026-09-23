@@ -1,4 +1,5 @@
 import type { RecognizedTextLine } from '../types.ts';
+import { SYNTHETIC_CASES } from './corpus-synthetic.ts';
 import type { EvalCase } from './score.ts';
 
 /**
@@ -150,4 +151,5 @@ export const CORPUS: readonly EvalCase[] = [
     expected: { name: 'correct', dosage: 'correct', instructions: 'withheld' },
     expectedVerdict: 'ok',
   },
+  ...SYNTHETIC_CASES,
 ];

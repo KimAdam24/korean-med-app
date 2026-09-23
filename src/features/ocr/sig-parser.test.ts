@@ -494,9 +494,15 @@ test('reads a concentration whole, never as a dose', () => {
   });
 });
 
-test('shows neither name nor strength for a combination product', () => {
+test('reads a slash-written combination strength whole', () => {
+  assert.deepEqual(splitProduct('HYDROCODONE/APAP 5/325 MG TAB'), {
+    name: 'HYDROCODONE/APAP TAB',
+    strength: '5/325 MG',
+  });
+});
+
+test('shows neither name nor strength for other combination forms', () => {
   for (const text of [
-    'HYDROCODONE/APAP 5/325 MG TAB',
     'AMOXICILLIN-CLAV 875-125 MG TAB',
     'LOSARTAN-HCTZ 100 MG-25 MG TAB',
     'ACETAMINOPHEN 300 MG AND CODEINE 30 MG TAB',

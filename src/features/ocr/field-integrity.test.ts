@@ -327,3 +327,12 @@ test('flags a digit inside a name word', () => {
   assert.equal(assessField('name', 'CALCIFER0L CAP').level, 'damaged');
   assert.equal(assessField('name', 'VITAMIN B12').level, 'readable');
 });
+
+test('does not read a salt name or a combination strength as damage', () => {
+  assert.equal(assessField('name', 'Metformin HCl tablet').level, 'readable');
+  assert.equal(assessField('dosage', '5/325 MG').level, 'readable');
+  assert.equal(
+    assessField('instructions', 'APPLY TWICE DAILY AS NEEDED. FOR EXTERNAL USE ONLY.').level,
+    'readable'
+  );
+});
