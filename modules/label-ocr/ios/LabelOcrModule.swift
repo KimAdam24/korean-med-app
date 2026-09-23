@@ -80,11 +80,8 @@ public class LabelOcrModule: Module {
        * mis-fed, which is why this is read here rather than left to be
        * discovered.
        */
-      let handler = VNImageRequestHandler(
-        url: url,
-        orientation: exifOrientation(of: url),
-        options: [:]
-      )
+      let orientation = exifOrientation(of: url)
+      let handler = VNImageRequestHandler(url: url, orientation: orientation, options: [:])
       do {
         try handler.perform([request])
       } catch {
@@ -94,23 +91,39 @@ public class LabelOcrModule: Module {
       guard let observations = request.results else { return [] }
 
       /**
-       * Vision does not promise reading order, and ML Kit on Android groups
-       * differently again. Both platforms order top-to-bottom and then
-       * left-to-right here, so that everything above this boundary sees one
-       * consistent shape — the sig parser must not have to know which engine
-       * produced its input.
+       * In the order Vision returned them, with each line's geometry.
+       *
+       * This module used to sort observations into reading order itself. That
+       * moved to TypeScript (`src/features/ocr/reading-order.ts`): ordering is
+       * a heuristic that has to be tuned against real labels — curved vials
+       * above all — and only there can it be tested against geometry recorded
+       * from them. Native code now reports what the engine saw and decides
+       * nothing.
        */
-      let ordered = readingOrder(observations)
+      let size = orientedPixelSize(of: url, orientation: orientation)
 
-      return ordered.compactMap { observation in
+      return observations.compactMap { observation -> [String: Any?]? in
         guard let candidate = observation.topCandidates(1).first else { return nil }
         let text = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty { return nil }
         return [
           "text": text,
-          // 0...1. Android has no per-line equivalent and sends null, so
-          // consumers must treat this as optional rather than assume a number.
+          // 0...1. Not comparable with ML Kit's scale, so any threshold on it
+          // has to be calibrated per platform.
           "confidence": candidate.confidence,
+          "frame": frame(of: observation.boundingBox, in: size),
+          /**
+           * Clockwise from top left, matching ML Kit's order. Not necessarily
+           * a rectangle: on a curved or tilted label these show the line's
+           * slope, which the axis-aligned frame cannot, and that slope is how
+           * the ordering code keeps both halves of one printed line together.
+           */
+          "corners": [
+            observation.topLeft,
+            observation.topRight,
+            observation.bottomRight,
+            observation.bottomLeft,
+          ].map { pixels(of: $0, in: size) },
         ]
       }
     }
@@ -118,48 +131,45 @@ public class LabelOcrModule: Module {
 }
 
 /**
- * Orders observations the way a person reads them: top to bottom, and left to
- * right within a row.
+ * Width and height of the image as Vision sees it — after orientation is
+ * applied, so a portrait photo stored landscape reports portrait dimensions.
+ * Vision's normalised coordinates are relative to that oriented image.
  *
- * This replaces a comparator that treated near-equal vertical positions as
- * equal and fell through to x. That relation is not transitive — a may tie b,
- * and b tie c, while a and c differ by more than the tolerance — so it is not a
- * strict weak ordering, and `sorted(by:)` given one has undefined behaviour.
- * Banding into rows first keeps every comparison a real total order.
- *
- * Vision's `boundingBox` is normalised with its origin at the bottom left, so a
- * *larger* midY is higher up the label: rows descend. The band tolerance is
- * half the height of the line that opened the row, so it scales with the text
- * rather than assuming a fixed fraction of the image.
- *
- * Note this orders rows, not columns: a label whose columns share rows will
- * still interleave. Detecting columns is a larger problem, worth solving only
- * if a real label turns out to need it.
+ * Falls back to 1×1, which leaves coordinates in Vision's normalised units,
+ * when the file does not state its size. Ordering only ever compares positions
+ * within one image, so normalised coordinates order correctly; they are just
+ * not pixels.
  */
-private func readingOrder(
-  _ observations: [VNRecognizedTextObservation]
-) -> [VNRecognizedTextObservation] {
-  let topDown = observations.sorted { $0.boundingBox.midY > $1.boundingBox.midY }
-
-  var rows: [[VNRecognizedTextObservation]] = []
-  for observation in topDown {
-    let box = observation.boundingBox
-    guard let anchor = rows.last?.first?.boundingBox else {
-      rows.append([observation])
-      continue
-    }
-
-    let tolerance = max(anchor.height, box.height) / 2
-    if anchor.midY - box.midY <= tolerance {
-      rows[rows.count - 1].append(observation)
-    } else {
-      rows.append([observation])
-    }
+private func orientedPixelSize(of url: URL, orientation: CGImagePropertyOrientation) -> CGSize {
+  guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+        let width = properties[kCGImagePropertyPixelWidth] as? Int,
+        let height = properties[kCGImagePropertyPixelHeight] as? Int else {
+    return CGSize(width: 1, height: 1)
   }
 
-  return rows.flatMap { row in
-    row.sorted { $0.boundingBox.minX < $1.boundingBox.minX }
+  switch orientation {
+  case .left, .leftMirrored, .right, .rightMirrored:
+    // Stored rotated a quarter turn: the displayed image is the other way up.
+    return CGSize(width: height, height: width)
+  default:
+    return CGSize(width: width, height: height)
   }
+}
+
+/// A Vision point — normalised, origin bottom left — as pixels from the top left.
+private func pixels(of point: CGPoint, in size: CGSize) -> [String: Double] {
+  ["x": Double(point.x * size.width), "y": Double((1 - point.y) * size.height)]
+}
+
+/// A Vision box — normalised, origin bottom left — as a pixel frame from the top left.
+private func frame(of box: CGRect, in size: CGSize) -> [String: Double] {
+  [
+    "left": Double(box.minX * size.width),
+    "top": Double((1 - box.maxY) * size.height),
+    "width": Double(box.width * size.width),
+    "height": Double(box.height * size.height),
+  ]
 }
 
 /**

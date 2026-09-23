@@ -144,7 +144,7 @@ const SIG_VOCABULARY = new Set(
 
   po bid tid qid qd qod qhs hs prn qam qpm ac pc sl od os ou ad au gtt gtts
 
-  x g am pm hr hrs min mins wk wks ea gt dr
+  x g iu meq am pm hr hrs min mins wk wks ea gt dr
   even very let ice side sides out top are lay via bed tea pat pack packs halve
   break head ache sure rate lip gum lung fast spoon spoonful was
   nebulizer check pulse
@@ -183,7 +183,7 @@ const SIG_VOCABULARY = new Set(
  * Dose forms (`tablet`, `capsule`) are not here: "take tablets with food" is a
  * complete instruction. "Take units" is not.
  */
-const DOSE_UNITS = new Set(['unit', 'units', 'mg', 'mcg', 'ml', 'g', 'iu']);
+const DOSE_UNITS = new Set(['unit', 'units', 'mg', 'mcg', 'ml', 'g', 'iu', 'meq']);
 
 /** Plurals that, straight after `every`, mean the number between them was lost. */
 const PLURAL_INTERVALS = new Set([
@@ -430,13 +430,19 @@ export function assessField(kind: FieldKind, text: string): FieldIntegrity {
   };
 }
 
+const STRENGTH_NUMBER = String.raw`(?:0|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(?:\.\d+)?`;
+const STRENGTH_UNIT = String.raw`(?:MG|MCG|G|ML|UNITS?|IU|MEQ|%)`;
+
 /**
- * A strength as the parser formats one: `300 MG`, `0.5 MG`, `50,000 UNIT`.
- * Thousands are grouped in threes, and nothing but a decimal below one starts
- * with a zero.
+ * A strength as the parser formats one: `300 MG`, `0.5 MG`, `50,000 UNIT`,
+ * optionally restated in brackets — `1.25 MG (50,000 UNIT)`. Thousands are
+ * grouped in threes, and nothing but a decimal below one starts with a zero,
+ * in both halves.
  */
-const WELL_FORMED_STRENGTH =
-  /^(0|[1-9]\d{0,2}(,\d{3})+|[1-9]\d*)(\.\d+)?\s*(MG|MCG|G|ML|UNITS?|%)$/i;
+const WELL_FORMED_STRENGTH = new RegExp(
+  String.raw`^${STRENGTH_NUMBER}\s*${STRENGTH_UNIT}(?:\s*\(${STRENGTH_NUMBER}\s*${STRENGTH_UNIT}\))?$`,
+  'i'
+);
 
 /**
  * Units whose standard spelling mixes case. `5 mL` is how liquid doses are

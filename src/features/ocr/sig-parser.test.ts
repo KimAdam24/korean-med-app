@@ -256,8 +256,8 @@ test('reads a strength with a thousands separator as one number', () => {
     name: 'VITAMIN D2 CAPSULE',
     strength: '50,000 UNIT',
   });
-  // Leftmost strength wins, as before.
-  assert.equal(splitProduct('VITAMIN D2 1.25MG(50,000 UNIT)').strength, '1.25 MG');
+  // Leftmost strength wins, and a restatement in brackets is kept with it.
+  assert.equal(splitProduct('VITAMIN D2 1.25MG(50,000 UNIT)').strength, '1.25 MG (50,000 UNIT)');
 });
 
 test('never finds a strength in the tail of a split number', () => {
@@ -298,7 +298,8 @@ test('finds a name printed apart from its strength', () => {
   // while the parser required name and strength on one line.
   const fields = parseLabelFields(VITAMIN_D2_VIAL_LINES);
   assert.equal(fields.name?.text, 'VITAMIN D2');
-  assert.equal(fields.dosage?.text, '1.25 MG');
+  // Both halves of the strength, rejoined though the tail came first.
+  assert.equal(fields.dosage?.text, '1.25 MG (50,000 UNIT)');
   assert.equal(fields.instructions?.text, 'Take 1 capsule (b units) by mouth eve days');
 });
 
@@ -321,7 +322,7 @@ test('does not take an uncorroborated neighbour as the name', () => {
   ];
   const fields = parseLabelFields(lines);
   assert.equal(fields.name, undefined);
-  assert.equal(fields.dosage?.text, '1.25 MG');
+  assert.equal(fields.dosage?.text, '1.25 MG (50,000 UNIT)');
 });
 
 test('does not take a neighbour shaped like a label field or a surname-first name', () => {
@@ -347,7 +348,7 @@ test('leaves the name absent when both neighbours qualify', () => {
 test('keeps a restated strength out of the name', () => {
   assert.deepEqual(splitProduct('VITAMIN D2 1.25MG(50,000 UNIT) CAP'), {
     name: 'VITAMIN D2 CAP',
-    strength: '1.25 MG',
+    strength: '1.25 MG (50,000 UNIT)',
   });
   // The cut-off start of one, and a dose form alone, are not names either.
   assert.deepEqual(splitProduct('1.25MG(50,'), { name: undefined, strength: '1.25 MG' });
@@ -357,4 +358,46 @@ test('keeps a restated strength out of the name', () => {
 test('reads a Generic-for line as provenance, never the product', () => {
   assert.equal(classifyLine('Generic for: Calciferol,Drisdol'), 'dispensing');
   assert.equal(classifyLine('GENERIC FOR: SYNTHROID 50 MCG'), 'dispensing');
+});
+
+// --- Strengths split across lines, and other units -----------------------------
+
+test('rejoins a strength split at its thousands comma, either way round', () => {
+  for (const order of [
+    ['1.25MG(50,', '000 UNIT)'],
+    ['000 UNIT)', '1.25MG(50,'],
+  ]) {
+    const lines: RecognizedTextLine[] = [
+      { text: 'VITAMIN D2', confidence: 0.8 },
+      ...order.map((text) => ({ text, confidence: 0.8 })),
+      { text: 'Generic for: DRISDOL', confidence: 0.8 },
+    ];
+    const fields = parseLabelFields(lines);
+    assert.equal(fields.dosage?.text, '1.25 MG (50,000 UNIT)', order.join(' / '));
+    assert.equal(fields.name?.text, 'VITAMIN D2', order.join(' / '));
+  }
+});
+
+test('does not join lines that only look alike', () => {
+  // The tail must close the bracket the opening left open.
+  const lines: RecognizedTextLine[] = [
+    { text: 'VITAMIN D2 1.25MG(50,', confidence: 0.8 },
+    { text: '000 REFILLS', confidence: 0.8 },
+  ];
+  assert.equal(parseLabelFields(lines).dosage?.text, '1.25 MG');
+});
+
+test('shows only the strength when its restatement was cut off', () => {
+  // Half a number is not a strength; the part that is whole still is.
+  assert.deepEqual(splitProduct('VITAMIN D2 1.25MG(50,'), { name: 'VITAMIN D2', strength: '1.25 MG' });
+});
+
+test('reads IU, mEq and percentage strengths', () => {
+  assert.equal(splitProduct('VITAMIN D3 50,000 IU CAPSULE').strength, '50,000 IU');
+  assert.equal(splitProduct('KLOR-CON 10 MEQ TABLET').strength, '10 MEQ');
+  // There is no word boundary between % and a space, so this never matched.
+  assert.deepEqual(splitProduct('HYDROCORTISONE 1% CREAM'), {
+    name: 'HYDROCORTISONE CREAM',
+    strength: '1 %',
+  });
 });

@@ -247,3 +247,11 @@ test('reads thousands in a strength, and rejects a number missing its front', ()
   assert.ok(tail.reasons.includes('missing-number'));
   assert.equal(assessField('dosage', '50,00 UNIT').level, 'damaged');
 });
+
+test('accepts a strength restated in brackets, judging both halves', () => {
+  assert.equal(assessField('dosage', '1.25 MG (50,000 UNIT)').level, 'readable');
+  assert.equal(assessField('dosage', '10 MEQ').level, 'readable');
+  assert.equal(assessField('dosage', '50,000 IU').level, 'readable');
+  assert.equal(assessField('dosage', '1.25 MG (000 UNIT)').level, 'damaged');
+  assert.equal(assessField('dosage', '1.25 MG (50,000 UNIT').level, 'damaged');
+});

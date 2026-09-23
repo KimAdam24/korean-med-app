@@ -11,8 +11,10 @@ import type { EvalCase } from './score.ts';
  *
  * 1. Read the label in a development build, by camera or by choosing the
  *    photo. The engine's lines are logged between `[label-ocr] BEGIN` and
- *    `[label-ocr] END`; copy that JSON. The raw-lines panel on the result
- *    screen shows the same thing.
+ *    `[label-ocr] END`; copy that JSON exactly as logged. It is in the
+ *    engine's own order, with each line's frame and corners, which is what
+ *    `reading-order` is measured on. (The raw-lines panel on the result screen
+ *    shows lines *after* ordering, without geometry — not a substitute.)
  * 2. Write down what the label says — name, strength, directions — by reading
  *    the bottle, not the photo. Where the photo hides something the bottle
  *    shows, the bottle is the truth; that is what makes a hidden word a miss.
@@ -35,9 +37,10 @@ import type { EvalCase } from './score.ts';
  * Shape matters because the parser reads shape. A redacted Rx line must still
  * look like an Rx line, and a redacted line cannot be deleted instead:
  * continuation joining depends on which lines are adjacent, so removing one
- * changes the result being measured. The drug, strength and directions stay
- * verbatim — they are what is being measured, and on their own they identify
- * no one.
+ * changes the result being measured. Geometry is left alone — where a line
+ * sat identifies no one, and ordering depends on it. The drug, strength and
+ * directions stay verbatim: they are what is being measured, and on their own
+ * they identify no one.
  */
 
 /**
@@ -84,8 +87,13 @@ export const TEMPLATE_PILLNAMELOL_LINES: readonly RecognizedTextLine[] = [
  * as the header describes. Everything else is verbatim, including the order:
  * the strength's tail `000 UNIT)` comes before its start `1.25MG(50,`. Most
  * likely the bottle's curve lifted the right half of that printed line past
- * the native row-banding tolerance; unconfirmed, since the engine's boxes are
- * not returned. Confidence is as reported, to two places.
+ * the native row-banding tolerance. Confidence is as reported, to two places.
+ *
+ * Captured before the engines returned geometry, so these lines are in the
+ * order the old native code sorted them and carry no boxes; `reading-order`
+ * passes them through untouched. Re-reading the same photograph with a build
+ * that returns geometry should replace them, and is the first real test of
+ * the curve handling.
  */
 export const VITAMIN_D2_VIAL_LINES: readonly RecognizedTextLine[] = [
   { text: 'Xxxx', confidence: 0.85 },
@@ -112,7 +120,9 @@ export const CORPUS: readonly EvalCase[] = [
     engine: 'android-mlkit',
     truth: {
       name: 'VITAMIN D2',
-      dosage: ['1.25 MG', '50,000 UNIT'],
+      // Both numbers, as printed and as the reader knows it. The metric alone
+      // is right too, just less helpful; the parser tests pin the full form.
+      dosage: ['1.25 MG (50,000 UNIT)', '1.25 MG'],
       // N is the interval, to be read off the bottle — it is under a finger in
       // the photograph. Until it is filled in, no reading of this line can
       // match, so any directions shown as clean score as wrong. Given the

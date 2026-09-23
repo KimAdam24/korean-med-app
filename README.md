@@ -106,11 +106,16 @@ that a field is either right or visibly withheld — never shown clean and wrong
 `npm run eval` prints the scorecard, and the unit tests fail on any field shown
 as a value that is not what the label says.
 
-The corpus behind that is tiny: one stock template and one real vial whose
-lines are still to be added. Until it holds ten to twenty real labels, photographed
-the way users will photograph them, a clean scorecard means little. Photographs
-are never added — only the engine's lines, redacted in shape; the corpus header
-says how.
+The corpus behind that is tiny: one stock template and one real vial. Until it
+holds ten to twenty real labels, photographed the way users will photograph
+them, a clean scorecard means little. Photographs are never added — only the
+engine's lines, redacted in shape; the corpus header says how.
+
+Reading order is decided in TypeScript (`reading-order.ts`) from the geometry
+both native modules return, following each line's slope so that the pieces of
+a printed line bent round a vial stay on one row. It is tested on synthetic
+geometry only: neither corpus label was captured with geometry, so how it
+behaves on a real curved bottle is not yet known.
 
 We wrote this rather than taking a dependency because no community OCR library
 is both maintained and current: `expo-text-extractor`'s last substantive commit
@@ -137,9 +142,12 @@ regardless, because a perfectly recognised line can still be the wrong line.
 
 ### The native module has not been run on hardware
 
-The Swift compiles (verified by an EAS iOS simulator build) and the Kotlin
-compiles (verified by a dev-client build). Neither has read a real pharmacy
-label on a physical device.
+The Kotlin compiles, including the change that returns line geometry
+(verified with a local Gradle build of the module). The Swift compiled before
+that change, in an EAS iOS simulator build; the geometry version has not been
+compiled yet. Android has read a real dispensed label, from a photograph on an
+emulator. Neither platform has read one through the camera of a physical
+device.
 
 ### A scanned barcode cannot say which NDC segmentation it holds
 

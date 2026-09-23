@@ -74,8 +74,13 @@ const MAX_STRUCTURAL_CONFIDENCE = 0.75;
  * strength that looks well-formed and is not on the label. Thousands are
  * therefore grouped in threes, nothing but a decimal below one starts with a
  * zero, and `findStrength` rejects a match that begins inside another number.
+ *
+ * The unit ends at anything but a letter rather than at a word boundary:
+ * there is no boundary between `%` and a following space, so `1% CREAM`
+ * never matched.
  */
-const STRENGTH = /(0|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(\.\d+)?\s*(MG|MCG|G|ML|UNITS?|%)\b/gi;
+const STRENGTH =
+  /(0|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(\.\d+)?\s*(MG|MCG|G|ML|UNITS?|IU|MEQ|%)(?![A-Za-z])/gi;
 
 function findStrength(text: string): { index: number; length: number; strength: string } | null {
   for (const match of text.matchAll(STRENGTH)) {
@@ -208,26 +213,94 @@ export function splitProduct(text: string): { name?: string; strength?: string }
   if (!found) return {};
 
   let end = found.index + found.length;
-  const restated = RESTATED_STRENGTH.exec(text.slice(end));
-  if (restated) end += restated[0].length;
+  let strength = found.strength;
+
+  const tail = text.slice(end);
+  const restated = RESTATED_STRENGTH.exec(tail);
+  if (restated) {
+    // Kept: people taking this know it as "50,000 units" — it is what the
+    // pharmacist says and what is printed largest — so dropping it would be
+    // correct and confusing.
+    strength = `${strength} (${restated[1]}${restated[2] ?? ''} ${restated[3].toUpperCase()})`;
+    end += restated[0].length;
+  } else {
+    // Only the start of one survived. Not shown — half a number is not a
+    // strength — but not left in the name either.
+    const partial = PARTIAL_RESTATED_STRENGTH.exec(tail);
+    if (partial) end += partial[0].length;
+  }
 
   const name = `${text.slice(0, found.index)} ${text.slice(end)}`.replace(/\s+/g, ' ').trim();
 
   // What is left may be nothing but a dose form (`CAP`) or punctuation. That
   // is not a name, and saying so lets the caller look for the real one.
-  return { name: hasNameWords(name) ? name : undefined, strength: found.strength };
+  return { name: hasNameWords(name) ? name : undefined, strength };
 }
 
 /**
- * The strength restated in brackets straight after it — `1.25MG(50,000 UNIT)`
- * — or the start of one cut off by a wrap, `1.25MG(50,`. Part of the strength
- * as printed, not of the name; left in, it made `(50,` the medicine's name.
+ * The strength restated in other units, in brackets straight after it:
+ * `1.25MG(50,000 UNIT)`. Held to the same number grammar as the strength.
  */
-const RESTATED_STRENGTH = /^\s*\([\d.,\s]*(?:UNITS?|MG|MCG|ML|IU|G)?\s*(?:\)|$)/i;
+const RESTATED_STRENGTH =
+  /^\s*\(\s*(0|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(\.\d+)?\s*(UNITS?|MG|MCG|ML|IU|MEQ|G)\s*\)/i;
+
+/**
+ * The start of a restated strength cut off by a wrap: `1.25MG(50,`. Part of the
+ * strength as printed, not of the name; left in, it made `(50,` the name.
+ */
+const PARTIAL_RESTATED_STRENGTH = /^\s*\([\d.,\s]*(?:UNITS?|MG|MCG|ML|IU|MEQ|G)?\s*(?:\)|$)/i;
+
+/** The start of a bracketed strength cut off at a thousands comma: `1.25MG(50,`. */
+const SPLIT_STRENGTH_OPENING = /\(\s*\d{1,3}(?:,\d{3})*,\s*$/;
+
+/** The rest of it, on another line: three digits, a unit, the closing bracket. */
+const SPLIT_STRENGTH_TAIL = /^\s*\d{3}(?:,\d{3})*(?:\.\d+)?\s*(?:UNITS?|MG|MCG|ML|IU|MEQ|G)?\s*\)/i;
+
+/**
+ * Rejoins a strength that arrived as two lines, split at a thousands comma:
+ * `1.25MG(50,` and `000 UNIT)`.
+ *
+ * Joining lines rather than repairing characters: the text is exactly what the
+ * engine read, and the line break was the engine's, at a comma inside a
+ * number. The shapes are specific enough — an unclosed bracket ending on a
+ * comma, and three digits closing it — that the two lines are joined when
+ * adjacent either way round, since reading order on a curved bottle can put
+ * the tail first.
+ */
+function joinSplitStrengths(lines: readonly RecognizedTextLine[]): RecognizedTextLine[] {
+  const result = [...lines];
+
+  for (let index = 0; index < result.length; index += 1) {
+    if (!SPLIT_STRENGTH_OPENING.test(result[index].text)) continue;
+
+    const partner = [index + 1, index - 1].find(
+      (other) => other >= 0 && other < result.length && SPLIT_STRENGTH_TAIL.test(result[other].text)
+    );
+    if (partner === undefined) continue;
+
+    const opening = result[index];
+    const tail = result[partner];
+    const joined: RecognizedTextLine = {
+      text: `${opening.text.trimEnd()}${tail.text.trimStart()}`,
+      // The weaker of the two, as for any field built from several lines.
+      confidence:
+        opening.confidence === null || tail.confidence === null
+          ? null
+          : Math.min(opening.confidence, tail.confidence),
+    };
+
+    const first = Math.min(index, partner);
+    result.splice(Math.max(index, partner), 1);
+    result[first] = joined;
+    index = first;
+  }
+
+  return result;
+}
 
 /** Words that describe a dose rather than name a medicine. */
 const DOSE_WORDS = new Set(
-  'cap caps capsule capsules tab tabs tablet tablets unit units mg mcg ml iu soln solution'.split(' ')
+  'cap caps capsule capsules tab tabs tablet tablets unit units mg mcg ml iu meq soln solution'.split(' ')
 );
 
 /** Whether text contains a word that could be part of a medicine's name. */
@@ -335,7 +408,7 @@ function field(text: string, lines: readonly RecognizedTextLine[]): ExtractedFie
 }
 
 export function parseLabelFields(lines: readonly RecognizedTextLine[]): MedicationLabelFields {
-  const classified = lines.map((line) => ({ line, role: classifyLine(line.text) }));
+  const classified = joinSplitStrengths(lines).map((line) => ({ line, role: classifyLine(line.text) }));
 
   const productLines = classified.filter((entry) => entry.role === 'product');
 

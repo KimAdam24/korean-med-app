@@ -1,6 +1,5 @@
 package expo.modules.labelocr
 
-import android.graphics.Rect
 import android.net.Uri
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
@@ -77,34 +76,19 @@ class LabelOcrModule : Module() {
         }
 
         /**
-         * Flattened out of ML Kit's block grouping and re-ordered. Apple's
-         * Vision groups the same label differently, and everything above this
-         * boundary is written against one shape — the sig parser must not have
-         * to know which engine ran.
+         * Flattened out of ML Kit's block grouping, in the order ML Kit
+         * returned it, with each line's geometry.
+         *
+         * This module used to sort lines into reading order itself. That moved
+         * to TypeScript (`src/features/ocr/reading-order.ts`): ordering is a
+         * heuristic that has to be tuned against real labels — curved vials
+         * above all — and only there can it be tested against geometry
+         * recorded from them. Native code now reports what the engine saw and
+         * decides nothing.
          */
-        return@Coroutine readingOrder(recognised.textBlocks.flatMap { block -> block.lines })
-          .mapNotNull { line ->
-            val text = line.text.trim()
-            if (text.isEmpty()) {
-              null
-            } else {
-              /**
-               * `Text.Line.getConfidence()` returns a float in [0, 1]. This
-               * module previously sent null here, on the mistaken belief that
-               * ML Kit exposed no per-line confidence — a conclusion drawn from
-               * a guide page rather than the API reference, which documents it.
-               * The Android pipeline was discarding the most direct signal it
-               * has about how well a label was read.
-               *
-               * Consumers still treat an absent confidence as unknown rather
-               * than good; the field stays nullable because other engines may
-               * genuinely not report one.
-               */
-              // Typed explicitly so the map's value type is not inferred from
-              // whichever entry happens to come first.
-              mapOf<String, Any?>("text" to text, "confidence" to line.confidence)
-            }
-          }
+        return@Coroutine recognised.textBlocks
+          .flatMap { block -> block.lines }
+          .mapNotNull { line -> describe(line) }
       } finally {
         recognizer.close()
       }
@@ -113,47 +97,44 @@ class LabelOcrModule : Module() {
 }
 
 /**
- * Orders lines the way a person reads them: top to bottom, and left to right
- * within a row.
+ * One line as JavaScript receives it: text, confidence and geometry, or null
+ * for a line with no text.
  *
- * Sorting by `top` and then `left` does not achieve this, and was the bug it
- * replaces. Two boxes on one visual row almost never share an exact top pixel,
- * so the secondary comparison never ran and ordering was decided by a pixel or
- * two of noise — which on a multi-column label interleaves the columns.
- *
- * The obvious repair, a comparator that calls near-equal tops equal, is worse
- * than it looks: that relation is not transitive (a may tie b, b tie c, yet a
- * sort strictly before c), so it is not a strict weak ordering. Java's TimSort
- * detects exactly that and throws "Comparison method violates its general
- * contract!". Banding into rows first keeps every comparison a real total
- * order.
- *
- * The band tolerance is half the height of the line that opened the row, so it
- * scales with the text rather than assuming a resolution.
- *
- * Note this orders rows, not columns: a label whose columns share rows will
- * still interleave. Detecting columns is a larger problem, and worth solving
- * only if a real label turns out to need it.
+ * Coordinates are pixels in the image as ML Kit processed it, origin top left.
+ * Both geometry fields are nullable in ML Kit's API and are passed on as null
+ * rather than invented; a line without geometry still carries its text, and
+ * the ordering code places it last.
  */
-private fun readingOrder(lines: List<Text.Line>): List<Text.Line> {
-  val positioned = lines.mapNotNull { line -> line.boundingBox?.let { box -> line to box } }
-  // Geometry is nullable. A line without it cannot be placed, but its text is
-  // still worth returning, so it goes last rather than being dropped.
-  val unpositioned = lines.filter { it.boundingBox == null }
+private fun describe(line: Text.Line): Map<String, Any?>? {
+  val text = line.text.trim()
+  if (text.isEmpty()) return null
 
-  val rows = mutableListOf<MutableList<Pair<Text.Line, Rect>>>()
-  for (entry in positioned.sortedBy { (_, box) -> box.top }) {
-    val (_, box) = entry
-    val anchor = rows.lastOrNull()?.firstOrNull()?.second
-    val tolerance = (anchor?.height() ?: box.height()) / 2
+  val box = line.boundingBox
 
-    if (anchor != null && box.top - anchor.top <= tolerance) {
-      rows.last().add(entry)
-    } else {
-      rows.add(mutableListOf(entry))
-    }
-  }
-
-  return rows.flatMap { row -> row.sortedBy { (_, box) -> box.left }.map { (line, _) -> line } } +
-    unpositioned
+  // Typed explicitly so the map's value type is not inferred from whichever
+  // entry happens to come first.
+  return mapOf<String, Any?>(
+    "text" to text,
+    /**
+     * `Text.Line.getConfidence()` is a float in [0, 1] — documented in the API
+     * reference, which this module once overlooked and sent null instead.
+     *
+     * The same reference says it returns 0 when the information is
+     * unavailable: the unbundled recogniser on Play services older than
+     * 22.30. A recognised line never genuinely scores exactly 0, so 0 is sent
+     * as null — unknown — rather than as the worst possible read. Consumers
+     * treat null as unknown, never as good.
+     */
+    "confidence" to line.confidence.takeIf { it > 0f },
+    "frame" to box?.let {
+      mapOf("left" to it.left, "top" to it.top, "width" to it.width(), "height" to it.height())
+    },
+    /**
+     * Clockwise from top left, per ML Kit, and not necessarily a rectangle:
+     * on a curved or tilted label these are what show the line's slope, which
+     * the axis-aligned frame cannot. That slope is how the ordering code keeps
+     * both halves of one printed line on the same row.
+     */
+    "corners" to line.cornerPoints?.map { point -> mapOf("x" to point.x, "y" to point.y) },
+  )
 }

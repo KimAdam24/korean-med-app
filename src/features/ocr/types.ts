@@ -33,17 +33,38 @@ export type MedicationLabelFields = {
   readonly instructions?: ExtractedField;
 };
 
+/** A point in image pixels, origin top left. */
+export type LinePoint = { readonly x: number; readonly y: number };
+
+/** An axis-aligned box in image pixels, origin top left. */
+export type LineFrame = {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+};
+
 /**
  * One line as the engine grouped it, before anything tries to interpret it.
  *
  * Engine-agnostic on purpose: Vision and ML Kit split the same label
- * differently, and both native implementations normalise to reading order
- * before this point. `confidence` is `null` when the engine does not report one
- * and must be read as *unknown*, never as good.
+ * differently. `confidence` is `null` when the engine does not report one and
+ * must be read as *unknown*, never as good.
+ *
+ * Native code returns lines in the engine's own order, with geometry, and
+ * `reading-order` sorts them. Geometry is optional because an engine may not
+ * report it for every line, and because readings captured before it existed —
+ * already sorted natively — must keep working as they are.
  */
 export type RecognizedTextLine = {
   readonly text: string;
   readonly confidence: number | null;
+  readonly frame?: LineFrame | null;
+  /**
+   * Clockwise from top left. Not necessarily a rectangle: on a curved or
+   * tilted label, these carry the line's slope, which the frame cannot.
+   */
+  readonly corners?: readonly LinePoint[] | null;
 };
 
 /**

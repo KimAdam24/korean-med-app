@@ -1,5 +1,6 @@
 // Relative with extensions: this module is run under plain Node by the tests
 // and the evaluation harness, which do not know the bundler's `@/` alias.
+import { orderLines } from './reading-order.ts';
 import { assessReadQuality, parseLabelFields } from './sig-parser.ts';
 import type { LabelRecognitionResult, RecognizedTextLine } from './types.ts';
 
@@ -20,16 +21,19 @@ export function interpretLines(lines: readonly RecognizedTextLine[]): LabelRecog
     return { status: 'unreadable' };
   }
 
-  const fields = parseLabelFields(lines);
+  // Engines return lines in their own order; everything below reads them in a
+  // person's. See `reading-order` for why that is decided here.
+  const ordered = orderLines(lines);
+  const fields = parseLabelFields(ordered);
 
   return {
     status: 'recognized',
-    lines,
+    lines: ordered,
     /**
      * Assessed here rather than in the UI so the camera and the development
      * probe cannot disagree about whether a read was good enough to act on.
      */
-    quality: assessReadQuality(lines, fields),
+    quality: assessReadQuality(ordered, fields),
     /**
      * Heuristics over text that has already been through OCR, so nothing here
      * is presented as verified — `sig-parser` caps every field below the
@@ -38,6 +42,6 @@ export function interpretLines(lines: readonly RecognizedTextLine[]): LabelRecog
      * where an invention would not be.
      */
     fields,
-    rawText: lines.map((line) => line.text).join('\n'),
+    rawText: ordered.map((line) => line.text).join('\n'),
   };
 }
