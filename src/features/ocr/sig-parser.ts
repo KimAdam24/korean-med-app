@@ -1,7 +1,7 @@
 // Relative, with its extension, rather than the `@/` alias used elsewhere.
 // This is a value import, so it survives type erasure and has to resolve under
 // Node when the tests run — and Node knows nothing about the bundler's alias.
-import { nearestIngredient } from '../drugs/ingredients.ts';
+import { findIngredient, nearestIngredient } from '../drugs/ingredients.ts';
 import { assessField, hasImpossibleCase } from './field-integrity.ts';
 
 import type {
@@ -126,6 +126,16 @@ const AUXILIARY = [
 ];
 
 /**
+ * Which brand a generic was dispensed in place of: "Generic for: DRISDOL".
+ *
+ * Provenance, not identity — it names a product the bottle does not contain,
+ * so it is never the name. But pharmacies print it directly beneath the
+ * product line, which makes it a landmark for finding that line when it has
+ * been broken up.
+ */
+const GENERIC_FOR = /^(GENERIC( EQUIVALENT)? (FOR|TO)|SUBSTITUTED? FOR|SUBST?\.? FOR|COMPARE TO)\b/i;
+
+/**
  * Dispensing and provenance fields. Present on every label, never part of the
  * medicine's identity, and actively dangerous to confuse with one — an Rx
  * number is digits beside text and would happily pass for a dose.
@@ -146,6 +156,7 @@ const DISPENSING = [
   /\bST\.?$/i,
   /\b[A-Z]{2},?\s*\d{5}\b/,
   /^\d+\s+[NSEWV]\b/i,
+  GENERIC_FOR,
 ];
 
 /**
@@ -196,11 +207,114 @@ export function splitProduct(text: string): { name?: string; strength?: string }
   const found = findStrength(text);
   if (!found) return {};
 
-  const name = `${text.slice(0, found.index)} ${text.slice(found.index + found.length)}`
-    .replace(/\s+/g, ' ')
-    .trim();
+  let end = found.index + found.length;
+  const restated = RESTATED_STRENGTH.exec(text.slice(end));
+  if (restated) end += restated[0].length;
 
-  return { name: name.length > 0 ? name : undefined, strength: found.strength };
+  const name = `${text.slice(0, found.index)} ${text.slice(end)}`.replace(/\s+/g, ' ').trim();
+
+  // What is left may be nothing but a dose form (`CAP`) or punctuation. That
+  // is not a name, and saying so lets the caller look for the real one.
+  return { name: hasNameWords(name) ? name : undefined, strength: found.strength };
+}
+
+/**
+ * The strength restated in brackets straight after it — `1.25MG(50,000 UNIT)`
+ * — or the start of one cut off by a wrap, `1.25MG(50,`. Part of the strength
+ * as printed, not of the name; left in, it made `(50,` the medicine's name.
+ */
+const RESTATED_STRENGTH = /^\s*\([\d.,\s]*(?:UNITS?|MG|MCG|ML|IU|G)?\s*(?:\)|$)/i;
+
+/** Words that describe a dose rather than name a medicine. */
+const DOSE_WORDS = new Set(
+  'cap caps capsule capsules tab tabs tablet tablets unit units mg mcg ml iu soln solution'.split(' ')
+);
+
+/** Whether text contains a word that could be part of a medicine's name. */
+function hasNameWords(text: string): boolean {
+  return (text.match(/[A-Za-z]{2,}/g) ?? []).some((word) => !DOSE_WORDS.has(word.toLowerCase()));
+}
+
+/**
+ * A line that is only a piece of a strength: `000 UNIT)`, the tail of
+ * `1.25MG(50,000 UNIT)` after a wrap, or after the engine split the line at a
+ * glare. Never used for anything; only stepped over when looking for the name.
+ */
+function isStrengthFragment(text: string): boolean {
+  return /\d/.test(text) && !hasNameWords(text) && /^[\d.,()\sA-Za-z]*$/.test(text);
+}
+
+/**
+ * Shaped like a product-name line: capitalised, a few words, a name word, no
+ * free-standing number, and no colon or comma — label fields (`Patient:`) and
+ * surname-first names (`DOE, JANE`) both have one.
+ */
+function looksLikeProductName(text: string): boolean {
+  const trimmed = text.trim();
+  return (
+    /^[A-Z]/.test(trimmed) &&
+    !/[:,]/.test(trimmed) &&
+    !/(^|\s)\d/.test(trimmed) &&
+    hasNameWords(trimmed) &&
+    trimmed.split(/\s+/).length <= 5
+  );
+}
+
+/**
+ * The product name, when the label printed it on a line of its own.
+ *
+ * Narrow vial labels wrap the product line, and the engine splits long lines
+ * at glare or curvature, so the name and its strength can arrive apart. The
+ * vial that prompted this came back as
+ *
+ *     VITAMIN D2
+ *     000 UNIT)          <- the strength's tail, ordered above its start
+ *     1.25MG(50,
+ *     Generic for: Calciferol,Drisdol
+ *
+ * A name on its own line looks like any other capitalised line — the
+ * patient's name, two lines further up, looked the same — so a neighbour is
+ * taken only when all of these hold:
+ *
+ *   - nothing separates it from the strength but fragments of that strength;
+ *   - it could not be classified as anything else, and is shaped like a
+ *     product name;
+ *   - something independent marks this as the product block: a "Generic for"
+ *     line directly beside it, or a name the ingredient lexicon knows;
+ *   - it is the only neighbour that qualifies.
+ *
+ * Otherwise the name is left absent. The risk that remains is a label whose
+ * name line was lost entirely while some other name-shaped line sat beside
+ * the strength and a "Generic for" line. The reader would be offered, say,
+ * their own name as the medicine's: wrong, but not plausibly a drug, and the
+ * evaluation corpus is where that should show up if it happens.
+ */
+function nameFromNeighbours(
+  classified: readonly { line: RecognizedTextLine; role: LineRole }[],
+  strengthIndex: number
+): RecognizedTextLine | null {
+  const fragment = (index: number) =>
+    classified[index]?.role === 'unknown' && isStrengthFragment(classified[index].line.text);
+
+  // Fragments on either side belong to the block, whichever side the name is.
+  let blockStart = strengthIndex;
+  while (fragment(blockStart - 1)) blockStart -= 1;
+  let blockEnd = strengthIndex;
+  while (fragment(blockEnd + 1)) blockEnd += 1;
+
+  const candidates = [blockStart - 1, blockEnd + 1].filter((index) => {
+    const entry = classified[index];
+    if (!entry || entry.role !== 'unknown' || !looksLikeProductName(entry.line.text)) return false;
+
+    const start = Math.min(index, blockStart);
+    const end = Math.max(index, blockEnd);
+    const landmark = [start - 1, end + 1].some((beside) =>
+      GENERIC_FOR.test(classified[beside]?.line.text.trim() ?? '')
+    );
+    return landmark || findIngredient(entry.line.text) !== null;
+  });
+
+  return candidates.length === 1 ? classified[candidates[0]].line : null;
 }
 
 function field(text: string, lines: readonly RecognizedTextLine[]): ExtractedField {
@@ -242,8 +356,14 @@ export function parseLabelFields(lines: readonly RecognizedTextLine[]): Medicati
   if (productLines.length === 1) {
     const [entry] = productLines;
     const { name, strength } = splitProduct(entry.line.text);
-    if (name) fields.name = field(name, [entry.line]);
     if (strength) fields.dosage = field(strength, [entry.line]);
+
+    if (name) {
+      fields.name = field(name, [entry.line]);
+    } else {
+      const nameLine = nameFromNeighbours(classified, classified.indexOf(entry));
+      if (nameLine) fields.name = field(nameLine.text.trim(), [nameLine]);
+    }
   }
 
   const sigLines = withContinuations(classified);

@@ -75,16 +75,41 @@ export const TEMPLATE_PILLNAMELOL_LINES: readonly RecognizedTextLine[] = [
   'TEMPLATE,',
 ].map((text) => ({ text, confidence: null }));
 
+/**
+ * A dispensed vitamin D2 vial. A full-resolution handheld phone photograph —
+ * curved bottle, fingers partly over the directions — read by the Android
+ * engine through the choose-a-photo path on an emulator.
+ *
+ * The first three lines are the patient's name and address, redacted in shape
+ * as the header describes. Everything else is verbatim, including the order:
+ * the strength's tail `000 UNIT)` comes before its start `1.25MG(50,`. Most
+ * likely the bottle's curve lifted the right half of that printed line past
+ * the native row-banding tolerance; unconfirmed, since the engine's boxes are
+ * not returned. Confidence is as reported, to two places.
+ */
+export const VITAMIN_D2_VIAL_LINES: readonly RecognizedTextLine[] = [
+  { text: 'Xxxx', confidence: 0.85 },
+  { text: 'Xxx', confidence: 0.78 },
+  { text: '00 0xx Xx, Xxxxxxxxx, XX 00000', confidence: 0.8 },
+  { text: 'VITAMIN D2', confidence: 0.82 },
+  { text: '000 UNIT)', confidence: 0.73 },
+  { text: '1.25MG(50,', confidence: 0.82 },
+  { text: 'Generic for: Calciferol,Drisdol', confidence: 0.78 },
+  { text: 'Take 1 capsule (b', confidence: 0.77 },
+  { text: 'units) by mouth eve', confidence: 0.66 },
+  { text: 'days', confidence: 0.89 },
+];
+
 export const CORPUS: readonly EvalCase[] = [
   {
     id: 'vitamin-d2-vial',
     description:
       'Dispensed vial, handheld: curved surface, glare, fingers over the ' +
-      'directions. Strength printed as 1.25MG(50,000 UNIT), possibly wrapped. ' +
-      'The first real label; the one that showed the directions ' +
-      '"Take 1 capsule (b units) by mouth eve days" as clean.',
+      'directions. The strength 1.25MG(50,000 UNIT) split across two lines, ' +
+      'tail first, and the name on a line of its own. The first real label; ' +
+      'the one that showed "Take 1 capsule (b units) by mouth eve days" as clean.',
     source: 'real-label',
-    engine: null,
+    engine: 'android-mlkit',
     truth: {
       name: 'VITAMIN D2',
       dosage: ['1.25 MG', '50,000 UNIT'],
@@ -94,8 +119,12 @@ export const CORPUS: readonly EvalCase[] = [
       // finger, that is also the truth.
       instructions: 'Take 1 capsule (50,000 units) by mouth every N days',
     },
-    lines: null,
-    expectedVerdict: 'degraded',
+    lines: VITAMIN_D2_VIAL_LINES,
+    redacted: true,
+    expected: { name: 'correct', dosage: 'correct', instructions: 'withheld' },
+    // Name and strength are right, so one damaged field out of three: the
+    // ordinary layout, with the directions marked damaged.
+    expectedVerdict: 'ok',
   },
   {
     id: 'template-pillnamelol',

@@ -206,6 +206,11 @@ test('does not flag a correctly printed hyphenated name', () => {
   assert.equal(assessField('name', 'Co-Amoxiclav').level, 'readable');
 });
 
+test('does not read a list without spaces as garbled casing', () => {
+  // From the vial's "Generic for" line.
+  assert.equal(assessField('name', 'Calciferol,Drisdol').level, 'readable');
+});
+
 test('does not read a mixed-case unit as garbled casing', () => {
   assert.equal(assessField('instructions', 'Take 5 mL by mouth twice daily').level, 'readable');
   assert.equal(assessField('instructions', 'Take 10 mEq by mouth daily').level, 'readable');

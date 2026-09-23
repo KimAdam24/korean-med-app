@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { TEMPLATE_PILLNAMELOL_LINES } from './eval/corpus.ts';
+import { TEMPLATE_PILLNAMELOL_LINES, VITAMIN_D2_VIAL_LINES } from './eval/corpus.ts';
 import {
   assessReadQuality,
   classifyLine,
@@ -288,4 +288,73 @@ test('does not call a read degraded for one missing field', () => {
   const front: RecognizedTextLine[] = [{ text: 'PILLNAMELOL 300 MG', confidence: 0.9 }];
   const quality = assessReadQuality(front, parseLabelFields(front));
   assert.equal(quality.level, 'ok', `unexpected reasons: ${quality.reasons.join(', ')}`);
+});
+
+// --- A name on a line of its own ------------------------------------------------
+
+test('finds a name printed apart from its strength', () => {
+  // The real vial: name alone, strength split in two with its tail first,
+  // then a "Generic for" line. The name was read cleanly and still rejected
+  // while the parser required name and strength on one line.
+  const fields = parseLabelFields(VITAMIN_D2_VIAL_LINES);
+  assert.equal(fields.name?.text, 'VITAMIN D2');
+  assert.equal(fields.dosage?.text, '1.25 MG');
+  assert.equal(fields.instructions?.text, 'Take 1 capsule (b units) by mouth eve days');
+});
+
+test('takes a neighbouring name the lexicon knows, without a landmark', () => {
+  const lines: RecognizedTextLine[] = [
+    { text: 'LEVOTHYROXINE SODIUM', confidence: 0.9 },
+    { text: '50MCG TAB', confidence: 0.9 },
+    { text: 'Take 1 tablet by mouth daily', confidence: 0.9 },
+  ];
+  assert.equal(parseLabelFields(lines).name?.text, 'LEVOTHYROXINE SODIUM');
+});
+
+test('does not take an uncorroborated neighbour as the name', () => {
+  // Shaped like a name, beside the strength — and exactly what a patient's
+  // name looks like. With no landmark and no lexicon match, it stays absent.
+  const lines: RecognizedTextLine[] = [
+    { text: 'JANE DOE', confidence: 0.9 },
+    { text: '1.25MG(50,000 UNIT)', confidence: 0.9 },
+    { text: 'QTY: 4', confidence: 0.9 },
+  ];
+  const fields = parseLabelFields(lines);
+  assert.equal(fields.name, undefined);
+  assert.equal(fields.dosage?.text, '1.25 MG');
+});
+
+test('does not take a neighbour shaped like a label field or a surname-first name', () => {
+  for (const neighbour of ['Patient: Jane Doe', 'DOE, JANE', 'units) by mouth']) {
+    const lines: RecognizedTextLine[] = [
+      { text: neighbour, confidence: 0.9 },
+      { text: '1.25MG(50,000 UNIT)', confidence: 0.9 },
+      { text: 'Generic for: DRISDOL', confidence: 0.9 },
+    ];
+    assert.equal(parseLabelFields(lines).name, undefined, neighbour);
+  }
+});
+
+test('leaves the name absent when both neighbours qualify', () => {
+  const lines: RecognizedTextLine[] = [
+    { text: 'LEVOTHYROXINE', confidence: 0.9 },
+    { text: '50 MCG', confidence: 0.9 },
+    { text: 'METFORMIN', confidence: 0.9 },
+  ];
+  assert.equal(parseLabelFields(lines).name, undefined);
+});
+
+test('keeps a restated strength out of the name', () => {
+  assert.deepEqual(splitProduct('VITAMIN D2 1.25MG(50,000 UNIT) CAP'), {
+    name: 'VITAMIN D2 CAP',
+    strength: '1.25 MG',
+  });
+  // The cut-off start of one, and a dose form alone, are not names either.
+  assert.deepEqual(splitProduct('1.25MG(50,'), { name: undefined, strength: '1.25 MG' });
+  assert.deepEqual(splitProduct('50MCG TAB'), { name: undefined, strength: '50 MCG' });
+});
+
+test('reads a Generic-for line as provenance, never the product', () => {
+  assert.equal(classifyLine('Generic for: Calciferol,Drisdol'), 'dispensing');
+  assert.equal(classifyLine('GENERIC FOR: SYNTHROID 50 MCG'), 'dispensing');
 });

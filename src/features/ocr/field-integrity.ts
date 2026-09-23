@@ -454,12 +454,13 @@ const MIXED_CASE_UNITS = new Set(['mL', 'mEq', 'dL', 'mcL']);
  */
 export function hasImpossibleCase(token: string): boolean {
   /**
-   * Judged per part, split on hyphens and slashes. Stripping the punctuation
-   * and judging the whole token would read `L-Thyroxine` as `LThyroxine` — a
-   * capital in the middle of a word — and flag a correctly printed drug name
-   * as garbled. Hyphenated prefixes (`L-`, `D-`, `Co-`) are common on labels.
+   * Judged per part, split on hyphens, slashes and commas. Stripping the
+   * punctuation and judging the whole token would read `L-Thyroxine` as
+   * `LThyroxine` — a capital in the middle of a word — and flag a correctly
+   * printed drug name as garbled. Hyphenated prefixes (`L-`, `D-`, `Co-`) are
+   * common on labels, and so are lists without a space: `Calciferol,Drisdol`.
    */
-  return token.split(/[-/]/).some((part) => {
+  return token.split(/[-/,]/).some((part) => {
     const letters = part.replace(/[^A-Za-z]/g, '');
     if (letters.length < 2 || MIXED_CASE_UNITS.has(letters)) return false;
     return !(
