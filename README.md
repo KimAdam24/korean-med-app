@@ -165,15 +165,14 @@ hyphens that would say which. Each scan therefore yields up to three candidate
 exists. When more than one does, the app asks the user rather than picking —
 `src/features/drugs/ndc.ts` explains why at length.
 
-### The app switcher can show medication data
+### Screenshots are blocked on Android
 
-iOS snapshots the screen for the app switcher, and Android for recents, as the
-app leaves the foreground — before the lock has redrawn. Someone holding the
-unlocked phone can read medicine names there. `expo-screen-capture` covers
-both (`enableAppSwitcherProtectionAsync` on iOS, `FLAG_SECURE` on Android), but
-it is a new native dependency, and on Android it also blocks screenshots —
-which a caregiver may rely on to share a list. Not added until that trade is
-decided.
+The app switcher must not show what the lock hides, so the app blurs itself in
+the iOS switcher and sets `FLAG_SECURE` on Android (`screen-privacy.ts`).
+Android has no way to blank the recents thumbnail without also blocking
+screenshots and screen recording, so on Android a caregiver cannot screenshot
+the medicine list to share it. iOS screenshots still work. This needs a
+native rebuild to take effect; older builds run unprotected rather than crash.
 
 ### The PIN lockout can be shortened by changing the device clock
 

@@ -4,6 +4,7 @@ import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { sweepPhotoCaches } from '@/features/capture/photo-caches';
+import { protectFromAppSwitcher } from '@/features/security/screen-privacy';
 import { AppLockProvider, useAppLock } from '@/features/security/app-lock-context';
 import { LockScreen } from '@/features/security/lock-screen';
 import { Strings } from '@/i18n/strings';
@@ -37,9 +38,11 @@ export default function RootLayout() {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
 
   // Anything in the photo caches at launch was left by a run that did not
-  // finish reading it. See `photo-caches`.
+  // finish reading it. See `photo-caches`. And the app switcher must never
+  // show what the lock hides; see `screen-privacy`.
   useEffect(() => {
     sweepPhotoCaches();
+    void protectFromAppSwitcher();
   }, []);
 
   return (
