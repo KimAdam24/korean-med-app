@@ -126,9 +126,11 @@ engine's lines, redacted in shape; the corpus header says how.
 
 Reading order is decided in TypeScript (`reading-order.ts`) from the geometry
 both native modules return, following each line's slope so that the pieces of
-a printed line bent round a vial stay on one row. It is tested on synthetic
-geometry only: neither corpus label was captured with geometry, so how it
-behaves on a real curved bottle is not yet known.
+a printed line bent round a vial stay on one row. One real capture has
+geometry: the vial, photographed tilted by about 8°, which reads in order and
+keeps every wrapped line of its directions — after it exposed a bug in how a
+wrapped line is joined on a tilt. Curvature is still tested on synthetic
+geometry only, so how it behaves on a strongly curved bottle is not yet known.
 
 We wrote this rather than taking a dependency because no community OCR library
 is both maintained and current: `expo-text-extractor`'s last substantive commit
