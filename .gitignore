@@ -48,3 +48,6 @@ example
 
 /android
 /ios
+
+# Integration-test failure log (integration/failure-log-reporter.js)
+/.test-results/
