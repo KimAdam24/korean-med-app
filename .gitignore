@@ -45,3 +45,6 @@ example
 
 # Gradle output from compiling a local module outside EAS
 /modules/*/android/build/
+
+/android
+/ios
