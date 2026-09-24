@@ -54,9 +54,10 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.integration.json",
     "test": "npm run -s test:unit && npm run -s test:integration",
-    "test:unit": "node --test --experimental-strip-types \"src/**/*.test.ts\"",
+    "test:unit": "node --test --experimental-strip-types \"src/**/*.test.ts\" \"scripts/**/*.test.ts\"",
     "test:integration": "jest",
-    "eval": "node --no-warnings --experimental-strip-types src/features/ocr/eval/report.ts"
+    "eval": "node --no-warnings --experimental-strip-types src/features/ocr/eval/report.ts",
+    "smoke:android": "node --no-warnings --experimental-strip-types scripts/smoke-android.ts"
   },
   "private": true,
   "jest": {

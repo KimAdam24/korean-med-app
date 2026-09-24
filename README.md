@@ -41,6 +41,7 @@ npm run typecheck   # app and tests
 npm run test:unit   # pure-logic tests, run on Node
 npm run test:integration   # the app end to end under Jest, native modules faked
 npm run eval        # OCR scorecard against real label readings
+npm run smoke:android -- --dev-server http://10.0.2.2:8081   # launch a real build, fail on a crash
 npm run lint
 ```
 
@@ -174,6 +175,14 @@ Android has no way to blank the recents thumbnail without also blocking
 screenshots and screen recording, so on Android a caregiver cannot screenshot
 the medicine list to share it. iOS screenshots still work. This needs a
 native rebuild to take effect; older builds run unprotected rather than crash.
+
+The library needs `DETECT_SCREEN_CAPTURE` just to load: on Android 14+ it
+registers a screen-capture callback as it starts, and Android throws without
+the permission. A build that blocked it crashed at launch; the permission is
+normal-level, granted at install, and asks nothing of the user.
+`integration/android-permissions.test.ts` now checks every removed permission
+against the native code that ships, and `npm run smoke:android` launches a
+real build to catch what no JavaScript test can see.
 
 ### The PIN lockout can be shortened by changing the device clock
 

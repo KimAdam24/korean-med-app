@@ -38,6 +38,8 @@
     "**/*.test.tsx",
     // Jest integration tests and their fakes, typechecked with Jest's globals
     // by tsconfig.integration.json.
-    "integration"
+    "integration",
+    // Node scripts, typechecked with Node's globals by tsconfig.test.json.
+    "scripts"
   ]
 }

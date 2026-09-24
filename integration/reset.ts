@@ -1,8 +1,17 @@
+import { configure } from '@testing-library/react-native';
+
 import { camera } from './fakes/camera';
 import { ocr, picker } from './fakes/devices';
 import { disk } from './fakes/file-system';
 import { biometrics } from './fakes/local-authentication';
 import { keychain } from './fakes/secure-store';
+
+/**
+ * Five seconds, not the default one, for text to appear. A whole app renders
+ * behind the lock in these tests, and on a loaded machine the first render
+ * after a cold compile can pass a second; a real failure still fails.
+ */
+configure({ asyncUtilTimeout: 5000 });
 
 /**
  * Every test starts on a phone fresh from the box: an empty keychain and disk,

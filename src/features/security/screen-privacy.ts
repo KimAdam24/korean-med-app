@@ -20,13 +20,22 @@ import { Platform } from 'react-native';
  *   Accepted: the thumbnail is visible to anyone, the screenshot only to
  *   someone already inside the app.
  *
+ * ## The permission it cannot do without
+ *
+ * On Android 14+ the library registers a screen-capture callback the moment
+ * it loads — whether or not anything here is called — and Android throws
+ * unless the app declares `DETECT_SCREEN_CAPTURE`. A build that removed it,
+ * believing only the screenshot listener used it, crashed at launch. It must
+ * stay; `integration/android-permissions.test.ts` fails if it is removed.
+ *
  * ## Why it is loaded lazily
  *
  * The native module exists only in a binary built after it was added, and the
  * library looks it up when its JavaScript is first imported. Imported
  * statically, JavaScript reloaded into an older development build would crash
  * at launch. Loaded here instead, an older build simply goes unprotected until
- * it is rebuilt.
+ * it is rebuilt. (This guards against the module being missing, not against a
+ * native failure inside it — nothing in JavaScript can catch that.)
  */
 export async function protectFromAppSwitcher(): Promise<void> {
   if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
