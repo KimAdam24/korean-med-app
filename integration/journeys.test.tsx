@@ -7,7 +7,14 @@
  */
 import { act, fireEvent, screen, waitFor, within } from 'expo-router/testing-library';
 
-import { forgetAppStateListeners, launchApp, press, pressDigits } from './app-harness';
+import {
+  APP_LOAD_BUDGET_MS,
+  forgetAppStateListeners,
+  launchApp,
+  loadApp,
+  press,
+  pressDigits,
+} from './app-harness';
 import { camera } from './fakes/camera';
 import { ocr } from './fakes/devices';
 import { disk } from './fakes/file-system';
@@ -18,6 +25,7 @@ import { addMedication, loadProfile } from '@/features/medications/medication-st
 import { setPin, verifyPin } from '@/features/security/pin';
 import { Strings } from '@/i18n/strings';
 
+beforeAll(loadApp, APP_LOAD_BUDGET_MS);
 beforeEach(forgetAppStateListeners);
 
 /**

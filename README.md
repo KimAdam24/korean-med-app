@@ -45,6 +45,9 @@ npm run smoke:android -- --dev-server http://10.0.2.2:8081   # launch a real bui
 npm run lint
 ```
 
+Integration failures are also appended to `.test-results/failures.log`
+(ignored by git), so one that does not recur can still be named.
+
 ## Layout
 
 ```
@@ -198,24 +201,6 @@ restart it, and force-stop the app before retrying.
 The lockout schedule reads `Date.now()`. Defeating it requires already holding
 an unlocked phone, at which point the PIN is not what protects the data — the
 hardware-backed key is. Accepted knowingly; see `src/features/security/pin.ts`.
-
-### An integration run failed once, and the failure was never identified
-
-**Open.** On 2026-09-24 one run of `npm test` failed two integration tests in
-two suites (58 total). They were not identified: the console output had been
-filtered, and Jest's record of failing files was lost when its cache was
-cleared while investigating. It has not recurred since.
-
-Ruled out, each by rerunning the suite with Jest's old one-second wait
-restored: slow first renders (the two slowest tests, one per app-level suite,
-take 700–770 ms; no run failed), all 16 cores saturated (three runs, none
-failed), and a cold cache (none failed). The five-second wait in
-`integration/reset.ts` is a precaution for the closest case, not a fix.
-
-`integration/failure-log-reporter.js` now appends every failure — test, suite,
-duration, the first lines of the error, CPU use during the run — to
-`.test-results/failures.log`, whatever happens to the console. If this recurs,
-that file names it.
 
 ### What the tests cannot reach
 

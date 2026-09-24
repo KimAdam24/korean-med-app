@@ -7,8 +7,10 @@ import { Platform } from 'react-native';
 
 import {
   alreadySetUp,
+  APP_LOAD_BUDGET_MS,
   forgetAppStateListeners,
   launchApp,
+  loadApp,
   press,
   pressDigits,
   sendAppTo,
@@ -20,6 +22,7 @@ import { addMedication, loadProfile } from '@/features/medications/medication-st
 import { setPin } from '@/features/security/pin';
 import { Strings } from '@/i18n/strings';
 
+beforeAll(loadApp, APP_LOAD_BUDGET_MS);
 beforeEach(forgetAppStateListeners);
 
 const home = () => screen.findByText(Strings.home.capture.ko);

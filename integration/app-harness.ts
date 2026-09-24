@@ -1,5 +1,5 @@
 import { AppState } from 'react-native';
-import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { act, fireEvent, getMockContext, renderRouter, screen } from 'expo-router/testing-library';
 
 import { disk } from './fakes/file-system';
 
@@ -24,6 +24,27 @@ export function launchApp(initialUrl = '/') {
   appState.currentState = 'active';
   return renderRouter('src/app', { initialUrl });
 }
+
+/**
+ * Loads every screen of the app, and everything they import, before any test
+ * runs: `beforeAll(loadApp, APP_LOAD_BUDGET_MS)`.
+ *
+ * The router requires its screens while it renders, so otherwise the first
+ * test in each suite also pays to compile and load the whole app — about a
+ * second warm, four and a half from a cold cache, against Jest's five-second
+ * limit for a test. On a machine short of memory that went over, and the
+ * first test of each app-level suite failed, the one time unexplained. Loaded
+ * here, under its own budget, each test's limit measures only the test.
+ */
+export function loadApp(): void {
+  // Under fake timers, as `renderRouter` loads them.
+  jest.useFakeTimers();
+  const screens = getMockContext('src/app');
+  for (const file of screens.keys()) screens(file);
+}
+
+/** Loading has nothing to check; this budget only has to catch a hang. */
+export const APP_LOAD_BUDGET_MS = 60_000;
 
 export async function sendAppTo(state: 'active' | 'background' | 'inactive'): Promise<void> {
   appState.currentState = state;

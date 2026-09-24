@@ -2,11 +2,12 @@
 /**
  * Records every integration-test failure to `.test-results/failures.log`.
  *
- * Exists because a run once failed two tests that were never identified: the
- * console output was filtered, and the failure did not recur in dozens of
- * later runs, including under full CPU load and from a cold cache. The next
- * one records itself — test, suite, duration, the first lines of the error,
- * and how loaded the machine was — whatever happens to the console.
+ * Written after a run failed two tests that could not be identified, because
+ * the console output had been filtered. When it recurred, this log named
+ * them — the first test of each app-level suite, over Jest's time limit while
+ * loading the app (see `loadApp`) — and the machine's free memory. Every
+ * failure records itself here — test, suite, duration, the first lines of the
+ * error, and how loaded the machine was — whatever happens to the console.
  */
 const fs = require('node:fs');
 const os = require('node:os');
