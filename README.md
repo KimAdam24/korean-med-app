@@ -184,6 +184,15 @@ normal-level, granted at install, and asks nothing of the user.
 against the native code that ships, and `npm run smoke:android` launches a
 real build to catch what no JavaScript test can see.
 
+The smoke check passes only when the app draws one of its own first screens
+(lock, PIN, fingerprint prompt, or home) and stays up; a live process on a
+blank screen is a failure. For a dev build it checks the dev server answers
+first — on the emulator that is `http://10.0.2.2:<port>`. It was proven on the
+Pixel 7 emulator both ways: the good build passes, and a build with
+`DETECT_SCREEN_CAPTURE` stripped fails on the exact permission-denial crash.
+If a dev build hangs on a blank screen, the dev server is usually the cause:
+restart it, and force-stop the app before retrying.
+
 ### The PIN lockout can be shortened by changing the device clock
 
 The lockout schedule reads `Date.now()`. Defeating it requires already holding
