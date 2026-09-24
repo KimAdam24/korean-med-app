@@ -10,7 +10,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { TEMPLATE_PILLNAMELOL_LINES, VITAMIN_D2_VIAL_LINES } from './eval/corpus.ts';
+import {
+  TEMPLATE_PILLNAMELOL_LINES,
+  VITAMIN_D2_VIAL_LINES,
+  VITAMIN_D2_VIAL_NO_GEOMETRY_LINES,
+} from './eval/corpus.ts';
+import { orderLines } from './reading-order.ts';
 import {
   assessReadQuality,
   classifyLine,
@@ -296,7 +301,7 @@ test('finds a name printed apart from its strength', () => {
   // The real vial: name alone, strength split in two with its tail first,
   // then a "Generic for" line. The name was read cleanly and still rejected
   // while the parser required name and strength on one line.
-  const fields = parseLabelFields(VITAMIN_D2_VIAL_LINES);
+  const fields = parseLabelFields(VITAMIN_D2_VIAL_NO_GEOMETRY_LINES);
   assert.equal(fields.name?.text, 'VITAMIN D2');
   // Both halves of the strength, rejoined though the tail came first.
   assert.equal(fields.dosage?.text, '1.25 MG (50,000 UNIT)');
@@ -521,4 +526,16 @@ test('does not take another field left on the product line as its name', () => {
     name: undefined,
     strength: '300 MG',
   });
+});
+
+// --- The vial read with geometry --------------------------------------------------
+
+test('reads the vial from its real, tilted geometry, keeping every wrapped line', () => {
+  // The photograph is tilted by about 8°, so the axis-aligned frames of
+  // consecutive lines overlap. Judged by frames, "days" did not sit "directly
+  // below" the line before and was dropped as another column's.
+  const fields = parseLabelFields(orderLines(VITAMIN_D2_VIAL_LINES));
+  assert.equal(fields.name?.text, 'VITAMIN D2');
+  assert.equal(fields.dosage?.text, '1.25 MG (50,000 UNIT)');
+  assert.equal(fields.instructions?.text, 'Take 1 capsule (b units) by mouth eve days');
 });

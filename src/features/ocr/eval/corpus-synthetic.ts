@@ -60,6 +60,31 @@ function engineOrder<T>(items: readonly T[], order: readonly number[]): T[] {
 
 export const SYNTHETIC_CASES: readonly EvalCase[] = [
   {
+    id: 'synthetic-tilted-wrap',
+    description:
+      'Directions that wrap onto a lowercase "if needed", on a page tilted like the real vial ' +
+      '(0.15 slope, left edges drifting). Frames of consecutive lines overlap on a tilt; judged ' +
+      'by frames, the tail was dropped and an as-needed dose shown as a schedule.',
+    source: 'synthetic',
+    engine: null,
+    truth: {
+      name: ['OXYCODONE TAB', 'OXYCODONE'],
+      dosage: '5 MG',
+      instructions: 'Take 1 tablet by mouth every 4 hours if needed for pain',
+    },
+    lines: engineOrder(
+      [
+        laidOut('OXYCODONE 5 MG TAB', 340, 300, 300, 40, 0.15),
+        laidOut('Take 1 tablet by mouth every 4 hours', 333, 400, 420, 40, 0.15),
+        laidOut('if needed for pain', 326, 444, 220, 40, 0.15),
+        laidOut('QTY: 20', 319, 520, 120, 40, 0.15),
+      ],
+      [3, 1, 0, 2]
+    ),
+    expected: { name: 'correct', dosage: 'correct', instructions: 'correct' },
+    expectedVerdict: 'ok',
+  },
+  {
     id: 'synthetic-chain-lisinopril',
     description: 'Chain-pharmacy layout, all capitals, one-line directions, a manufacturer line.',
     source: 'synthetic',

@@ -525,9 +525,9 @@ export function parseLabelFields(lines: readonly RecognizedTextLine[]): Medicati
  * that could not be classified as anything else. Then:
  *
  *   - **With geometry**, position decides. A continuation sits directly below
- *     the line before it and shares the directions' left edge. A line that
- *     does not is another column's: it is stepped over, and the search goes on
- *     a line or two further for the one that does.
+ *     the line before it, starting under its left edge (see `sitsBelow`). A
+ *     line that does not is another column's: it is stepped over, and the
+ *     search goes on a line or two further for the one that does.
  *   - **Without geometry**, text is all there is. A line that begins lowercase
  *     is joined, since a new field on a label almost never does. An all-caps
  *     line that reads like directions — mostly direction words — is exactly
@@ -561,14 +561,13 @@ function collectDirections(classified: readonly { line: RecognizedTextLine; role
     collected.push(entry.line);
     used.add(index);
 
-    const blockStart = entry.line;
     let previous = entry.line;
     let cursor = index + 1;
     let steppedOver = 0;
 
     while (cursor < classified.length && !/[.!?]$/.test(previous.text.trim())) {
       const candidate = classified[cursor];
-      const placement = sitsBelow(blockStart, previous, candidate.line);
+      const placement = sitsBelow(previous, candidate.line);
 
       if (placement === 'elsewhere') {
         // Another column's line. Keep looking just past it.
@@ -599,25 +598,60 @@ function collectDirections(classified: readonly { line: RecognizedTextLine; role
 
 /**
  * Where `candidate` sits relative to the directions: directly below the last
- * line of them and on their left edge, somewhere else, or unknown because a
- * line has no geometry.
+ * line of them, somewhere else, or unknown because a line has no geometry.
+ *
+ * Judged from corners where the engine gave them: the candidate's top-left
+ * corner must sit just under the previous line's bottom-left corner. That
+ * follows the page however it lies. Frames are axis-aligned, so on a tilted
+ * photograph consecutive lines' frames overlap — judged by frames, the real
+ * vial's wrapped `days` did not sit "below" the line it finishes, was taken
+ * for another column's, and dropped. Measured against the previous line, not
+ * the first, so a left margin that drifts down a curved label is followed too.
+ * Frames stand in only where corners are missing.
  */
 function sitsBelow(
-  blockStart: RecognizedTextLine,
   previous: RecognizedTextLine,
   candidate: RecognizedTextLine
 ): 'below' | 'elsewhere' | 'unknown' {
-  const start = blockStart.frame;
-  const above = previous.frame;
-  const line = candidate.frame;
-  if (!start || !above || !line) return 'unknown';
+  const above = leftEdge(previous);
+  const below = leftEdge(candidate);
+  if (!above || !below) return 'unknown';
 
-  const height = Math.min(above.height, line.height);
-  const aligned = Math.abs(line.left - start.left) <= height;
-  const gap = line.top - (above.top + above.height);
+  const height = Math.min(above.height, below.height);
+  const aligned = Math.abs(below.top.x - above.bottom.x) <= height;
+  const gap = below.top.y - above.bottom.y;
   const directlyBelow = gap > -height / 2 && gap <= height * 1.2;
 
   return aligned && directlyBelow ? 'below' : 'elsewhere';
+}
+
+/** A line's left edge — its top-left and bottom-left points — and text height. */
+function leftEdge(
+  line: RecognizedTextLine
+): { top: { x: number; y: number }; bottom: { x: number; y: number }; height: number } | null {
+  const corners = line.corners;
+  if (
+    corners &&
+    corners.length === 4 &&
+    corners.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+  ) {
+    const [topLeft, topRight, bottomRight, bottomLeft] = corners;
+    const height =
+      (Math.hypot(bottomLeft.x - topLeft.x, bottomLeft.y - topLeft.y) +
+        Math.hypot(bottomRight.x - topRight.x, bottomRight.y - topRight.y)) /
+      2;
+    if (height > 0) return { top: topLeft, bottom: bottomLeft, height };
+  }
+
+  const frame = line.frame;
+  if (frame && frame.height > 0) {
+    return {
+      top: { x: frame.left, y: frame.top },
+      bottom: { x: frame.left, y: frame.top + frame.height },
+      height: frame.height,
+    };
+  }
+  return null;
 }
 
 /** Mostly direction vocabulary: what a wrapped tail of directions reads like. */
