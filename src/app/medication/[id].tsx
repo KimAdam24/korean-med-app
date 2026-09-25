@@ -16,6 +16,8 @@ import {
 } from '@/features/medications/medication-store';
 import { ProfileProblem } from '@/features/medications/profile-problem';
 import { useProfile } from '@/features/medications/use-profile';
+import { ReminderSection } from '@/features/reminders/reminder-section';
+import { useReminders } from '@/features/reminders/reminders-context';
 import { goBackOr } from '@/features/navigation/go-back';
 import { assessField } from '@/features/ocr/field-integrity';
 import { useTheme } from '@/hooks/use-theme';
@@ -42,6 +44,7 @@ export default function MedicationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const { state, reload } = useProfile();
+  const { resync } = useReminders();
   const [mode, setMode] = useState<Mode>({ kind: 'viewing' });
 
   const record = useMemo(
@@ -117,13 +120,16 @@ export default function MedicationScreen() {
     setMode({ kind: 'working' });
     try {
       await removeMedication(record.id);
+      // Its reminders go with it; a reminder left for a medicine that is no
+      // longer on the list would still ring.
+      void resync();
       goBackOr(router, '/medications');
     } catch {
       // Still in the list, and now said so: returning to the medicine's page in
       // silence after "yes, remove it" read as though it had gone.
       setMode({ kind: 'viewing', notice: Strings.failure.removeFailed });
     }
-  }, [record, router]);
+  }, [record, router, resync]);
 
   if (state.status === 'loading' || mode.kind === 'working') {
     return (
@@ -247,6 +253,8 @@ export default function MedicationScreen() {
           assess={assess}
         />
       </Card>
+
+      <ReminderSection record={record} profile={state.profile} onChanged={reload} />
 
       <View style={styles.meta}>
         <BilingualText text={Strings.medications.source} variant="label" />

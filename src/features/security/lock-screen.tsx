@@ -7,13 +7,12 @@ import { Emblem } from '@/components/emblem';
 import { Notice } from '@/components/notice';
 import { PinPad } from '@/components/pin-pad';
 import { ALL_EDGES, Screen } from '@/components/screen';
-import { clearProfile } from '@/features/medications/medication-store';
 import { Strings, formatLockout, type Bilingual } from '@/i18n/strings';
 
 import { useAppLock } from './app-lock-context';
+import { eraseEverything } from './erase';
 import {
   PIN_LENGTH,
-  clearPin,
   isWellFormedPin,
   lockoutRemainingMs,
   setPin,
@@ -83,8 +82,7 @@ export function LockScreen() {
         capability.deviceSecured
           ? undefined
           : async () => {
-              await clearProfile();
-              await clearPin();
+              await eraseEverything();
               // Erased; see `onCreated` above for why a failed re-probe is not
               // reported as a failed erase.
               await refresh().catch(() => undefined);

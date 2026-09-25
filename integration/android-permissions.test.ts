@@ -36,6 +36,10 @@ const APIS_REQUIRING_PERMISSION = [
   },
   { api: /\bsetAudioSource\s*\(|\bnew AudioRecord\s*\(|\bAudioRecord\s*\(/, permission: 'android.permission.RECORD_AUDIO' },
   { api: /\bsetCameraPermissionState\b|\bCameraManager\.openCamera\s*\(/, permission: 'android.permission.CAMERA' },
+  // expo-notifications arms dose reminders with exact alarms when it may.
+  // Blocked, reminders would silently degrade to inexact ones, late in Doze
+  // (see modules/dose-alarms).
+  { api: /\bsetExactAndAllowWhileIdle\s*\(/, permission: 'android.permission.SCHEDULE_EXACT_ALARM' },
 ];
 
 /**

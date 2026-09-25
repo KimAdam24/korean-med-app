@@ -70,6 +70,9 @@ src/i18n/strings.ts       all user-facing copy, Korean-first
 | Encrypted medication storage (§3.3)     | Built                                             |
 | Korean translation (§3.2)               | Decided, not built                                |
 | Interaction guidance (§3.4)             | Not started, by choice — needs authoritative data |
+| First-launch introduction               | Built — copy awaiting translation                 |
+| Dose reminders                          | Built — not yet rung on a device; see `docs/reminders.md` |
+| Reading aloud (TTS)                     | Not started — constraints in `docs/tts-feasibility.md` |
 
 Identification is US-first: NDC codes resolved against RxNorm. Korean products
 (식약처/KIMS) are not handled yet, and the Korean OCR script model is

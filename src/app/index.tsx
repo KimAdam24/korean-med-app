@@ -13,6 +13,7 @@ import { pickImage } from '@/features/capture/pick-image';
 import { useProfile } from '@/features/medications/use-profile';
 import { useAppLock } from '@/features/security/app-lock-context';
 import { DevFileProbe } from '@/features/ocr/dev-file-probe';
+import { ReminderStatus } from '@/features/reminders/reminder-status';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, type Bilingual } from '@/i18n/strings';
 
@@ -58,6 +59,8 @@ export default function HomeScreen() {
 
   return (
     <Screen>
+      {/* Only when reminders are set and cannot work as set; otherwise nothing. */}
+      <ReminderStatus attentionOnly />
       <Card variant="hero">
         <View style={[styles.heroIcon, { backgroundColor: theme.surface }]}>
           <Icon name="camera" color={theme.primaryIcon} size={IconSize.hero} />

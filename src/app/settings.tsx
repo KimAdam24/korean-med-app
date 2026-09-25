@@ -10,10 +10,10 @@ import { Notice } from '@/components/notice';
 import { PinPad } from '@/components/pin-pad';
 import { Screen } from '@/components/screen';
 import { Spacing } from '@/constants/theme';
-import { clearProfile } from '@/features/medications/medication-store';
 import { goBackOr } from '@/features/navigation/go-back';
 import { useAppLock } from '@/features/security/app-lock-context';
-import { PIN_LENGTH, clearPin, setPin, verifyPin } from '@/features/security/pin';
+import { eraseEverything } from '@/features/security/erase';
+import { PIN_LENGTH, setPin, verifyPin } from '@/features/security/pin';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, formatLockout, type Bilingual } from '@/i18n/strings';
 
@@ -69,10 +69,9 @@ export default function SettingsScreen() {
   const erase = useCallback(async () => {
     setStep({ kind: 'working' });
     try {
-      // Order matters: the vault key goes first, which is the act that
-      // actually makes the records unreadable. Clearing the PIN is tidying.
-      await clearProfile();
-      await clearPin();
+      // Reminders, then the vault key — the act that actually makes the
+      // records unreadable — then the PIN. See `eraseEverything`.
+      await eraseEverything();
     } catch {
       // Back to the question, saying it did not finish. It used to return in
       // silence — and because the key goes first, a failure clearing the PIN

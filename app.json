@@ -75,6 +75,7 @@
           "microphonePermission": false
         }
       ],
+      "expo-notifications",
       "./modules/label-ocr/app.plugin.js"
     ],
     "experiments": {

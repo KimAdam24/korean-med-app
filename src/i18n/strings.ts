@@ -536,6 +536,61 @@ export const Strings = {
     ),
   },
 
+  /**
+   * Dose reminders. The notification itself never names the medicine: it is
+   * shown on the lock screen, and stored in the phone's scheduler outside the
+   * encrypted vault. English placeholders for now; see `untranslated`.
+   */
+  reminders: {
+    title: untranslated('Reminders', "Heading of the reminder section on a medicine's page."),
+    none: untranslated('No reminder is set for this medicine.'),
+    add: untranslated('Add a reminder time', 'Button.'),
+    saveTime: untranslated('Save this time', 'Button.'),
+    remove: untranslated('Remove', 'Button beside one reminder time.'),
+    removeLabel: untranslated(
+      'Remove the reminder at {time}',
+      'Spoken by the screen reader for the Remove button. {time} is a time such as 8:00 AM.'
+    ),
+    timeFormat: untranslated(
+      '{h}:{mm} {period}',
+      'How every reminder time is written. {h} is 1-12, {mm} two digits, {period} is am/pm below. Korean usually puts the period first: {period} {h}:{mm}.'
+    ),
+    am: untranslated('AM', 'Morning, as in 8:00 AM (오전).'),
+    pm: untranslated('PM', 'Afternoon and evening, as in 8:00 PM (오후).'),
+    hour: untranslated('Hour'),
+    minute: untranslated('Minute'),
+    earlier: untranslated('{field} earlier', 'Screen reader label for the minus button; {field} is Hour or Minute.'),
+    later: untranslated('{field} later', 'Screen reader label for the plus button; {field} is Hour or Minute.'),
+    presets: untranslated('Common times'),
+    duplicate: untranslated('That time is already set for this medicine.'),
+    tooMany: untranslated('You can set up to {max} reminder times in all.'),
+    saveFailed: untranslated('The reminder was not saved. Please try again.'),
+    askTitle: untranslated('Allow notifications for your reminders'),
+    askBody: untranslated(
+      'Next, your phone will ask whether this app may send notifications. Choose Allow, or reminders cannot sound. They never show the name of your medicine.'
+    ),
+    askContinue: untranslated('Continue', "Button that opens the phone's notification permission question."),
+    statusOn: untranslated('Reminders are on. The next one is at {time}.'),
+    statusOnNoNext: untranslated('Reminders are on.'),
+    statusChecking: untranslated('Checking your reminders'),
+    statusLate: untranslated(
+      'Reminders may arrive late. To make them come on time, allow "Alarms & reminders" for this app.',
+      '"Alarms & reminders" is the name of the Android setting; match the Korean name on the phone.'
+    ),
+    statusBlocked: untranslated('Reminders cannot sound: notifications are turned off for this app.'),
+    statusUnverified: untranslated('Your phone did not confirm your reminders. Please try again.'),
+    allow: untranslated('Allow notifications', 'Button.'),
+    openAlarmSettings: untranslated('Open "Alarms & reminders"', 'Button that opens the Android setting.'),
+    homeWarning: untranslated('Your medicine reminders cannot sound right now.'),
+    notificationTitle: untranslated(
+      'Time for your medicine',
+      'The notification itself, shown on the lock screen. Must not name a medicine.'
+    ),
+    notificationBody: untranslated('Open Medicine Helper to see which one.', 'Notification body. "Medicine Helper" is 약 도우미.'),
+    channelName: untranslated('Medicine reminders', "Shown in the phone's notification settings for this app."),
+    channelDescription: untranslated('Reminders to take your medicines.'),
+  },
+
   /** Heard, not seen: labels for screen readers only. */
   a11y: {
     pinProgress: untranslated(

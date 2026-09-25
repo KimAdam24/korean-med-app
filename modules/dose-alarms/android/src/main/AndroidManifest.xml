@@ -1,0 +1,29 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!--
+    Exact alarms, so a dose reminder arrives at 8:00 rather than somewhere in the
+    next Doze window. expo-notifications uses them when this is granted and
+    falls back to inexact alarms when not, but does not declare it. Android 12
+    and 13 grant it at install; Android 14 does not grant it to new installs,
+    and the user must allow "Alarms & reminders" — which the reminder screens
+    check and say (see DoseAlarmsModule).
+  -->
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+  <application>
+    <!--
+      Not exported, like expo-notifications' own receiver: these are system
+      broadcasts, which reach non-exported receivers, and nothing else should
+      be able to trigger a re-arm.
+    -->
+    <receiver
+      android:name=".ScheduleRestorer"
+      android:enabled="true"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

@@ -14,6 +14,19 @@ export type MedicationSource =
   /** Typed or corrected by the user. */
   | 'manual';
 
+/**
+ * A time of day to be reminded at, on the phone's own clock: 8:00 means 8:00
+ * wherever the phone is, on the day it fires — across daylight-saving changes
+ * and across timezones. See docs/reminders.md for why, and for what each
+ * platform does with it.
+ */
+export type ReminderTime = {
+  /** 0–23. */
+  readonly hour: number;
+  /** 0–59. */
+  readonly minute: number;
+};
+
 export type MedicationRecord = {
   readonly id: string;
   /**
@@ -64,6 +77,13 @@ export type MedicationRecord = {
    * indistinguishable from one they checked.
    */
   readonly needsReview: boolean;
+  /**
+   * Daily reminder times, sorted, no two alike. Stored here, in the encrypted
+   * vault, and nowhere else: what the phone's scheduler holds is only an
+   * identifier and a generic "time for your medicine", never a name — see
+   * `features/reminders`. Absent on records with no reminders.
+   */
+  readonly reminders?: readonly ReminderTime[];
 };
 
 /**

@@ -13,6 +13,8 @@ jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: require('./fakes/devices').launchImageLibraryAsync,
 }));
 jest.mock('../modules/label-ocr', () => ({ LabelOcr: require('./fakes/devices').LabelOcr }));
+jest.mock('expo-notifications', () => require('./fakes/notifications'));
+jest.mock('../modules/dose-alarms', () => ({ DoseAlarms: require('./fakes/notifications').doseAlarms }));
 
 // Icons are decorative and hidden from assistive technology; nothing to test.
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));

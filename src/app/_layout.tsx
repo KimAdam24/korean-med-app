@@ -6,6 +6,8 @@ import { Colors } from '@/constants/theme';
 import { sweepPhotoCaches } from '@/features/capture/photo-caches';
 import { markOnboarded, needsOnboarding } from '@/features/onboarding/onboarding-marker';
 import { Onboarding } from '@/features/onboarding/onboarding-screen';
+import { RemindersProvider } from '@/features/reminders/reminders-context';
+import { configureReminderPresentation, rearmStoredReminders } from '@/features/reminders/scheduler';
 import { protectFromAppSwitcher } from '@/features/security/screen-privacy';
 import { AppLockProvider, useAppLock } from '@/features/security/app-lock-context';
 import { LockScreen } from '@/features/security/lock-screen';
@@ -42,9 +44,15 @@ export default function RootLayout() {
   // Anything in the photo caches at launch was left by a run that did not
   // finish reading it. See `photo-caches`. And the app switcher must never
   // show what the lock hides; see `screen-privacy`.
+  //
+  // Reminders are re-armed here too, before the lock: see
+  // `rearmStoredReminders`. A failure is left to the sync after unlock, which
+  // re-arms everything again and says if it could not.
   useEffect(() => {
     sweepPhotoCaches();
     void protectFromAppSwitcher();
+    configureReminderPresentation();
+    void rearmStoredReminders().catch(() => undefined);
   }, []);
 
   return (
@@ -90,6 +98,9 @@ function LockGate() {
   }
 
   return (
+    // Inside the unlocked app only: matching reminders to the profile needs
+    // the profile, which is encrypted. See `RemindersProvider`.
+    <RemindersProvider>
     <Stack
       screenOptions={{
         // Larger and heavier than the platform default, which is set for a
@@ -112,5 +123,6 @@ function LockGate() {
         }}
       />
     </Stack>
+    </RemindersProvider>
   );
 }

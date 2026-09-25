@@ -1,0 +1,36 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.dosealarms'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.dosealarms"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+// The version installed in node_modules, read rather than written here, so an
+// upgrade of expo-notifications cannot leave this compiling against a stale one.
+def expoNotificationsVersion = new groovy.json.JsonSlurper()
+  .parse(new File(projectDir, '../../../node_modules/expo-notifications/package.json'))
+  .version
+
+dependencies {
+  // For `ExpoSchedulingDelegate`, the class expo-notifications itself uses to
+  // re-arm every stored notification after a reboot. Depending on it at compile
+  // time means a change to it in a future expo-notifications breaks this build,
+  // loudly, rather than breaking re-arming silently on a phone.
+  //
+  // expo-notifications ships prebuilt, from its own local Maven repository, so
+  // it is a published artifact rather than a Gradle project; and compileOnly,
+  // because the app already includes it.
+  compileOnly "host.exp.exponent:expo.modules.notifications:${expoNotificationsVersion}"
+}

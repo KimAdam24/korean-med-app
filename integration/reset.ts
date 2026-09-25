@@ -2,6 +2,7 @@ import { camera } from './fakes/camera';
 import { ocr, picker } from './fakes/devices';
 import { disk } from './fakes/file-system';
 import { biometrics } from './fakes/local-authentication';
+import { notifications } from './fakes/notifications';
 import { keychain } from './fakes/secure-store';
 
 /**
@@ -18,6 +19,7 @@ beforeEach(() => {
   camera.reset();
   picker.reset();
   ocr.reset();
+  notifications.reset();
   disk.write(ONBOARDED, '');
 });
 

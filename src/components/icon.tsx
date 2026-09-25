@@ -24,6 +24,7 @@ export const Icons = {
     web: 'chevron_right',
   },
   lock: { ios: 'lock.fill', android: 'lock', web: 'lock' },
+  alarm: { ios: 'alarm', android: 'alarm', web: 'alarm' },
   phone: { ios: 'iphone', android: 'smartphone', web: 'smartphone' },
   barcode: {
     ios: 'barcode.viewfinder',

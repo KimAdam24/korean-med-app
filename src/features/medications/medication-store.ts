@@ -54,7 +54,32 @@ function isMedicationRecord(value: unknown): value is MedicationRecord {
     typeof record.needsReview === 'boolean' &&
     (record.dosage === undefined || typeof record.dosage === 'string') &&
     (record.instructions === undefined || typeof record.instructions === 'string') &&
-    isIdentity(record.identity)
+    isIdentity(record.identity) &&
+    isReminderTimes(record.reminders)
+  );
+}
+
+/**
+ * Held to the same standard as the identity: a reminder list that is present
+ * but malformed is not quietly dropped, because a medicine whose reminders
+ * vanished on read would stop ringing with nothing to say why. The record is
+ * kept as found instead (see `updateProfile`), unread.
+ */
+function isReminderTimes(value: unknown): boolean {
+  if (value === undefined) return true;
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (time) =>
+        typeof time === 'object' &&
+        time !== null &&
+        Number.isInteger((time as { hour: unknown }).hour) &&
+        Number.isInteger((time as { minute: unknown }).minute) &&
+        (time as { hour: number }).hour >= 0 &&
+        (time as { hour: number }).hour <= 23 &&
+        (time as { minute: number }).minute >= 0 &&
+        (time as { minute: number }).minute <= 59
+    )
   );
 }
 
