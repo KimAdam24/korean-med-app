@@ -57,6 +57,7 @@
     "test:unit": "node --test --experimental-strip-types \"src/**/*.test.ts\" \"scripts/**/*.test.ts\"",
     "test:integration": "jest",
     "eval": "node --no-warnings --experimental-strip-types src/features/ocr/eval/report.ts",
+    "copy:pending": "node --no-warnings --experimental-strip-types scripts/pending-copy.ts",
     "smoke:android": "node --no-warnings --experimental-strip-types scripts/smoke-android.ts"
   },
   "private": true,

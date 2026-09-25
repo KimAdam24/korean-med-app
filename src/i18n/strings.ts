@@ -17,7 +17,25 @@
 export type Bilingual = {
   readonly ko: string;
   readonly en: string;
+  /** An English placeholder with no Korean yet. See `untranslated`. */
+  readonly pendingKo?: true;
+  /** For the translator: where the text appears and anything that constrains it. */
+  readonly note?: string;
 };
+
+/**
+ * Copy written in English and waiting for its Korean.
+ *
+ * New copy is not written in Korean by the implementation: it goes to a native
+ * reader first. Until then the English stands in both slots, so every screen
+ * still has something to show and read aloud, and `BilingualText` shows it once
+ * rather than twice. `npm run copy:pending` lists every placeholder, with its
+ * note, as the batch to translate; `strings.test.ts` fails if English reaches
+ * the Korean slot any other way.
+ */
+export function untranslated(en: string, note?: string): Bilingual {
+  return note ? { ko: en, en, pendingKo: true, note } : { ko: en, en, pendingKo: true };
+}
 
 export const Strings = {
   home: {
@@ -31,6 +49,47 @@ export const Strings = {
       ko: '사진은 저장하지 않아요. 글씨를 읽은 뒤 바로 지워요.',
       en: 'Photos are never saved. They are deleted right after the text is read.',
     },
+  },
+
+  /**
+   * The first launch, before the lock: what the app does, where the data lives,
+   * and the camera permission asked for with its reason rather than cold.
+   *
+   * All English placeholders for now; see `untranslated`.
+   */
+  onboarding: {
+    step: untranslated('Step {n} of {total}', 'Small progress label above each screen. {n} and {total} are numbers.'),
+    welcomeTitle: untranslated('Medicine Helper reads your medicine labels', 'Title of the first screen. "Medicine Helper" is the app name, 약 도우미.'),
+    welcomeBody: untranslated(
+      'Take a photo of a medicine label, or scan the barcode on the box. The app reads the name, the strength and the directions, and keeps a list of your medicines.'
+    ),
+    welcomeCheck: untranslated(
+      'It can misread a label. Always compare what it shows with the bottle, and ask your pharmacist if you are unsure.',
+      'A caution, but a calm one: it should not frighten.'
+    ),
+    storageTitle: untranslated('Your list stays on this phone'),
+    storageLocked: untranslated('Your medicines are saved only on this phone, locked so that only you can open them.'),
+    storageNoBackup: untranslated(
+      'They are not backed up anywhere. If you change or reset your phone, you will need to add your medicines again.',
+      'Must be unmistakable: this is the expectation users otherwise discover the hard way.'
+    ),
+    storagePhotos: untranslated('Photos are used only to read the label, and are deleted straight after.'),
+    storageLookup: untranslated(
+      'To look up a barcode, the app sends only the barcode number, never your list or your photos.',
+      'The lookup goes to the US National Library of Medicine; the sentence need not name it.'
+    ),
+    cameraTitle: untranslated('The camera reads your labels'),
+    cameraBody: untranslated(
+      'Next, your phone will ask whether this app may use the camera. Choose Allow, so that you can photograph your medicines.',
+      "'Allow' should match the word on the phone's own permission button in Korean."
+    ),
+    cameraReady: untranslated('The camera is ready.'),
+    cameraOff: untranslated('The camera is off for now. You can turn it on later in your phone settings.'),
+    next: untranslated('Next', 'Button.'),
+    back: untranslated('Back', 'Button.'),
+    askCamera: untranslated('Continue', "Button that opens the phone's camera permission question."),
+    notNow: untranslated('Not now', 'Button: skip the camera question for now.'),
+    start: untranslated('Start', 'Button that ends the introduction.'),
   },
 
   permission: {
@@ -454,6 +513,17 @@ export const Strings = {
     },
   },
 } as const;
+
+/**
+ * Fills `{name}` placeholders in both languages from `values`, keeping the
+ * string's placeholder marking. Unknown names are left as written, so a typo
+ * shows on screen instead of silently vanishing.
+ */
+export function fillTemplate(template: Bilingual, values: Record<string, string | number>): Bilingual {
+  const fill = (text: string) =>
+    text.replace(/\{([^}]+)\}/g, (match, name: string) => (name in values ? String(values[name]) : match));
+  return { ...template, ko: fill(template.ko), en: fill(template.en) };
+}
 
 /**
  * Fills the `{분}` placeholder in a lockout message.

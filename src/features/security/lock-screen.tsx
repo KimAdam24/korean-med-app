@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
-import { Icon } from '@/components/icon';
+import { Emblem } from '@/components/emblem';
 import { PinPad } from '@/components/pin-pad';
 import { ALL_EDGES, Screen } from '@/components/screen';
-import { IconSize } from '@/constants/theme';
 import { clearProfile } from '@/features/medications/medication-store';
-import { useTheme } from '@/hooks/use-theme';
 import { Strings, formatLockout, type Bilingual } from '@/i18n/strings';
 
 import { useAppLock } from './app-lock-context';
@@ -448,23 +446,7 @@ function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll
   );
 }
 
-/** Says "locked" before a word is read. Decorative; the title says it too. */
+/** Says "locked" before a word is read. */
 function LockEmblem() {
-  const theme = useTheme();
-  return (
-    <View style={[styles.emblem, { backgroundColor: theme.primaryWash }]}>
-      <Icon name="lock" color={theme.primaryIcon} size={IconSize.hero} />
-    </View>
-  );
+  return <Emblem icon="lock" />;
 }
-
-const styles = StyleSheet.create({
-  emblem: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-  },
-});

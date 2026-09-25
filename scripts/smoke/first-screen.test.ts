@@ -16,6 +16,11 @@ test('finds the lock screen once it has been drawn', () => {
   assert.equal(firstScreenIn(xml), Strings.lock.title.ko);
 });
 
+test('finds the introduction on a fresh install', () => {
+  const xml = dump(node(`text="${Strings.onboarding.welcomeTitle.ko}" content-desc=""`));
+  assert.equal(firstScreenIn(xml), Strings.onboarding.welcomeTitle.ko);
+});
+
 test("finds the app's message in the system fingerprint prompt", () => {
   const xml = dump(`<node text="${Strings.lock.prompt.ko}" package="com.android.systemui" />`);
   assert.equal(firstScreenIn(xml), Strings.lock.prompt.ko);

@@ -1,9 +1,11 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { sweepPhotoCaches } from '@/features/capture/photo-caches';
+import { markOnboarded, needsOnboarding } from '@/features/onboarding/onboarding-marker';
+import { Onboarding } from '@/features/onboarding/onboarding-screen';
 import { protectFromAppSwitcher } from '@/features/security/screen-privacy';
 import { AppLockProvider, useAppLock } from '@/features/security/app-lock-context';
 import { LockScreen } from '@/features/security/lock-screen';
@@ -68,6 +70,20 @@ export default function RootLayout() {
  */
 function LockGate() {
   const { status } = useAppLock();
+  // Read once: whether this launch starts with the introduction. See
+  // `onboarding-marker` for why it is its own marker.
+  const [onboarding, setOnboarding] = useState(needsOnboarding);
+
+  if (onboarding) {
+    return (
+      <Onboarding
+        onDone={() => {
+          markOnboarded();
+          setOnboarding(false);
+        }}
+      />
+    );
+  }
 
   if (status !== 'unlocked') {
     return <LockScreen />;

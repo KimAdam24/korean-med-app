@@ -77,6 +77,14 @@ export function alreadySetUp(): void {
   disk.write('file:///document/installed.v1', '');
 }
 
+/**
+ * A phone on which the app has never been opened: without the introduction
+ * marker every other suite starts with. See `reset.ts`.
+ */
+export function firstEverLaunch(): void {
+  disk.files.delete('file:///document/onboarded.v1');
+}
+
 /** Clears the listeners recorded by the previous test's app. */
 export function forgetAppStateListeners(): void {
   appState.addEventListener.mockClear();

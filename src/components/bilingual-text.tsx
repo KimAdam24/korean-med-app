@@ -61,7 +61,7 @@ export function BilingualText({
       // between sections of a result instead of listening to all of it.
       accessibilityRole={variant === 'heading' ? 'header' : undefined}>
       <Text style={[styles[variant], { color: primaryColor, textAlign }]}>{text.ko}</Text>
-      {hideEnglish || !text.en ? null : (
+      {hideEnglish || !text.en || text.pendingKo ? null : (
         <Text
           style={[styles.secondary, { color: secondaryColor, textAlign }]}
           // Already covered by the group's accessibilityLabel.

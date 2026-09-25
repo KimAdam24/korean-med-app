@@ -19,6 +19,10 @@ const state = {
   shots: 0,
   /** Replaces the shutter for one call, e.g. to return no picture. */
   nextShot: null as null | (() => Promise<unknown>),
+  /** What the system dialog will answer when asked; null leaves the status as it is. */
+  answer: null as Permission | null,
+  /** How many times the system dialog was opened. */
+  requests: 0,
 };
 
 export const CameraView = forwardRef<unknown, Record<string, unknown>>(function CameraView(props, ref) {
@@ -40,8 +44,19 @@ export const CameraView = forwardRef<unknown, Record<string, unknown>>(function 
 });
 
 export function useCameraPermissions(): [Permission | null, () => Promise<Permission | null>] {
-  return [state.permission, async () => state.permission];
+  return [
+    state.permission,
+    async () => {
+      state.requests += 1;
+      if (state.answer) state.permission = state.answer;
+      return state.permission;
+    },
+  ];
 }
+
+const GRANTED: Permission = { granted: true, canAskAgain: true, status: 'granted' };
+const UNDECIDED: Permission = { granted: false, canAskAgain: true, status: 'undetermined' };
+const REFUSED: Permission = { granted: false, canAskAgain: false, status: 'denied' };
 
 export const camera = {
   state,
@@ -51,10 +66,22 @@ export const camera = {
     if (!handler) throw new Error('The preview is not scanning.');
     return handler(result);
   },
+  /** A fresh install: the camera has never been asked for, and will be allowed or refused. */
+  notYetAsked(willAnswer: 'allow' | 'refuse'): void {
+    state.permission = UNDECIDED;
+    state.answer = willAnswer === 'allow' ? GRANTED : REFUSED;
+  },
+  /** Refused for good: the system will not ask again. */
+  refused(): void {
+    state.permission = REFUSED;
+    state.answer = null;
+  },
   reset(): void {
-    state.permission = { granted: true, canAskAgain: true, status: 'granted' };
+    state.permission = GRANTED;
     state.props = null;
     state.shots = 0;
     state.nextShot = null;
+    state.answer = null;
+    state.requests = 0;
   },
 };

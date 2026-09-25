@@ -10,6 +10,7 @@ import { Strings } from '../../src/i18n/strings.ts';
  * taken from the app's own strings, so they cannot drift from what it shows.
  */
 export const FIRST_SCREEN_TEXTS: readonly string[] = [
+  Strings.onboarding.welcomeTitle.ko, // a fresh install: the introduction
   Strings.lock.title.ko, // the lock, on a phone with its own lock
   Strings.lock.prompt.ko, // the system fingerprint prompt the lock opens
   Strings.pin.createTitle.ko, // first launch on a phone with no lock
