@@ -7,6 +7,11 @@
  *
  * Korean uses 해요체 (polite, non-archaic) throughout: it reads as respectful to
  * an older user without the stiffness of 하십시오체.
+ *
+ * One word per thing, everywhere: 버튼 (not 단추, which reads as a coat button),
+ * 네모 for the camera frame, 네 for yes, 약병 for a dispensed label and 약 상자
+ * for a boxed product with a barcode. 등록 means adding to the user's own list,
+ * so it is never used to say whether a medicine is known or approved.
  */
 
 export type Bilingual = {
@@ -34,7 +39,7 @@ export const Strings = {
       ko: '약병의 글씨를 읽기 위해 카메라가 필요해요. 사진은 저장하지 않고, 글씨를 읽은 즉시 지워요.',
       en: 'We need the camera to read the writing on your medicine. The photo is never saved — it is deleted as soon as the text is read.',
     },
-    allow: { ko: '예, 사용할게요', en: 'Yes, allow the camera' },
+    allow: { ko: '네, 허용할게요', en: 'Yes, allow the camera' },
     deniedTitle: { ko: '카메라를 쓸 수 없어요', en: 'The camera is unavailable' },
     deniedBody: {
       ko: '휴대폰 설정에서 이 앱의 카메라 사용을 허용해 주세요.',
@@ -46,7 +51,7 @@ export const Strings = {
 
   camera: {
     frameHint: {
-      ko: '약 이름이 보이도록 사각형 안에 맞춰 주세요.',
+      ko: '약 이름이 보이도록 네모 안에 맞춰 주세요.',
       en: 'Line the label up inside the box so the medicine name is visible.',
     },
     privacyBanner: { ko: '사진은 저장되지 않아요', en: 'Photos are not saved' },
@@ -75,7 +80,7 @@ export const Strings = {
       en: 'Hold the barcode on the box inside the square.',
     },
     orPhoto: {
-      ko: '바코드가 없으면 아래 단추로 사진을 찍어 주세요.',
+      ko: '바코드가 없으면 아래 버튼을 눌러 사진을 찍어 주세요.',
       en: 'If there is no barcode, use the button below to take a photo.',
     },
     looking: { ko: '약을 찾고 있어요', en: 'Looking up the medicine' },
@@ -90,19 +95,19 @@ export const Strings = {
       en: 'This package is no longer sold. If it is the medicine you take, it is fine to add it.',
     },
     save: { ko: '내 약으로 등록하기', en: 'Add to my medicines' },
-    saved: { ko: '약 목록에 저장했어요', en: 'Saved to your medicine list' },
+    saved: { ko: '내 약 목록에 저장했어요', en: 'Saved to your medicine list' },
     scanAgain: { ko: '다시 찍기', en: 'Scan again' },
 
-    ambiguousTitle: { ko: '비슷한 약이 여러 개 있어요', en: 'More than one medicine matches' },
+    ambiguousTitle: { ko: '이 바코드에 맞는 약이 여러 개 있어요', en: 'More than one medicine matches' },
     ambiguousBody: {
       ko: '바코드만으로는 구분할 수 없어요. 약 상자에 적힌 번호와 같은 것을 골라 주세요.',
       en: 'The barcode alone cannot tell them apart. Please choose the one whose code matches your box.',
     },
 
-    unrecognisedTitle: { ko: '등록된 약이 아니에요', en: 'This medicine is not in our reference' },
+    unrecognisedTitle: { ko: '이 약의 정보를 찾지 못했어요', en: 'We could not find details for this medicine' },
     unrecognisedBody: {
-      ko: '바코드는 읽었지만 약 정보를 찾지 못했어요. 약 상자를 사진으로 찍어 볼까요?',
-      en: 'We read the barcode but could not find the medicine. Shall we try photographing the box?',
+      ko: '바코드는 읽었지만 약 정보가 나오지 않았어요. 약 상자를 사진으로 찍어 볼까요?',
+      en: 'We read the barcode but no details came up. Shall we try photographing the box?',
     },
 
     offlineTitle: { ko: '약 정보를 가져오지 못했어요', en: 'We could not fetch the medicine details' },
@@ -156,8 +161,8 @@ export const Strings = {
         title: { ko: '약 이름을 정확히 읽지 못했어요', en: 'We could not read the medicine name clearly' },
         // Action only: the title has already said the name could not be read.
         body: {
-          ko: '약 상자에 적힌 이름과 꼭 비교해 주세요.',
-          en: 'Please check it against the name on the box.',
+          ko: '약병에 적힌 이름과 꼭 비교해 주세요.',
+          en: 'Please check it against the name on the bottle.',
         },
       },
       dosage: {
@@ -172,7 +177,7 @@ export const Strings = {
         // Keeps its reason: without it, directions that are simply absent
         // could be mistaken for a label that had none.
         body: {
-          ko: '깨진 글자라서 보여 드리지 않았어요. 약병을 직접 확인해 주세요.',
+          ko: '글자가 깨져서 보여 드리지 않았어요. 약병을 직접 확인해 주세요.',
           en: 'The letters are broken, so they are not shown. Please read the bottle itself.',
         },
       },
@@ -203,7 +208,7 @@ export const Strings = {
      * own: text should fill as much of the frame as possible.
      */
     degradedBody: {
-      ko: '밝은 곳에서, 약 글씨가 화면에 가득 차게 다시 찍어 보세요.',
+      ko: '밝은 곳에서 약 글씨가 화면에 가득 차게 다시 찍어 보세요.',
       en: 'Try again somewhere bright, with the label filling the screen.',
     },
     /**
@@ -237,7 +242,7 @@ export const Strings = {
     useDevice: { ko: '휴대폰 잠금으로 열기', en: 'Use phone unlock instead' },
     checking: { ko: '확인하고 있어요', en: 'Checking' },
     rejected: {
-      ko: '본인 확인이 되지 않았어요. 다시 해 보시거나 비밀번호를 쓰세요.',
+      ko: '본인 확인이 되지 않았어요. 다시 해 보시거나 비밀번호를 입력해 주세요.',
       en: 'We could not confirm it is you. Try again, or use your PIN.',
     },
     biometricUnavailable: {
@@ -282,12 +287,12 @@ export const Strings = {
      */
     unrecoverableTitle: { ko: '저장된 약 정보를 열 수 없어요', en: 'Your saved medicine information cannot be opened' },
     unrecoverableBody: {
-      ko: '새 휴대폰에서는 예전에 저장한 약 정보를 열 수 없어요. 안전을 위해 이 휴대폰에서만 열리도록 되어 있어요. 약을 다시 찍어서 등록해 주세요.',
+      ko: '새 휴대폰에서는 예전에 저장한 약 정보를 열 수 없어요. 안전을 위해 저장했던 휴대폰에서만 열리도록 되어 있어요. 약을 다시 찍어서 등록해 주세요.',
       en: 'Medicine information saved on another phone cannot be opened here. For safety it can only be opened on the phone that saved it. Please scan your medicines again.',
     },
     startOver: { ko: '다시 등록하기', en: 'Start over' },
     unsupported: {
-      ko: '이 휴대폰에서는 약 정보를 안전하게 저장할 수 없어요. 저장 기능은 휴대폰 앱에서 사용해 주세요.',
+      ko: '여기에서는 약 정보를 안전하게 저장할 수 없어요. 저장 기능은 휴대폰 앱에서 사용해 주세요.',
       en: 'Medicine information cannot be stored securely here. Please use the phone app to save it.',
     },
   },
@@ -310,7 +315,7 @@ export const Strings = {
 
     emptyTitle: { ko: '아직 등록된 약이 없어요', en: 'No medicines saved yet' },
     emptyBody: {
-      ko: '약 상자의 바코드를 찍거나 사진을 찍어서 등록해 보세요.',
+      ko: '약 상자의 바코드나 약병의 글씨를 찍어서 등록해 보세요.',
       en: 'Scan the barcode on a box, or photograph the label, to add one.',
     },
 
@@ -392,7 +397,7 @@ export const Strings = {
      * honest option, and the copy says exactly what it costs.
      */
     forgotPinNoDevice: {
-      ko: '이 휴대폰에는 잠금이 없어서, 비밀번호를 확인할 방법이 없어요. 약 목록을 모두 지우고 처음부터 다시 시작하는 방법밖에 없어요.',
+      ko: '이 휴대폰에는 잠금이 없어서 본인인지 확인할 다른 방법이 없어요. 약 목록을 모두 지우고 처음부터 다시 시작하는 방법밖에 없어요.',
       en: 'This phone has no lock of its own, so there is no other way to check it is you. The only way forward is to erase your medicines and start again.',
     },
 
