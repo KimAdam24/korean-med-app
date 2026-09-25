@@ -198,7 +198,7 @@ export function mergeSweep(state: SweepState): MergedReading | null {
     .map(({ i }) => inResult(i))
     .filter((index) => index >= 0);
 
-  const truncation = withStillCut(recognised.truncation ?? null, stillCut, ordered, recognised.fields, base);
+  const truncation = withStillCut(recognised.truncation ?? null, stillCut, ordered, recognised.fields);
   const result = { ...recognised, truncation };
 
   return {
@@ -220,15 +220,18 @@ function withStillCut(
   found: EdgeTruncation | null,
   stillCut: readonly number[],
   lines: readonly RecognizedTextLine[],
-  fields: MedicationLabelFields,
-  base: Analysed
+  fields: MedicationLabelFields
 ): EdgeTruncation | null {
   if (stillCut.length === 0) return found;
   const cutFields = fieldsOf(stillCut, lines, fields);
   const all = new Set<FieldKind>([...(found?.fields ?? []), ...cutFields]);
+  const endsCut = stillCut.some((index) => endsCutOff(lines[index].text, lines[index + 1]?.text));
   return {
-    side: found?.side ?? 'right',
-    diagnosed: found?.diagnosed ?? base.cut.filter(Boolean).length >= 2,
+    side: found?.side ?? (endsCut ? 'right' : 'left'),
+    // Withheld on the text's evidence alone, but a curve is said only where
+    // the edge check found one, from where the lines end, as for a photograph.
+    // Text alone would be a looser diagnosis than a single capture gets.
+    diagnosed: found?.diagnosed ?? false,
     cutLines: [...new Set([...(found?.cutLines ?? []), ...stillCut])],
     edgeLines: found?.edgeLines ?? [],
     fields: (['name', 'dosage', 'instructions'] as const).filter((kind) => all.has(kind)),

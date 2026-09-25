@@ -61,7 +61,9 @@ test('one frame is the single capture: the cut directions are withheld', () => {
   const merged = mergeSweep(sweep(FACING))!;
   assert.equal(merged.complete, false);
   assert.deepEqual(merged.result.truncation?.fields, ['instructions']);
-  assert.equal(merged.result.truncation?.diagnosed, true);
+  // Withheld on the text, but these frames are level, their cut lines short
+  // of the text's edge: no curve is claimed without the geometry for one.
+  assert.equal(merged.result.truncation?.diagnosed, false);
 });
 
 test('a frame that read everything is used as it is', () => {
