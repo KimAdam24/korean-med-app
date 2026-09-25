@@ -170,6 +170,10 @@ describe('what the app says about its reminders', () => {
 
 describe('taking reminders away', () => {
   it('cancels a removed time with the phone, and keeps the others', async () => {
+    // "Next" depends on the time of day: at 6:00 the next of 8:00 and 20:00
+    // is 8:00. Unpinned, this failed every afternoon. The fake timers are
+    // already installed (see `loadApp`), and `renderRouter` keeps their clock.
+    jest.setSystemTime(new Date(2026, 8, 25, 6, 0));
     const record = await medicine([
       { hour: 8, minute: 0 },
       { hour: 20, minute: 0 },
