@@ -428,6 +428,14 @@ function structuralDamage(tokens: readonly string[]): { position: number; damage
     found.push({ position: last, damage: 'clipped' });
   }
 
+  // "every 7" with its unit gone: `every` counts as timing by itself, so the
+  // direction below would otherwise pass, and 7 of what is the whole question.
+  // Found when a merged reading could end on "every 7" with its `days` line
+  // left out.
+  if (last >= 1 && /^\d+$/.test(words[last]) && ['every', 'for'].includes(words[last - 1])) {
+    found.push({ position: last, damage: 'clipped' });
+  }
+
   // A direction that opens with a verb of administration and never says when:
   // the frequency was on a line that did not make it. Marked at the end,
   // where the missing part would have been.
@@ -644,4 +652,17 @@ function endsKnownWord(word: string): boolean {
 export function isSigWord(token: string): boolean {
   const word = core(token);
   return word.length > 0 && isKnownSigWord(word);
+}
+
+/**
+ * The damage one word of a field shows by itself, if any — for placing a
+ * manual fill-in on a misread word. See `fill-in`.
+ */
+export function wordDamage(token: string, kind: FieldKind): DamageKind | null {
+  return tokenDamage(token, kind);
+}
+
+/** `days`, `weeks` … — an interval a number must come before. */
+export function isPluralInterval(token: string): boolean {
+  return PLURAL_INTERVALS.has(core(token));
 }

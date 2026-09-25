@@ -351,3 +351,10 @@ test('a thousands group short of digits is a broken number, not a dose', () => {
   assert.equal(assessField('instructions', 'Take 1,000 units by mouth daily').level, 'readable');
 });
 
+test('directions that end on a bare number after "every" have lost their unit', () => {
+  const result = assessField('instructions', 'Take 1 capsule (50,000 units) by mouth every 7');
+  assert.equal(result.level, 'damaged');
+  assert.ok(result.reasons.includes('clipped'));
+  assert.equal(assessField('instructions', 'Take 1 capsule (50,000 units) by mouth every 7 days').level, 'readable');
+});
+
