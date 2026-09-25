@@ -1,0 +1,315 @@
+{
+  "status": "DRAFT, UNREVIEWED. Korean drafted by the implementation (Claude) for the copy batch, so the reviewer reads and corrects rather than writes. Not imported by the app, and nothing here reaches it until the reviewer has signed off each string; see README.md.",
+  "drafted": "2026-09-25",
+  "strings": {
+    "result.curved.title": {
+      "ko": "약병이 둥글어서 글씨 일부가 가려졌어요"
+    },
+    "result.curved.right": {
+      "ko": "몇몇 줄의 끝부분이 오른쪽으로 돌아가서 보이지 않아요. 불을 밝게 해도 나아지지 않아요. 그쪽이 보이도록 약병을 천천히 돌린 뒤 다시 찍어 주세요."
+    },
+    "result.curved.left": {
+      "ko": "몇몇 줄의 앞부분이 왼쪽으로 돌아가서 보이지 않아요. 불을 밝게 해도 나아지지 않아요. 그쪽이 보이도록 약병을 천천히 돌린 뒤 다시 찍어 주세요."
+    },
+    "result.curved.restWhole": {
+      "ko": "약 이름과 용량은 모두 읽었어요."
+    },
+    "result.curved.fieldNote": {
+      "why": "A safety warning, left for her to write, as agreed: it stands in place of the directions, and tells the reader they are incomplete and to read the bottle."
+    },
+    "result.curved.edgeNote": {
+      "why": "A safety warning, left for her to write, as agreed: it stands in place of a line that may be incomplete, and tells the reader to read the bottle."
+    },
+    "sweep.start": {
+      "ko": "약병을 돌리면서 읽기"
+    },
+    "fillIn.start": {
+      "ko": "빠진 부분 채우기"
+    },
+    "failure.nameUnreadable": {
+      "ko": "약 이름을 읽지 못해서 등록할 수 없어요. 다시 찍어 주세요."
+    },
+    "fillIn.title": {
+      "ko": "약병에 적힌 대로 채워 주세요"
+    },
+    "fillIn.body": {
+      "ko": "칸마다 손에 든 약병과 비교해 보시고, 빠졌거나 틀린 부분만 입력해 주세요."
+    },
+    "fillIn.check": {
+      "ko": "맞는지 확인하기",
+      "note": "확인 alone is the Done button elsewhere, so this says 맞는지 확인하기."
+    },
+    "fillIn.stillIncomplete": {
+      "ko": "아직 빠진 부분이 있어요. 칸마다 약병과 다시 비교해 주세요."
+    },
+    "fillIn.confirmTitle": {
+      "ko": "약병에 적힌 내용과 같은가요?"
+    },
+    "fillIn.confirmYes": {
+      "ko": "네, 맞아요"
+    },
+    "fillIn.confirmNo": {
+      "ko": "다시 고치기"
+    },
+    "fillIn.filledNote": {
+      "ko": "일부는 약병을 보고 직접 입력하신 내용이에요."
+    },
+    "sweep.privacy": {
+      "ko": "약병을 돌리는 동안 카메라가 글씨를 읽어요. 글씨만 남기고 사진은 남기지 않아요."
+    },
+    "sweep.instructions": {
+      "ko": "약병을 카메라 앞에 들고 천천히 한 바퀴 돌려 주세요."
+    },
+    "sweep.waiting": {
+      "ko": "카메라를 약병 글씨 쪽으로 비춰 주세요."
+    },
+    "sweep.progress": {
+      "ko": "천천히 계속 돌려 주세요. 아직 {n}줄이 잘려 있어요."
+    },
+    "sweep.unclear": {
+      "ko": "글씨는 모두 보이지만 일부를 또렷하게 읽지 못했어요. 잠시 그대로 들고 계시거나, 멈추고 지금까지 읽은 내용을 보세요."
+    },
+    "sweep.allRead": {
+      "ko": "다 읽었어요."
+    },
+    "sweep.stop": {
+      "ko": "멈추고 읽은 내용 보기"
+    },
+    "sweep.failed": {
+      "ko": "카메라를 켜지 못했어요. 이 화면을 닫고 다시 해 주세요."
+    },
+    "sweep.stalled": {
+      "ko": "한동안 새로 읽은 글씨가 없어서 카메라를 껐어요. 지금까지 읽은 내용이에요."
+    },
+    "sweep.compareWithBottle": {
+      "ko": "약병을 돌리면서 카메라로 읽은 내용이에요. 저장하기 전에 약병과 한 번 비교해 주세요."
+    },
+    "sweep.nothingTaken": {
+      "ko": "사진은 찍지 않았어요. 글씨만 남겼어요."
+    },
+    "onboarding.step": {
+      "ko": "{total}단계 중 {n}단계"
+    },
+    "onboarding.welcomeTitle": {
+      "ko": "약 도우미가 약에 적힌 글씨를 읽어 드려요"
+    },
+    "onboarding.welcomeBody": {
+      "ko": "약병의 글씨를 사진으로 찍거나, 약 상자의 바코드를 비춰 주세요. 약 이름과 용량, 복용 방법을 읽어 드리고, 내 약 목록으로 모아 둘게요."
+    },
+    "onboarding.welcomeCheck": {
+      "why": "A safety warning, left for her to write, as agreed: the app's main caution: it can misread a label; compare with the bottle; ask the pharmacist."
+    },
+    "onboarding.next": {
+      "ko": "다음"
+    },
+    "onboarding.storageTitle": {
+      "ko": "약 목록은 이 휴대폰에만 있어요"
+    },
+    "onboarding.storageLocked": {
+      "ko": "약 정보는 이 휴대폰에만 저장되고, 본인만 열 수 있게 잠겨 있어요."
+    },
+    "onboarding.storageNoBackup": {
+      "ko": "다른 곳에 따로 저장(백업)되지 않아요. 휴대폰을 바꾸거나 초기화하면 약을 다시 등록해야 해요."
+    },
+    "onboarding.storagePhotos": {
+      "ko": "사진은 글씨를 읽는 데만 쓰고, 읽은 뒤 바로 지워요."
+    },
+    "onboarding.storageLookup": {
+      "ko": "바코드로 약을 찾을 때는 바코드 번호만 보내요. 약 목록이나 사진은 보내지 않아요."
+    },
+    "onboarding.back": {
+      "ko": "이전"
+    },
+    "onboarding.cameraTitle": {
+      "ko": "카메라로 약 글씨를 읽어요"
+    },
+    "onboarding.cameraBody": {
+      "ko": "다음 화면에서 휴대폰이 이 앱의 카메라 사용을 허용할지 물어봐요. 약을 찍으려면 '허용'을 눌러 주세요.",
+      "note": "Android's camera question may offer '앱 사용 중에만 허용' rather than '허용': please match it to the reviewer's phone."
+    },
+    "onboarding.askCamera": {
+      "ko": "계속하기"
+    },
+    "onboarding.notNow": {
+      "ko": "나중에 할게요"
+    },
+    "onboarding.cameraReady": {
+      "ko": "카메라를 쓸 준비가 됐어요."
+    },
+    "onboarding.cameraOff": {
+      "ko": "지금은 카메라가 꺼져 있어요. 나중에 휴대폰 설정에서 켤 수 있어요."
+    },
+    "onboarding.start": {
+      "ko": "시작하기"
+    },
+    "reminders.title": {
+      "ko": "복용 알림"
+    },
+    "reminders.none": {
+      "ko": "이 약은 알림이 설정되어 있지 않아요."
+    },
+    "reminders.add": {
+      "ko": "알림 시간 추가하기"
+    },
+    "reminders.hour": {
+      "ko": "시"
+    },
+    "reminders.minute": {
+      "ko": "분"
+    },
+    "reminders.am": {
+      "ko": "오전"
+    },
+    "reminders.pm": {
+      "ko": "오후"
+    },
+    "reminders.timeFormat": {
+      "ko": "{period} {h}:{mm}",
+      "note": "Drafted in the Korean order, 오전 8:00, as the note suggests."
+    },
+    "reminders.presets": {
+      "ko": "자주 쓰는 시간"
+    },
+    "reminders.saveTime": {
+      "ko": "이 시간으로 저장하기"
+    },
+    "reminders.remove": {
+      "ko": "지우기"
+    },
+    "reminders.askTitle": {
+      "ko": "알림을 허용해 주세요"
+    },
+    "reminders.askBody": {
+      "ko": "다음 화면에서 휴대폰이 이 앱의 알림을 허용할지 물어봐요. '허용'을 눌러야 알림이 울려요. 알림에는 약 이름이 나오지 않아요.",
+      "note": "Please match '허용' to the button in the notification question on the reviewer's phone."
+    },
+    "reminders.askContinue": {
+      "ko": "계속하기"
+    },
+    "reminders.statusChecking": {
+      "ko": "알림을 확인하고 있어요"
+    },
+    "reminders.statusOn": {
+      "ko": "알림이 켜져 있어요. 다음 알림 시간: {time}",
+      "note": "Written as \"다음 알림 시간: {time}\" to avoid a particle after the time."
+    },
+    "reminders.statusOnNoNext": {
+      "ko": "알림이 켜져 있어요."
+    },
+    "reminders.duplicate": {
+      "ko": "이 약에 이미 같은 시간이 있어요."
+    },
+    "reminders.tooMany": {
+      "ko": "알림 시간은 모두 합쳐 {max}개까지 정할 수 있어요."
+    },
+    "reminders.saveFailed": {
+      "ko": "알림을 저장하지 못했어요. 다시 시도해 주세요."
+    },
+    "reminders.statusLate": {
+      "why": "A safety warning, left for her to write, as agreed: reminders may come late. If it reads as reassuring, a late dose goes unnoticed."
+    },
+    "reminders.openAlarmSettings": {
+      "ko": "'알람 및 리마인더' 열기",
+      "note": "The setting is named 알람 및 리마인더 on the Android phones checked by the drafter only from memory: please match it to the reviewer's phone."
+    },
+    "reminders.statusBlocked": {
+      "why": "A safety warning, left for her to write, as agreed: reminders cannot sound at all. It must be unmistakable."
+    },
+    "reminders.allow": {
+      "ko": "알림 허용하기"
+    },
+    "reminders.statusUnverified": {
+      "why": "A safety warning, left for her to write, as agreed: the phone did not confirm the reminders, so they may not sound."
+    },
+    "reminders.homeWarning": {
+      "why": "A safety warning, left for her to write, as agreed: the home screen heading for the three reminder warnings above."
+    },
+    "reminders.notificationTitle": {
+      "ko": "약 드실 시간이에요"
+    },
+    "reminders.notificationBody": {
+      "ko": "약 도우미를 열어서 어떤 약인지 확인해 주세요."
+    },
+    "reminders.channelName": {
+      "ko": "복용 알림"
+    },
+    "reminders.channelDescription": {
+      "ko": "약 드실 시간을 알려 드려요."
+    },
+    "failure.lookupUnavailable": {
+      "ko": "약 정보 서비스가 지금 응답하지 않아요. 잠시 뒤에 다시 시도해 주세요."
+    },
+    "failure.addNotSaved": {
+      "ko": "내 약 목록에 추가되지 않았어요. 다시 시도해 주세요."
+    },
+    "failure.listUnavailableTitle": {
+      "ko": "지금은 약 목록을 열 수 없어요"
+    },
+    "failure.listUnavailableBody": {
+      "ko": "대개 잠시 뒤면 괜찮아져요. 다시 시도해 주세요."
+    },
+    "failure.listDamagedBody": {
+      "ko": "저장된 약 목록이 손상되어 열 수 없어요. 약을 다시 등록해야 해요."
+    },
+    "failure.editNotSaved": {
+      "ko": "고친 내용이 저장되지 않았어요. 다시 시도해 주세요."
+    },
+    "failure.confirmNotSaved": {
+      "ko": "확인 표시가 저장되지 않았어요. 다시 시도해 주세요."
+    },
+    "failure.removeFailed": {
+      "ko": "이 약을 지우지 못했어요. 아직 목록에 있어요. 다시 시도해 주세요."
+    },
+    "failure.medicineGone": {
+      "ko": "이 약은 이제 목록에 없어요."
+    },
+    "failure.pinCheckFailed": {
+      "ko": "지금은 비밀번호를 확인할 수 없어요. 다시 시도해 주세요."
+    },
+    "failure.pinNotSaved": {
+      "ko": "비밀번호를 저장하지 못했어요. 다시 정해 주세요."
+    },
+    "failure.pinNotChanged": {
+      "ko": "비밀번호가 바뀌지 않았어요. 예전 비밀번호를 그대로 쓰시면 돼요. 다시 시도해 주세요."
+    },
+    "failure.deviceUnlockFailed": {
+      "ko": "휴대폰 잠금으로 열지 못했어요. 다시 시도해 주세요."
+    },
+    "failure.deviceUnlockOff": {
+      "ko": "지금은 휴대폰 잠금을 쓸 수 없어요. 휴대폰에 화면 잠금이 설정되어 있는지 확인한 뒤 다시 시도해 주세요."
+    },
+    "failure.lockCheckFailedTitle": {
+      "ko": "휴대폰 잠금을 확인하지 못했어요"
+    },
+    "failure.lockCheckFailedBody": {
+      "ko": "다시 시도해 주세요. 계속 이러면 휴대폰을 다시 켜 주세요."
+    },
+    "failure.eraseIncompleteTitle": {
+      "ko": "다 지우지 못했어요"
+    },
+    "failure.eraseIncompleteBody": {
+      "ko": "일부 정보는 이미 지워졌을 수 있어요. 끝까지 지우려면 다시 시도해 주세요."
+    },
+    "a11y.pinProgress": {
+      "ko": "{total}자리 중 {n}자리 입력했어요"
+    },
+    "fillIn.wordLabel": {
+      "ko": "{line}번째 줄, 카메라가 읽은 글자: \"{read}\"",
+      "note": "Written without a particle after \"{read}\", which is whatever broken text the camera saw."
+    },
+    "fillIn.insertLabel": {
+      "ko": "{line}번째 줄, 빠진 숫자"
+    },
+    "reminders.removeLabel": {
+      "ko": "{time} 알림 지우기"
+    },
+    "reminders.earlier": {
+      "ko": "{field} 줄이기",
+      "note": "Spoken as, e.g., \"시 줄이기\": the minus button moves the hour or minute earlier."
+    },
+    "reminders.later": {
+      "ko": "{field} 늘리기",
+      "note": "Spoken as, e.g., \"분 늘리기\": the plus button moves it later."
+    }
+  }
+}

@@ -7,8 +7,14 @@ import { COPY_CONTEXT, SECTIONS, type CopyContext } from './copy-context.ts';
  * strings on screen today first. For a translator who will not have the app
  * in front of her.
  *
+ * Beside the English, an unreviewed draft of the Korean
+ * (`content-drafts/copy-batch.draft.json`), so her job is reading and
+ * correcting rather than writing; blank, with the reason, for the safety
+ * warnings she writes herself. Then a column for her final wording, and one
+ * that says, once she has filled it in, whether she changed the draft.
+ *
  * CSV, so it opens in Excel, Numbers or Google Sheets; with a byte-order mark,
- * or Excel shows the Korean in the notes as mojibake.
+ * or Excel shows the Korean as mojibake.
  */
 export const HEADER = [
   'No.',
@@ -17,15 +23,33 @@ export const HEADER = [
   'When it shows',
   'English',
   'Notes for the translation',
-  'Korean',
+  'Draft Korean (UNREVIEWED)',
+  'Why no draft',
+  'Her final Korean',
+  'Changed?',
   'Key (leave as it is)',
 ] as const;
+
+/** The drafts file: a draft (`ko`) or the reason there is none (`why`), per key. */
+export type CopyDrafts = {
+  readonly strings: Readonly<Record<string, { readonly ko?: string; readonly why?: string; readonly note?: string }>>;
+};
 
 export type ExportRow = { readonly copy: PendingCopy; readonly context: CopyContext };
 
 /** Pending strings with no context: an export would leave her guessing at these. */
 export function missingContext(pending: readonly PendingCopy[]): string[] {
   return pending.filter(({ key }) => !(key in COPY_CONTEXT)).map(({ key }) => key);
+}
+
+/** Pending strings with neither a draft nor a reason for leaving it blank. */
+export function missingDrafts(pending: readonly PendingCopy[], drafts: CopyDrafts): string[] {
+  return pending
+    .filter(({ key }) => {
+      const entry = drafts.strings[key];
+      return !entry || (!entry.ko?.trim() && !entry.why?.trim());
+    })
+    .map(({ key }) => key);
 }
 
 /** The rows, in export order. Context for strings no longer pending is ignored. */
@@ -44,23 +68,32 @@ export function exportRows(pending: readonly PendingCopy[]): ExportRow[] {
 
 const cell = (text: string) => (/[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
 
-export function exportCsv(rows: readonly ExportRow[]): string {
+/** Column letters, for the formula: draft G, final I. */
+const changed = (row: number) =>
+  `=IF(I${row}="","",IF(G${row}="","written by her",IF(EXACT(I${row},G${row}),"same as draft","CHANGED")))`;
+
+export function exportCsv(rows: readonly ExportRow[], drafts: CopyDrafts): string {
   const lines = [
     HEADER.join(','),
-    ...rows.map(({ copy, context }, index) =>
-      [
+    ...rows.map(({ copy, context }, index) => {
+      const draft = drafts.strings[copy.key] ?? {};
+      return [
         String(index + 1),
         context.section,
         context.where,
         context.when,
         copy.en,
-        [copy.note, context.notes].filter(Boolean).join(' '),
+        [copy.note, context.notes, draft.note && `About the draft: ${draft.note}`].filter(Boolean).join(' '),
+        draft.ko ?? '',
+        draft.ko ? '' : (draft.why ?? ''),
         '',
+        // Row 1 is the header.
+        changed(index + 2),
         copy.key,
       ]
         .map(cell)
-        .join(',')
-    ),
+        .join(',');
+    }),
   ];
   return '﻿' + lines.join('\r\n') + '\r\n';
 }
