@@ -35,7 +35,7 @@ export function ReadingField({
   assess,
   prominent = false,
   compact = false,
-  cutAtEdge = false,
+  cutAtEdge,
 }: {
   label: Bilingual;
   kind: FieldKind;
@@ -59,8 +59,9 @@ export function ReadingField({
    * `truncation`). Shown as damaged even when its text reads cleanly: what is
    * left of "every other day" with `other` round the curve is "every day".
    */
-  cutAtEdge?: boolean;
+  cutAtEdge?: 'curve' | 'edge';
 }) {
+  const cutNote = cutAtEdge === 'curve' ? Strings.result.curved.fieldNote : Strings.result.curved.edgeNote;
   const theme = useTheme();
   const [showRaw, setShowRaw] = useState(false);
 
@@ -79,7 +80,7 @@ export function ReadingField({
         <Notice
           tone="warn"
           title={Strings.result.damaged[kind].title}
-          body={compact ? undefined : Strings.result.curved.fieldNote}
+          body={compact ? undefined : cutNote}
         />
       ) : !text ? (
         <Text style={[styles.missing, { color: theme.textSecondary }]}>
@@ -90,7 +91,7 @@ export function ReadingField({
           tone="warn"
           title={Strings.result.damaged[kind].title}
           body={
-            compact ? undefined : cutAtEdge ? Strings.result.curved.fieldNote : Strings.result.damaged[kind].body
+            compact ? undefined : cutAtEdge ? cutNote : Strings.result.damaged[kind].body
           }>
           <Pressable
             onPress={() => setShowRaw((shown) => !shown)}

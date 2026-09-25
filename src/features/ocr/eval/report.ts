@@ -35,7 +35,9 @@ for (const entry of CORPUS) {
     return pad(outcome === 'wrong' ? 'WRONG' : outcome, 14);
   });
 
-  const edge = score.edge ? `${score.edge.side}: ${score.edge.fields.join(', ') || '(no field)'}` : '-';
+  const edge = score.edge
+    ? `${score.edge.diagnosed ? 'curve' : 'cut line'} ${score.edge.side}: ${score.edge.fields.join(', ') || '(no field)'}`
+    : '-';
   console.log(`${pad(entry.id, idWidth)}${cells.join('')}${pad(score.verdict, 10)}${edge}`);
 }
 

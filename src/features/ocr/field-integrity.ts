@@ -355,6 +355,12 @@ function tokenDamage(token: string, kind: FieldKind): DamageKind | null {
 
   if (hasLeadingZero(word) || word === '0') return 'missing-number';
 
+  // A thousands group short of digits — `50,0`, `50,00` — is what is left of
+  // `50,000` when its end is lost, and `NUMERIC` below would take it for a
+  // number. It read as clean: "Take 1 capsule (50,0 units)" was readable
+  // whenever only that one line was cut, too few for the curve diagnosis.
+  if (/\d,(?!\d{3}(?!\d))/.test(word)) return 'missing-number';
+
   if (NUMERIC.test(word) || isKnownSigWord(word)) return null;
 
   // A digit with one stray letter: `1O` for `10`, `4A` for `4`. Units that

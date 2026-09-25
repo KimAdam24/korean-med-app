@@ -718,14 +718,15 @@ function ReadingResult({
   const theme = useTheme();
   const degraded = quality?.level === 'degraded';
   const toSave = medicationFromReading(fields, truncation);
-  const cut = (kind: 'name' | 'dosage' | 'instructions') => isCutAtEdge(truncation, kind);
+  const cut = (kind: 'name' | 'dosage' | 'instructions') =>
+    isCutAtEdge(truncation, kind) ? (truncation?.diagnosed ? 'curve' : 'edge') : undefined;
 
   /**
    * The curve, said once, with its own remedy. It replaces the degraded
    * read's "try somewhere brighter" rather than adding to it: that advice is
    * wrong here, and a user who follows it retakes the same failure.
    */
-  const curvedNotice = truncation ? (
+  const curvedNotice = truncation?.diagnosed ? (
     <Notice
       tone="warn"
       title={Strings.result.curved.title}

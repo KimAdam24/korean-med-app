@@ -336,3 +336,18 @@ test('does not read a salt name or a combination strength as damage', () => {
     'readable'
   );
 });
+
+test('a thousands group short of digits is a broken number, not a dose', () => {
+  // What is left of 50,000 with its end round the curve of the bottle.
+  for (const text of [
+    'Take 1 capsule (50,0 units) by mouth every 7 days',
+    'Take 1 capsule (50,00 units) by mouth every 7 days',
+  ]) {
+    const result = assessField('instructions', text);
+    assert.equal(result.level, 'damaged', text);
+    assert.ok(result.reasons.includes('missing-number'), text);
+  }
+  assert.equal(assessField('instructions', 'Take 1 capsule (50,000 units) by mouth every 7 days').level, 'readable');
+  assert.equal(assessField('instructions', 'Take 1,000 units by mouth daily').level, 'readable');
+});
+

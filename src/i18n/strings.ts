@@ -296,6 +296,11 @@ export const Strings = {
         'The end of this line is out of sight round the curve of the bottle. Please read it on the bottle itself.',
         'Replaces "the letters are broken" for a line cut at the curve.'
       ),
+      /** One line cut at the edge: withheld, but the curve is not called. */
+      edgeNote: untranslated(
+        'The end of this line may be missing. Please read it on the bottle itself.',
+        'For one line that stops at the edge of the photo. Must not mention a curve.'
+      ),
     },
     hideReading: { ko: '읽은 내용 숨기기', en: 'Hide what was read' },
   },

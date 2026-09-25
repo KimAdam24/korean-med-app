@@ -66,7 +66,12 @@ export type EvalCase = {
    * by it. Absent means none: a diagnosis where none is expected fails the
    * suite, so the detector cannot quietly start crying wolf.
    */
-  readonly expectedEdge?: { readonly side: EdgeSide; readonly fields: readonly FieldKind[] };
+  readonly expectedEdge?: {
+    readonly side: EdgeSide;
+    readonly fields: readonly FieldKind[];
+    /** Whether the curve is called, or a lone cut line only withholds its field. */
+    readonly diagnosed: boolean;
+  };
 };
 
 export type CaseScore =

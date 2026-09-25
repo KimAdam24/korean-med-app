@@ -37,6 +37,15 @@ export type EdgeSide = 'right' | 'left';
 export type EdgeTruncation = {
   readonly side: EdgeSide;
   /**
+   * Whether the curve is called — two or more lines cut at the edge. The
+   * message saying the label curves needs this, and is tuned to under-trigger:
+   * telling someone their flat label is curved is the worse mistake.
+   * Withholding does not: a single line ending cut off at the edge of the text
+   * withholds its field all the same, because what is missing may be the part
+   * that matters, and withholding is the safe direction.
+   */
+  readonly diagnosed: boolean;
+  /**
    * Lines, by index in reading order, that end at the edge with text showing
    * what they lost.
    */
@@ -52,7 +61,7 @@ export type EdgeTruncation = {
 
 /** Lines within this fraction of a line's height of the edge are at the edge. */
 const EDGE_BAND = 0.5;
-/** How many lines must show a cut before the curve is called. */
+/** How many lines must show a cut before the curve is called. Withholding needs one. */
 const MIN_CUT_LINES = 2;
 /** Too few lines with geometry say nothing about an edge. */
 const MIN_LINES = 3;
@@ -179,22 +188,26 @@ export function detectEdgeTruncation(
     const atEdge = placed
       .filter((line) => Math.abs((side === 'right' ? line.end : line.start) - edge) <= tolerance)
       .map((line) => line.index);
-    if (atEdge.length < MIN_CUT_LINES) return null;
-
     const cut = atEdge.filter((index) =>
       side === 'right' ? endsCutOff(lines[index].text, lines[index + 1]?.text) : startsCutOff(lines[index].text)
     );
-    if (cut.length < MIN_CUT_LINES) return null;
+    if (cut.length === 0) return null;
 
     return {
       side,
+      diagnosed: cut.length >= MIN_CUT_LINES && atEdge.length >= MIN_CUT_LINES,
       cutLines: cut,
       edgeLines: atEdge.filter((index) => !cut.includes(index)),
       fields: fieldsOf(atEdge, lines, fields),
     };
   };
 
-  return judge('right') ?? judge('left');
+  // A diagnosis on either side beats a lone cut line on the other.
+  const right = judge('right');
+  const left = judge('left');
+  if (right?.diagnosed || !left) return right;
+  if (left.diagnosed || !right) return left;
+  return right;
 }
 
 /** Whether a field has lines at a cut edge: incomplete, whatever its own text looks like. */

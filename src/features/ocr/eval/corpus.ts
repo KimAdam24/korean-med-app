@@ -286,7 +286,7 @@ export const CORPUS: readonly EvalCase[] = [
     redacted: true,
     expected: { name: 'correct', dosage: 'correct', instructions: 'withheld' },
     // `(b` and `eve` end where the label curves away; name and strength do not.
-    expectedEdge: { side: 'right', fields: ['instructions'] },
+    expectedEdge: { side: 'right', fields: ['instructions'], diagnosed: true },
     // Name and strength are right, so one damaged field out of three: the
     // ordinary layout, with the directions marked damaged.
     expectedVerdict: 'ok',
@@ -306,7 +306,7 @@ export const CORPUS: readonly EvalCase[] = [
     lines: VITAMIN_D2_VIAL_RETAKE_LINES,
     redacted: true,
     expected: { name: 'correct', dosage: 'correct', instructions: 'withheld' },
-    expectedEdge: { side: 'right', fields: ['instructions'] },
+    expectedEdge: { side: 'right', fields: ['instructions'], diagnosed: true },
     expectedVerdict: 'ok',
   },
   {

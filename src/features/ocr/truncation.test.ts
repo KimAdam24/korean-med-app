@@ -44,6 +44,7 @@ const diagnose = (lines: readonly RecognizedTextLine[]) => {
 test('the vial, first capture: the two direction lines are cut on the right; name and strength are whole', () => {
   const edge = diagnose(VITAMIN_D2_VIAL_LINES);
   assert.equal(edge?.side, 'right');
+  assert.equal(edge?.diagnosed, true);
   assert.deepEqual(edge?.fields, ['instructions']);
   const result = interpretLines(VITAMIN_D2_VIAL_LINES);
   const cut = edge!.cutLines.map((index) => (result.status === 'recognized' ? result.lines![index].text : ''));
@@ -53,6 +54,7 @@ test('the vial, first capture: the two direction lines are cut on the right; nam
 test('the vial, retaken as well as one photo can: still cut on the right, at the same place', () => {
   const edge = diagnose(VITAMIN_D2_VIAL_RETAKE_LINES);
   assert.equal(edge?.side, 'right');
+  assert.equal(edge?.diagnosed, true);
   // Found even though the parser could not place these lines in a field: the
   // label's left edge read as a leading `|`, and "|Take" is not a direction.
   assert.deepEqual(edge?.fields, ['instructions']);
@@ -91,28 +93,26 @@ test('a flat label whose direction lines reach the margin together, on whole wor
   );
 });
 
-test('one damaged line at the margin is a damaged line, not a curve', () => {
-  assert.equal(
-    diagnose([
-      at('LISINOPRIL 10 MG TABLET', 0, 560),
-      at('Take 1 tablet by mouth eve', 60, 700),
-      at('day with food and plenty of water', 120, 702),
-      at('QTY: 30', 180, 260),
-    ]),
-    null
-  );
+test('one damaged line at the margin is not called a curve, but its field is withheld', () => {
+  const edge = diagnose([
+    at('LISINOPRIL 10 MG TABLET', 0, 560),
+    at('Take 1 tablet by mouth eve', 60, 700),
+    at('day with food and plenty of water', 120, 702),
+    at('QTY: 30', 180, 260),
+  ]);
+  assert.equal(edge?.diagnosed, false);
+  assert.deepEqual(edge?.fields, ['instructions']);
 });
 
-test('damaged line ends that do not line up are not an edge', () => {
-  assert.equal(
-    diagnose([
-      at('LISINOPRIL 10 MG TABLET', 0, 560),
-      at('Take 1 tablet (50,0', 60, 700),
-      at('units) by mouth eve', 120, 520),
-      at('days as needed', 180, 400),
-    ]),
-    null
-  );
+test('damaged line ends that do not line up are not a curve', () => {
+  const edge = diagnose([
+    at('LISINOPRIL 10 MG TABLET', 0, 560),
+    at('Take 1 tablet (50,0', 60, 700),
+    at('units) by mouth eve', 120, 520),
+    at('days as needed', 180, 400),
+  ]);
+  // Only the widest line is at the edge, so only its field is withheld.
+  assert.equal(edge?.diagnosed, false);
 });
 
 // --- Curves the real captures do not show ------------------------------------
