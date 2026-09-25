@@ -13,6 +13,7 @@ import { View } from 'react-native';
 type Line = { text: string; confidence: number | null };
 type Props = {
   active: boolean;
+  replay?: string;
   onLines: (event: { nativeEvent: { lines: readonly Line[]; width: number; height: number } }) => void;
   onSweepError?: (event: { nativeEvent: { message: string } }) => void;
 };
@@ -46,6 +47,10 @@ export const sweep = {
   },
   get reading() {
     return state.props?.active ?? false;
+  },
+  /** The development replay the view was asked for, if any. */
+  get replay() {
+    return state.props?.replay;
   },
   /** One frame's lines, as the native view would send them, only while it is reading. */
   async frame(lines: readonly Line[]): Promise<void> {

@@ -130,6 +130,18 @@ words, from the bottle, into boxes in the line; the result is read again by
 the whole pipeline and shown back for confirmation. Offered only for a field
 the reading found and withheld, with a specific gap in it.
 
+## Development replay
+
+Debug builds can replay a sweep from files instead of the camera
+(`modules/label-sweep/README.md`), so the merge can be exercised on an
+emulator. It reads only from the app's own `sweep-replay` folder, where a
+developer put the files by hand, and writes nothing. It cannot run in a
+release build: JavaScript passes a replay only in development, and the
+native view refuses one unless the app is debuggable. The invariant is
+unchanged for it: its frames, too, stay in native code, and only lines
+cross. The files themselves are test material, and a real label's are
+private: they stay off the repository and are deleted after use.
+
 ## Logging
 
 Development builds log a reading once, with anything not evidently label

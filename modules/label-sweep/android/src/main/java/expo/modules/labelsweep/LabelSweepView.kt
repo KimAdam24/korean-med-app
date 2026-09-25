@@ -2,7 +2,13 @@ package expo.modules.labelsweep
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.SystemClock
+import android.util.Log
+import android.view.Gravity
+import android.widget.ImageView
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -25,11 +31,17 @@ import expo.modules.labelocr.describeLine
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 
 /**
  * A viewfinder that reads the label from the camera's analysis stream.
@@ -54,6 +66,12 @@ import kotlinx.coroutines.launch
  *   which runs whether recognition succeeded or failed — before the next frame
  *   is taken.
  * - Nothing is written anywhere.
+ *
+ * ## Development replay
+ *
+ * With `replay` set, in a debuggable build only, frames come from files
+ * instead of the camera (see [SweepReplay]) and go through the same [read].
+ * The camera is not opened at all.
  */
 @SuppressLint("ViewConstructor")
 class LabelSweepView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
@@ -82,12 +100,38 @@ class LabelSweepView(context: Context, appContext: AppContext) : ExpoView(contex
   private var torch = false
   private var released = false
 
+  /** The props as last set; [applyProps] acts on them once all have arrived. */
+  private var wantActive = false
+  private var wantReplay: String? = null
+  private var replaying: String? = null
+  private var replayJob: Job? = null
+
+  // Development replay only: the frame being read, and which one it is.
+  private val replayImage = ImageView(context).apply {
+    scaleType = ImageView.ScaleType.FIT_CENTER
+    setBackgroundColor(Color.BLACK)
+    visibility = GONE
+  }
+  private val replayLabel = TextView(context).apply {
+    setTextColor(Color.YELLOW)
+    setBackgroundColor(Color.argb(160, 0, 0, 0))
+    textSize = 14f
+    gravity = Gravity.CENTER
+    setPadding(16, 8, 16, 8)
+    visibility = GONE
+  }
+  private var shown: Bitmap? = null
+
   init {
     addView(previewView)
+    addView(replayImage)
+    addView(replayLabel)
   }
 
   override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
     measureChild(previewView, widthMeasureSpec, heightMeasureSpec)
+    measureChild(replayImage, widthMeasureSpec, heightMeasureSpec)
+    measureChild(replayLabel, widthMeasureSpec, heightMeasureSpec)
     setMeasuredDimension(
       resolveSize(previewView.measuredWidth, widthMeasureSpec),
       resolveSize(previewView.measuredHeight, heightMeasureSpec)
@@ -95,13 +139,38 @@ class LabelSweepView(context: Context, appContext: AppContext) : ExpoView(contex
   }
 
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-    previewView.layout(0, 0, right - left, bottom - top)
+    val width = right - left
+    val height = bottom - top
+    previewView.layout(0, 0, width, height)
+    replayImage.layout(0, 0, width, height)
+    // Across the middle, clear of the banner and controls JavaScript draws.
+    val labelHeight = replayLabel.measuredHeight
+    replayLabel.layout(0, height / 2 - labelHeight / 2, width, height / 2 + labelHeight / 2)
   }
 
   fun setActive(next: Boolean) {
-    if (next == active) return
-    active = next
-    if (active) start() else stop()
+    wantActive = next
+  }
+
+  /** DEVELOPMENT ONLY: read frames from this replay instead of the camera. */
+  fun setReplay(next: String?) {
+    wantReplay = next?.takeIf { it.isNotBlank() }
+  }
+
+  /**
+   * Called once each batch of props has been set, so a replay named in the
+   * same update as `active` is seen before the camera would have been opened.
+   */
+  fun applyProps() {
+    if (released) return
+    val source = if (wantActive) wantReplay ?: CAMERA else null
+    val running = if (active) replaying ?: CAMERA else null
+    if (source == running) return
+
+    if (active) stop()
+    active = wantActive
+    if (!active) return
+    if (wantReplay != null) startReplay(wantReplay!!) else start()
   }
 
   fun setTorch(next: Boolean) {
@@ -173,6 +242,7 @@ class LabelSweepView(context: Context, appContext: AppContext) : ExpoView(contex
   }
 
   private fun stop() {
+    stopReplay()
     analysis?.clearAnalyzer()
     val cameraProvider = provider ?: return
     preview?.let { cameraProvider.unbind(it) }
@@ -210,6 +280,19 @@ class LabelSweepView(context: Context, appContext: AppContext) : ExpoView(contex
       return
     }
 
+    read(input, width, height) {
+      // Success or failure: the frame goes before the next is taken.
+      frame.close()
+      reading.set(false)
+    }
+  }
+
+  /**
+   * Reads one frame and sends its lines, and only its lines, to JavaScript.
+   * The one path every frame takes, from the camera or a replay. [done] runs
+   * when the read is over, whether it succeeded or not.
+   */
+  private fun read(input: InputImage, width: Int, height: Int, done: () -> Unit) {
     recognizer.process(input)
       .addOnSuccessListener { text ->
         val lines = text.textBlocks.flatMap { block -> block.lines }.mapNotNull { line -> describeLine(line) }
@@ -219,15 +302,79 @@ class LabelSweepView(context: Context, appContext: AppContext) : ExpoView(contex
           }
         }
       }
-      .addOnCompleteListener {
-        // Success or failure: the frame goes before the next is taken.
-        frame.close()
-        reading.set(false)
+      .addOnCompleteListener { done() }
+  }
+
+  // --- Development replay -------------------------------------------------
+
+  private fun startReplay(name: String) {
+    val opened = SweepReplay.open(context, name)
+    val replay = opened.getOrElse { error ->
+      Log.w(TAG, "Replay not started: ${error.message}")
+      onSweepError(mapOf("message" to (error.message ?: "replay-unavailable")))
+      return
+    }
+    replaying = name
+    previewView.visibility = GONE
+    replayImage.visibility = VISIBLE
+    replayLabel.visibility = VISIBLE
+    Log.i(TAG, "Replaying $name: ${replay.count} frame(s)")
+
+    replayJob = scope.launch {
+      try {
+        for (index in 0 until replay.count) {
+          if (!isActive || !active) break
+          val startedAt = SystemClock.elapsedRealtime()
+          val frame = withContext(Dispatchers.IO) { replay.frame(index) }
+          if (frame == null) {
+            Log.w(TAG, "Replay $name: frame ${index + 1} could not be decoded; skipped")
+            continue
+          }
+          show(frame.bitmap, "REPLAY (development)  $name  ${index + 1} / ${replay.count}")
+
+          val upright = frame.rotationDegrees == 90 || frame.rotationDegrees == 270
+          val width = if (upright) frame.bitmap.height else frame.bitmap.width
+          val height = if (upright) frame.bitmap.width else frame.bitmap.height
+          val input = InputImage.fromBitmap(frame.bitmap, frame.rotationDegrees)
+          suspendCancellableCoroutine { resumed ->
+            read(input, width, height) { if (resumed.isActive) resumed.resume(Unit) }
+          }
+          // The camera's cadence: no sooner than it would read the next frame.
+          delay((MIN_INTERVAL_MS - (SystemClock.elapsedRealtime() - startedAt)).coerceAtLeast(0))
+        }
+        replayLabel.text = "REPLAY (development)  $name  finished"
+        Log.i(TAG, "Replay $name finished")
+      } finally {
+        replay.close()
       }
+    }
+  }
+
+  private fun stopReplay() {
+    replayJob?.cancel()
+    replayJob = null
+    replaying = null
+    // Let go, not recycled: a read cancelled mid-way may still hold it.
+    replayImage.setImageDrawable(null)
+    shown = null
+    replayImage.visibility = GONE
+    replayLabel.visibility = GONE
+    previewView.visibility = VISIBLE
+  }
+
+  /** Puts [bitmap] on screen, and lets go of the one before, which has been read. */
+  private fun show(bitmap: Bitmap, label: String) {
+    replayImage.setImageBitmap(bitmap)
+    shown?.recycle()
+    shown = bitmap
+    replayLabel.text = label
   }
 
   companion object {
     /** About three reads a second: plenty for a bottle turned by hand. */
     const val MIN_INTERVAL_MS = 300L
+
+    private const val TAG = "LabelSweep"
+    private const val CAMERA = "camera"
   }
 }

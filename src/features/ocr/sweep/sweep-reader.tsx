@@ -39,9 +39,12 @@ const OVERLAY_MAX_SCALE = 1.4;
 export function SweepReader({
   onDone,
   onCancel,
+  replay,
 }: {
   onDone: (merged: MergedReading | null, ending: SweepEnding) => void;
   onCancel: () => void;
+  /** DEVELOPMENT ONLY: frames from this replay instead of the camera. */
+  replay?: string;
 }) {
   const [active, setActive] = useState(true);
   const [merged, setMerged] = useState<MergedReading | null>(null);
@@ -136,6 +139,7 @@ export function SweepReader({
       <LabelSweepView
         style={StyleSheet.absoluteFill}
         active={active}
+        replay={__DEV__ ? replay : undefined}
         onLines={onLines}
         onSweepError={() => setFailed(true)}
       />

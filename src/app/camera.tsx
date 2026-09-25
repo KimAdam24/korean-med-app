@@ -81,8 +81,11 @@ type Phase =
   | { kind: 'ambiguous'; matches: readonly DrugIdentity[]; saving: boolean }
   | { kind: 'saved' }
   | { kind: 'saving' }
-  /** Reading the label while the user turns the bottle; see `SweepReader`. */
-  | { kind: 'sweeping' }
+  /**
+   * Reading the label while the user turns the bottle; see `SweepReader`.
+   * `replay` is development only: frames from files instead of the camera.
+   */
+  | { kind: 'sweeping'; replay?: string }
   | {
       kind: 'result';
       fields: MedicationLabelFields;
@@ -238,8 +241,22 @@ export default function CameraScreen() {
    * If the copy cannot be deleted, that is reported instead of the reading,
    * as it is for the camera.
    */
-  const { imageUri } = useLocalSearchParams<{ imageUri?: string }>();
+  const { imageUri, sweepReplay } = useLocalSearchParams<{ imageUri?: string; sweepReplay?: string }>();
   const readImported = useRef(false);
+
+  /**
+   * DEVELOPMENT ONLY: `/camera?sweepReplay=<name>` opens the sweep straight
+   * away, reading frames from a replay instead of the camera, so the sweep
+   * and its merge can be driven on an emulator. See
+   * `modules/label-sweep/README.md`. A release build ignores the parameter,
+   * and its native view would refuse the replay anyway.
+   */
+  const startedReplay = useRef(false);
+  useEffect(() => {
+    if (!__DEV__ || !sweepReplay || !sweepAvailable || startedReplay.current) return;
+    startedReplay.current = true;
+    setPhase({ kind: 'sweeping', replay: sweepReplay });
+  }, [sweepReplay]);
 
   useEffect(() => {
     if (!imageUri || readImported.current) return;
@@ -604,7 +621,7 @@ export default function CameraScreen() {
   }
 
   if (phase.kind === 'sweeping') {
-    return <SweepReader onDone={sweepDone} onCancel={sweepCancelled} />;
+    return <SweepReader onDone={sweepDone} onCancel={sweepCancelled} replay={phase.replay} />;
   }
 
   if (phase.kind === 'result') {

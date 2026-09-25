@@ -33,3 +33,56 @@ What to check in review, beyond compiling: that the frame is read inside the
 delegate callback and nothing keeps the pixel buffer (the invariant); that the
 orientation (`.right`) matches how the phone is held; and that the session
 stops when the view leaves the window.
+
+## Development replay (Android, debug builds only)
+
+Drives the sweep without a working camera, on an emulator: frames come from
+files instead, and go through everything after the camera exactly as a live
+frame does. The same ML Kit recogniser and line mapping, the same `onLines`
+event, and in JavaScript the same accumulation, merge, damage and edge
+checks, stall timer and result screen. Frames are taken at the camera's
+cadence (one every 300 ms) and scaled to about its analysis size (1920 px on
+the long side).
+
+What it does **not** exercise, so still needs a real phone: CameraX binding
+and the live analysis stream, focus, exposure and glare, rotation reported by
+the sensor, and how many frames a real phone drops while it reads one.
+
+### A replay
+
+A folder of images (read in name order: `frame-001.jpg`, `frame-002.jpg`,
+...) or one video (sampled every 300 ms), in the app's own folder on the
+emulator:
+
+    /sdcard/Android/data/com.togurt5.koreanmedassistant/files/sweep-replay/<name>
+
+Record the video on any phone: the bottle filling about as much of the frame
+as it would in the app, turned slowly all the way round over ten seconds or
+so. On an iPhone, set the camera to Most Compatible (H.264); the emulator may
+not decode HEVC.
+
+**A real label's video shows the patient's name and address.** Keep it out
+of this repository, push it only to the emulator, and delete it from both
+when done.
+
+### Running one (PowerShell)
+
+    $dir = '/sdcard/Android/data/com.togurt5.koreanmedassistant/files/sweep-replay'
+    adb shell mkdir -p $dir
+    adb push vial.mp4 "$dir/vial.mp4"          # or a folder: adb push frames "$dir/vial"
+
+    # With the app open and unlocked:
+    adb shell am start -a android.intent.action.VIEW -d "koreanmedassistant://camera?sweepReplay=vial.mp4" com.togurt5.koreanmedassistant
+
+    adb logcat -s LabelSweep                   # frame counts and decode problems, no text
+    adb shell rm -r "$dir/vial.mp4"            # afterwards
+
+The sweep screen opens at once, with the frame being read on screen and a
+yellow `REPLAY (development)` label giving its number. It ends as a live sweep
+does: by itself when everything reads whole, on Stop, or 20 seconds after
+the last frame that added anything. The merged reading then appears on the
+result screen, and a development build logs it once, redacted, as it does
+for a live sweep.
+
+A release build ignores `sweepReplay`, and its native view refuses a replay
+even if asked: it checks that the app is debuggable.

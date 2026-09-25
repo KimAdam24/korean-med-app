@@ -23,6 +23,15 @@ class LabelSweepModule : Module() {
         view.setTorch(torch)
       }
 
+      /** DEVELOPMENT ONLY: a replay's name; ignored unless the app is debuggable. */
+      Prop("replay") { view: LabelSweepView, replay: String? ->
+        view.setReplay(replay)
+      }
+
+      OnViewDidUpdateProps { view: LabelSweepView ->
+        view.applyProps()
+      }
+
       OnViewDestroys { view: LabelSweepView ->
         view.release()
       }

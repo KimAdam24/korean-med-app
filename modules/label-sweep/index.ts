@@ -19,6 +19,12 @@ export type LabelSweepViewProps = ViewProps & {
   /** Reading only while true; the camera is released when false. */
   active: boolean;
   torch?: boolean;
+  /**
+   * DEVELOPMENT ONLY: read frames from this replay, in the app's
+   * `sweep-replay` folder, instead of the camera (see `SweepReplay.kt`).
+   * Ignored by a release build.
+   */
+  replay?: string;
   onLines: (event: { nativeEvent: SweepLinesEvent }) => void;
   onSweepError?: (event: { nativeEvent: { message: string } }) => void;
 };

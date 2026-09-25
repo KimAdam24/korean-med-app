@@ -241,6 +241,32 @@ describe('reading a curved label while it turns', () => {
   });
 });
 
+describe('the development replay', () => {
+  it('opens the sweep straight away, reading the named replay, and merges it as it would the camera', async () => {
+    runtime.__DEV__ = true;
+    const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      launchApp('/camera?sweepReplay=vial-turning');
+      await screen.findByText(Strings.sweep.privacy.ko);
+      expect(sweep.replay).toBe('vial-turning');
+      // The frames the replay reads arrive exactly as the camera's do.
+      await sweep.frame(FACING);
+      await sweep.frame(TURNED);
+      await sweep.frame(FURTHER);
+      await screen.findByText(TRUTH);
+      expect(sweep.mounted).toBe(false);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('is ignored by a release build', async () => {
+    launchApp('/camera?sweepReplay=vial-turning');
+    await screen.findByRole('button', { name: Strings.camera.shutter.ko });
+    expect(sweep.mounted).toBe(false);
+  });
+});
+
 const box = (line: number, read: string) =>
   screen.getByLabelText(fillTemplate(Strings.fillIn.wordLabel, { line, read }).ko);
 
