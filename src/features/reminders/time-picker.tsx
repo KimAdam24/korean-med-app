@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BilingualText } from '@/components/bilingual-text';
 import { Radius, Spacing, Type, TypeMaxScale } from '@/constants/theme';
+import { useLargeText } from '@/hooks/use-large-text';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, fillTemplate, type Bilingual } from '@/i18n/strings';
 
@@ -96,31 +97,36 @@ function Stepper({
   onStep: (direction: 1 | -1) => void;
 }) {
   const theme = useTheme();
+  // At large text sizes the label takes its own line: beside the controls it
+  // was squeezed to "Minu" by the buttons.
+  const large = useLargeText();
   return (
     <View
-      style={styles.stepper}
+      style={large ? styles.stepperStacked : styles.stepper}
       accessible
       accessibilityRole="adjustable"
       accessibilityLabel={label.ko}
       accessibilityValue={{ text: shown }}
       accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
       onAccessibilityAction={(event) => onStep(event.nativeEvent.actionName === 'increment' ? 1 : -1)}>
-      <BilingualText text={label} variant="label" style={styles.stepperLabel} />
-      <StepButton
-        symbol="−"
-        label={fillTemplate(Strings.reminders.earlier, { field: label.ko }).ko}
-        onPress={() => onStep(-1)}
-      />
-      <Text
-        style={[styles.stepperValue, { color: theme.text }]}
-        maxFontSizeMultiplier={TypeMaxScale.heading}>
-        {value}
-      </Text>
-      <StepButton
-        symbol="+"
-        label={fillTemplate(Strings.reminders.later, { field: label.ko }).ko}
-        onPress={() => onStep(1)}
-      />
+      <BilingualText text={label} variant="label" style={large ? undefined : styles.stepperLabel} />
+      <View style={styles.stepperControls}>
+        <StepButton
+          symbol="−"
+          label={fillTemplate(Strings.reminders.earlier, { field: label.ko }).ko}
+          onPress={() => onStep(-1)}
+        />
+        <Text
+          style={[styles.stepperValue, { color: theme.text }]}
+          maxFontSizeMultiplier={TypeMaxScale.heading}>
+          {value}
+        </Text>
+        <StepButton
+          symbol="+"
+          label={fillTemplate(Strings.reminders.later, { field: label.ko }).ko}
+          onPress={() => onStep(1)}
+        />
+      </View>
     </View>
   );
 }
@@ -180,8 +186,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.three,
   },
+  stepperStacked: {
+    gap: Spacing.two,
+  },
   stepperLabel: {
     flex: 1,
+  },
+  stepperControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
   },
   stepperValue: {
     ...Type.heading,
