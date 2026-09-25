@@ -1,6 +1,7 @@
 // Relative with extensions: run under plain Node by the tests and the report.
 import { assessField, type FieldKind } from '../field-integrity.ts';
 import { interpretLines } from '../interpret-lines.ts';
+import { isCutAtEdge, type EdgeSide, type EdgeTruncation } from '../truncation.ts';
 import type { RecognizedTextLine } from '../types.ts';
 
 /**
@@ -60,6 +61,12 @@ export type EvalCase = {
    */
   readonly expected?: { readonly [K in FieldKind]?: Outcome };
   readonly expectedVerdict?: 'ok' | 'degraded' | 'unreadable';
+  /**
+   * The curved edge this reading should be diagnosed with, and the fields cut
+   * by it. Absent means none: a diagnosis where none is expected fails the
+   * suite, so the detector cannot quietly start crying wolf.
+   */
+  readonly expectedEdge?: { readonly side: EdgeSide; readonly fields: readonly FieldKind[] };
 };
 
 export type CaseScore =
@@ -69,6 +76,7 @@ export type CaseScore =
       readonly status: 'scored';
       readonly verdict: 'ok' | 'degraded' | 'unreadable';
       readonly fields: { readonly [K in FieldKind]: { outcome: Outcome; shown?: string } };
+      readonly edge: EdgeTruncation | null;
     };
 
 export const FIELD_KINDS: readonly FieldKind[] = ['name', 'dosage', 'instructions'];
@@ -96,8 +104,15 @@ function matches(shown: string, truth: Truth): boolean {
  * a degraded read still shows its readable fields behind "show what was
  * read", so a wrong one there is still wrong.
  */
-export function scoreField(kind: FieldKind, text: string | undefined, truth: Truth): Outcome {
-  const shown = text !== undefined && text.trim().length > 0 && assessField(kind, text).level === 'readable';
+export function scoreField(
+  kind: FieldKind,
+  text: string | undefined,
+  truth: Truth,
+  /** Lost round the curve of the label: withheld, as the result screen withholds it. */
+  cutAtEdge = false
+): Outcome {
+  const shown =
+    !cutAtEdge && text !== undefined && text.trim().length > 0 && assessField(kind, text).level === 'readable';
   if (!shown) return truth === null && !text ? 'correct' : 'withheld';
   return matches(text, truth) ? 'correct' : 'wrong';
 }
@@ -107,11 +122,13 @@ export function scoreCase(entry: EvalCase): CaseScore {
 
   const result = interpretLines(entry.lines);
   const fieldsRead = result.status === 'recognized' ? result.fields : {};
+  const edge = result.status === 'recognized' ? (result.truncation ?? null) : null;
 
   const fields = Object.fromEntries(
     FIELD_KINDS.map((kind) => {
       const text = fieldsRead[kind]?.text;
-      return [kind, { outcome: scoreField(kind, text, entry.truth[kind]), shown: text }];
+      const outcome = scoreField(kind, text, entry.truth[kind], isCutAtEdge(edge, kind));
+      return [kind, { outcome, shown: text }];
     })
   ) as { [K in FieldKind]: { outcome: Outcome; shown?: string } };
 
@@ -126,5 +143,6 @@ export function scoreCase(entry: EvalCase): CaseScore {
           ? 'degraded'
           : 'ok',
     fields,
+    edge,
   };
 }

@@ -276,6 +276,27 @@ export const Strings = {
      * should not be trusted.
      */
     showReading: { ko: '그래도 읽은 내용 보기', en: 'Show what was read anyway' },
+    /**
+     * A label that curves round the bottle, so the ends of its longest lines
+     * are out of the camera's sight. Replaces the "try somewhere brighter"
+     * advice, which is wrong here: more light does not bring the words round.
+     * English placeholders; see `untranslated`.
+     */
+    curved: {
+      title: untranslated('The label curves round the bottle'),
+      right: untranslated(
+        'The ends of some lines are out of sight on the right, round the curve. More light will not help. Turn the bottle slowly so that side faces you, and take another photo.',
+        'Shown when lines are cut at the right edge. "Turn the bottle" means rotate it in the hand.'
+      ),
+      left: untranslated(
+        'The starts of some lines are out of sight on the left, round the curve. More light will not help. Turn the bottle slowly so that side faces you, and take another photo.'
+      ),
+      restWhole: untranslated('The medicine name and strength were read in full.'),
+      fieldNote: untranslated(
+        'The end of this line is out of sight round the curve of the bottle. Please read it on the bottle itself.',
+        'Replaces "the letters are broken" for a line cut at the curve.'
+      ),
+    },
     hideReading: { ko: '읽은 내용 숨기기', en: 'Hide what was read' },
   },
 

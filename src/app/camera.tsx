@@ -41,6 +41,7 @@ import { goBackOr } from '@/features/navigation/go-back';
 import { DevLineList, logRecognizedLines } from '@/features/ocr/dev-line-list';
 import { assessField } from '@/features/ocr/field-integrity';
 import { medicationFromReading } from '@/features/ocr/reading-to-record';
+import { isCutAtEdge, type EdgeTruncation } from '@/features/ocr/truncation';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
 import {
   type MedicationLabelFields,
@@ -80,6 +81,7 @@ type Phase =
       /** Carried only so the development-only panel can show it. */
       lines?: readonly RecognizedTextLine[];
       quality?: ReadQuality;
+      truncation?: EdgeTruncation | null;
     }
   /**
    * `photoDiscarded` is carried explicitly rather than assumed: every failure
@@ -222,7 +224,13 @@ export default function CameraScreen() {
         const result = interpretLines(lines);
         next =
           result.status === 'recognized'
-            ? { kind: 'result', fields: result.fields, lines: result.lines, quality: result.quality }
+            ? {
+                kind: 'result',
+                fields: result.fields,
+                lines: result.lines,
+                quality: result.quality,
+                truncation: result.truncation,
+              }
             : { kind: 'problem', message: Strings.problem.unreadable, photoDiscarded: true };
       } catch {
         next = { kind: 'problem', message: Strings.problem.captureFailed, photoDiscarded: true };
@@ -358,8 +366,8 @@ export default function CameraScreen() {
    * page under "how to take it".
    */
   const saveFromLabel = useCallback(
-    async (fields: MedicationLabelFields) => {
-      const toSave = medicationFromReading(fields);
+    async (fields: MedicationLabelFields, truncation?: EdgeTruncation | null) => {
+      const toSave = medicationFromReading(fields, truncation);
       if (!toSave) return;
 
       const reading = lastReading.current;
@@ -403,6 +411,7 @@ export default function CameraScreen() {
             fields: result.fields,
             lines: result.lines,
             quality: result.quality,
+            truncation: result.truncation,
           });
           return;
         case 'unreadable':
@@ -552,6 +561,7 @@ export default function CameraScreen() {
         fields={phase.fields}
         lines={phase.lines}
         quality={phase.quality}
+        truncation={phase.truncation}
         devProbe={devProbe}
         onSave={saveFromLabel}
         onRetake={retake}
@@ -690,6 +700,7 @@ function ReadingResult({
   fields,
   lines,
   quality,
+  truncation,
   devProbe,
   onSave,
   onRetake,
@@ -698,13 +709,33 @@ function ReadingResult({
   fields: MedicationLabelFields;
   lines?: readonly RecognizedTextLine[];
   quality?: ReadQuality;
+  truncation?: EdgeTruncation | null;
   devProbe: CaptureProbe | null;
-  onSave: (fields: MedicationLabelFields) => void;
+  onSave: (fields: MedicationLabelFields, truncation?: EdgeTruncation | null) => void;
   onRetake: () => void;
   onClose: () => void;
 }) {
+  const theme = useTheme();
   const degraded = quality?.level === 'degraded';
-  const toSave = medicationFromReading(fields);
+  const toSave = medicationFromReading(fields, truncation);
+  const cut = (kind: 'name' | 'dosage' | 'instructions') => isCutAtEdge(truncation, kind);
+
+  /**
+   * The curve, said once, with its own remedy. It replaces the degraded
+   * read's "try somewhere brighter" rather than adding to it: that advice is
+   * wrong here, and a user who follows it retakes the same failure.
+   */
+  const curvedNotice = truncation ? (
+    <Notice
+      tone="warn"
+      title={Strings.result.curved.title}
+      body={truncation.side === 'right' ? Strings.result.curved.right : Strings.result.curved.left}
+      live>
+      {truncation.fields.length === 1 && truncation.fields[0] === 'instructions' ? (
+        <BilingualText text={Strings.result.curved.restWhole} hideEnglish color={theme.warnText} />
+      ) : null}
+    </Notice>
+  ) : null;
   // Local, so it starts closed on every new reading rather than inheriting
   // whatever the last one left.
   const [showFields, setShowFields] = useState(false);
@@ -720,6 +751,7 @@ function ReadingResult({
           assess
           prominent
           compact={degraded}
+          cutAtEdge={cut('name')}
         />
         <CardDivider />
         <ReadingField
@@ -728,6 +760,7 @@ function ReadingResult({
           text={fields.dosage?.text}
           assess
           compact={degraded}
+          cutAtEdge={cut('dosage')}
         />
       </Card>
 
@@ -739,6 +772,7 @@ function ReadingResult({
           text={fields.instructions?.text}
           assess
           compact={degraded}
+          cutAtEdge={cut('instructions')}
         />
       </Card>
     </>
@@ -762,7 +796,7 @@ function ReadingResult({
       ) : null}
       <BigButton
         label={Strings.medications.saveFromLabel}
-        onPress={() => onSave(fields)}
+        onPress={() => onSave(fields, truncation)}
         tone={degraded ? 'secondary' : 'primary'}
       />
     </View>
@@ -780,7 +814,7 @@ function ReadingResult({
               style={styles.headingText}
             />
           </View>
-          <BilingualText text={Strings.result.degradedBody} hideEnglish />
+          {curvedNotice ?? <BilingualText text={Strings.result.degradedBody} hideEnglish />}
           <BigButton label={Strings.camera.retake} onPress={onRetake} />
         </Card>
 
@@ -809,6 +843,7 @@ function ReadingResult({
   return (
     <Sheet>
       <BilingualText text={Strings.result.title} variant="heading" />
+      {curvedNotice}
       <Notice tone="info" title={Strings.result.compareWithBottle} />
 
       {fieldCards}

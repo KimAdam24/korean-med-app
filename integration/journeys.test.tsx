@@ -20,7 +20,7 @@ import { ocr } from './fakes/devices';
 import { disk } from './fakes/file-system';
 import { biometrics } from './fakes/local-authentication';
 
-import { VITAMIN_D2_VIAL_LINES } from '@/features/ocr/eval/corpus';
+import { VITAMIN_D2_VIAL_LINES, VITAMIN_D2_VIAL_RETAKE_LINES } from '@/features/ocr/eval/corpus';
 import { addMedication, loadProfile } from '@/features/medications/medication-store';
 import { setPin, verifyPin } from '@/features/security/pin';
 import { Strings } from '@/i18n/strings';
@@ -83,6 +83,28 @@ describe('reading a chosen photo', () => {
       }),
     ]);
     // Left out, not saved empty: the damaged directions are not the user's.
+    expect(profile.status === 'ok' && profile.value.medications[0].instructions).toBeUndefined();
+  });
+
+  it('says the label curves round the bottle, instead of blaming the light, and withholds what the curve cut', async () => {
+    // The retaken vial: upright and unobstructed, and still cut on the right.
+    await openPickedPhoto(VITAMIN_D2_VIAL_RETAKE_LINES);
+    await screen.findByText(Strings.result.curved.title.ko);
+
+    expect(screen.getByText(Strings.result.curved.right.ko)).toBeTruthy();
+    // Name and strength were not at the edge, and it says so.
+    expect(screen.getByText(Strings.result.curved.restWhole.ko)).toBeTruthy();
+    expect(screen.getByText('VITAMIN D2')).toBeTruthy();
+    expect(screen.getByText('1.25 MG (50,000 UNIT)')).toBeTruthy();
+    // Not the advice for a dark or distant photo: more light will not help.
+    expect(screen.queryByText(Strings.result.degradedBody.ko)).toBeNull();
+    // The directions never reached a field here; their slot says why.
+    expect(screen.getByText(Strings.result.curved.fieldNote.ko)).toBeTruthy();
+    expect(screen.queryByText(Strings.result.missing.ko)).toBeNull();
+
+    press(Strings.medications.saveFromLabel.ko);
+    await screen.findByText(Strings.scan.saved.ko);
+    const profile = await loadProfile();
     expect(profile.status === 'ok' && profile.value.medications[0].instructions).toBeUndefined();
   });
 

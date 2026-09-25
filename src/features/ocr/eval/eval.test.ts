@@ -38,6 +38,13 @@ for (const entry of CORPUS) {
     if (entry.expectedVerdict) {
       assert.equal(score.verdict, entry.expectedVerdict);
     }
+
+    // Exact, both ways: a missed curve is a regression, and so is a new one.
+    assert.deepEqual(
+      score.edge ? { side: score.edge.side, fields: score.edge.fields } : undefined,
+      entry.expectedEdge ? { side: entry.expectedEdge.side, fields: [...entry.expectedEdge.fields] } : undefined,
+      'curved-edge diagnosis'
+    );
   });
 }
 

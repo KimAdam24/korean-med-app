@@ -122,6 +122,13 @@ export type LabelRecognitionResult =
        * confidences. Absent means it was not assessed.
        */
       readonly quality?: ReadQuality;
+      /**
+       * Lines cut off where the label curves out of sight, and the fields they
+       * belong to. A field listed here is incomplete whatever its own text
+       * looks like, and is never shown as a value. `null` when no such edge
+       * was found. See `truncation`.
+       */
+      readonly truncation?: import('./truncation').EdgeTruncation | null;
     }
   /** OCR ran but found nothing usable — bad light, blur, label out of frame. */
   | { readonly status: 'unreadable' }

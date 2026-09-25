@@ -35,6 +35,7 @@ export function ReadingField({
   assess,
   prominent = false,
   compact = false,
+  cutAtEdge = false,
 }: {
   label: Bilingual;
   kind: FieldKind;
@@ -53,6 +54,12 @@ export function ReadingField({
    * repeating it per field turned a bad read into a wall of the same warning.
    */
   compact?: boolean;
+  /**
+   * Part of this field is out of sight round the curve of the label (see
+   * `truncation`). Shown as damaged even when its text reads cleanly: what is
+   * left of "every other day" with `other` round the curve is "every day".
+   */
+  cutAtEdge?: boolean;
 }) {
   const theme = useTheme();
   const [showRaw, setShowRaw] = useState(false);
@@ -66,15 +73,25 @@ export function ReadingField({
     <View style={styles.field}>
       <BilingualText text={label} variant="label" />
 
-      {!text ? (
-        <Text style={[styles.missing, { color: theme.textSecondary }]}>
-          {Strings.result.missing.ko}
-        </Text>
-      ) : integrity?.level === 'damaged' ? (
+      {!text && cutAtEdge ? (
+        // Nothing reached the field, and the reason is known: the line runs
+        // off round the curve. Said, rather than a bare "could not be read".
         <Notice
           tone="warn"
           title={Strings.result.damaged[kind].title}
-          body={compact ? undefined : Strings.result.damaged[kind].body}>
+          body={compact ? undefined : Strings.result.curved.fieldNote}
+        />
+      ) : !text ? (
+        <Text style={[styles.missing, { color: theme.textSecondary }]}>
+          {Strings.result.missing.ko}
+        </Text>
+      ) : integrity?.level === 'damaged' || cutAtEdge ? (
+        <Notice
+          tone="warn"
+          title={Strings.result.damaged[kind].title}
+          body={
+            compact ? undefined : cutAtEdge ? Strings.result.curved.fieldNote : Strings.result.damaged[kind].body
+          }>
           <Pressable
             onPress={() => setShowRaw((shown) => !shown)}
             accessibilityRole="button"
@@ -97,7 +114,7 @@ export function ReadingField({
               // damaged letters without first saying they are not accurate.
               accessibilityLabel={`${Strings.result.rawCaption.ko} ${text}`}>
               <Text style={[styles.rawText, { color: theme.recessedText }]}>
-                {integrity.spans.map((span, index) =>
+                {(integrity?.spans ?? [{ text, damaged: false }]).map((span, index) =>
                   span.damaged ? (
                     <Text
                       key={index}

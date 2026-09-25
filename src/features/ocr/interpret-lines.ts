@@ -3,6 +3,7 @@
 import { orderLines } from './reading-order.ts';
 import { assessReadQuality, parseLabelFields } from './sig-parser.ts';
 import type { LabelRecognitionResult, RecognizedTextLine } from './types.ts';
+import { detectEdgeTruncation } from './truncation.ts';
 
 /**
  * Interprets engine output, with no reference to where the image came from.
@@ -34,6 +35,12 @@ export function interpretLines(lines: readonly RecognizedTextLine[]): LabelRecog
      * probe cannot disagree about whether a read was good enough to act on.
      */
     quality: assessReadQuality(ordered, fields),
+    /**
+     * A label curving out of sight, judged from where the lines end and what
+     * they end on. Separate from `quality`: it is a diagnosis with its own
+     * remedy (turn the bottle), not a verdict on the photograph.
+     */
+    truncation: detectEdgeTruncation(ordered, fields),
     /**
      * Heuristics over text that has already been through OCR, so nothing here
      * is presented as verified — `sig-parser` caps every field below the

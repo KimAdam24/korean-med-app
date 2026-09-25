@@ -184,6 +184,86 @@ export const VITAMIN_D2_VIAL_LINES: readonly RecognizedTextLine[] = [
   },
 ];
 
+/**
+ * The same vial again, retaken on 2026-09-25 to be the best a single photograph
+ * of this bottle can be: upright, square to the camera, no finger over the
+ * directions. Pulled from the development build's log, where the dev build
+ * prints every reading; not transcribed.
+ *
+ * It still cannot be read in full, and why is the point of keeping it: the
+ * two direction lines end at the same x (1863 and 1860 against 84px-tall
+ * text), where the label curves away round the bottle. The `00` of `50,000`
+ * and the `7` of `every 7 days` are past that edge — not blurred, not dark,
+ * simply out of sight. No single photo holds this sig, because turning the
+ * bottle to show the right edge hides the left.
+ *
+ * The leading `|` on two lines is the engine reading the label's left edge.
+ * Lines 0–2 are the patient's name and address, redacted in shape; their
+ * geometry is untouched. Confidence is as logged, to four places.
+ */
+export const VITAMIN_D2_VIAL_RETAKE_LINES: readonly RecognizedTextLine[] = [
+  {
+    text: "Xxxx",
+    confidence: 0.8203,
+    frame: { left: 1168, top: 1700, width: 166, height: 68 },
+    corners: [{ x: 1168, y: 1700 }, { x: 1334, y: 1700 }, { x: 1334, y: 1768 }, { x: 1168, y: 1768 }],
+  },
+  {
+    text: "Xxx",
+    confidence: 0.6602,
+    frame: { left: 1173, top: 1781, width: 90, height: 68 },
+    corners: [{ x: 1173, y: 1781 }, { x: 1263, y: 1781 }, { x: 1263, y: 1849 }, { x: 1173, y: 1849 }],
+  },
+  {
+    text: "00 0xx Xx, Xxxxxxxxx, XX 00000",
+    confidence: 0.7508,
+    frame: { left: 1162, top: 1847, width: 458, height: 48 },
+    corners: [{ x: 1162, y: 1856 }, { x: 1620, y: 1847 }, { x: 1620, y: 1886 }, { x: 1162, y: 1895 }],
+  },
+  {
+    text: "VITAMIN D2",
+    confidence: 0.7478,
+    frame: { left: 1162, top: 1922, width: 458, height: 79 },
+    corners: [{ x: 1162, y: 1922 }, { x: 1620, y: 1922 }, { x: 1620, y: 2001 }, { x: 1162, y: 2001 }],
+  },
+  {
+    text: "1.25MG(50,",
+    confidence: 0.8117,
+    frame: { left: 1142, top: 1996, width: 440, height: 97 },
+    corners: [{ x: 1145, y: 1996 }, { x: 1582, y: 2006 }, { x: 1579, y: 2093 }, { x: 1142, y: 2083 }],
+  },
+  {
+    text: "000 UNIT)",
+    confidence: 0.7324,
+    frame: { left: 1131, top: 2081, width: 377, height: 91 },
+    corners: [{ x: 1133, y: 2081 }, { x: 1508, y: 2089 }, { x: 1506, y: 2172 }, { x: 1131, y: 2164 }],
+  },
+  {
+    text: "Generic for: Calciferol, Drisdol",
+    confidence: 0.7433,
+    frame: { left: 1160, top: 2169, width: 477, height: 47 },
+    corners: [{ x: 1161, y: 2169 }, { x: 1637, y: 2177 }, { x: 1636, y: 2216 }, { x: 1160, y: 2208 }],
+  },
+  {
+    text: "|Take 1 capsule (50,0",
+    confidence: 0.7474,
+    frame: { left: 1166, top: 2234, width: 697, height: 85 },
+    corners: [{ x: 1166, y: 2234 }, { x: 1863, y: 2234 }, { x: 1863, y: 2319 }, { x: 1166, y: 2319 }],
+  },
+  {
+    text: "units) by mouth every",
+    confidence: 0.798,
+    frame: { left: 1164, top: 2330, width: 696, height: 83 },
+    corners: [{ x: 1164, y: 2330 }, { x: 1860, y: 2330 }, { x: 1860, y: 2413 }, { x: 1164, y: 2413 }],
+  },
+  {
+    text: "|days",
+    confidence: 0.6508,
+    frame: { left: 1136, top: 2419, width: 153, height: 106 },
+    corners: [{ x: 1151, y: 2419 }, { x: 1289, y: 2443 }, { x: 1274, y: 2525 }, { x: 1136, y: 2501 }],
+  },
+];
+
 export const CORPUS: readonly EvalCase[] = [
   {
     id: 'vitamin-d2-vial',
@@ -205,8 +285,28 @@ export const CORPUS: readonly EvalCase[] = [
     lines: VITAMIN_D2_VIAL_LINES,
     redacted: true,
     expected: { name: 'correct', dosage: 'correct', instructions: 'withheld' },
+    // `(b` and `eve` end where the label curves away; name and strength do not.
+    expectedEdge: { side: 'right', fields: ['instructions'] },
     // Name and strength are right, so one damaged field out of three: the
     // ordinary layout, with the directions marked damaged.
+    expectedVerdict: 'ok',
+  },
+  {
+    id: 'vitamin-d2-vial-retake',
+    description:
+      'The same vial retaken as well as one photo allows: upright and unobstructed. The ' +
+      'directions still run off the right edge where the label curves away.',
+    source: 'real-label',
+    engine: 'android-mlkit',
+    truth: {
+      name: 'VITAMIN D2',
+      dosage: ['1.25 MG (50,000 UNIT)', '1.25 MG'],
+      instructions: 'Take 1 capsule (50,000 units) by mouth every 7 days',
+    },
+    lines: VITAMIN_D2_VIAL_RETAKE_LINES,
+    redacted: true,
+    expected: { name: 'correct', dosage: 'correct', instructions: 'withheld' },
+    expectedEdge: { side: 'right', fields: ['instructions'] },
     expectedVerdict: 'ok',
   },
   {

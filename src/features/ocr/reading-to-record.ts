@@ -1,5 +1,6 @@
 import type { MedicationRecord } from '../medications/types.ts';
 import { assessField, type FieldKind } from './field-integrity.ts';
+import { isCutAtEdge, type EdgeTruncation } from './truncation.ts';
 import type { MedicationLabelFields } from './types.ts';
 
 /**
@@ -34,17 +35,26 @@ export type ReadingToSave = {
   readonly flagged: readonly FieldKind[];
 };
 
-export function medicationFromReading(fields: MedicationLabelFields): ReadingToSave | null {
+export function medicationFromReading(
+  fields: MedicationLabelFields,
+  /**
+   * Lines lost round the curve of the label. A field with any is incomplete
+   * however whole its text looks — "every day" is what is left of "every
+   * other day" with `other` past the edge — so it is treated as damaged.
+   */
+  truncation?: EdgeTruncation | null
+): ReadingToSave | null {
   const name = fields.name?.text.trim();
   if (!name) return null;
 
   const dropped: FieldKind[] = [];
-  const flagged: FieldKind[] = assessField('name', name).level === 'damaged' ? ['name'] : [];
+  const flagged: FieldKind[] =
+    assessField('name', name).level === 'damaged' || isCutAtEdge(truncation, 'name') ? ['name'] : [];
 
   function keep(kind: 'dosage' | 'instructions', text: string | undefined): string | undefined {
     const trimmed = text?.trim();
     if (!trimmed) return undefined;
-    if (assessField(kind, trimmed).level === 'damaged') {
+    if (assessField(kind, trimmed).level === 'damaged' || isCutAtEdge(truncation, kind)) {
       dropped.push(kind);
       return undefined;
     }

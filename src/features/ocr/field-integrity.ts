@@ -553,3 +553,77 @@ export function hasImpossibleCase(token: string): boolean {
     );
   });
 }
+
+// --- The edge of a curved label --------------------------------------------
+
+/**
+ * Words a direction follows with a number, so a line ending on one continues
+ * with that number on the next — or lost it. `every` / `7 days`, `for` /
+ * `10 days`, `take` / `1 tablet`, `up to` / `3 times`.
+ */
+const NEEDS_NUMBER_NEXT = new Set(['every', 'for', 'take']);
+
+/**
+ * Whether a line of a label ends cut off, judged from its own text and, for
+ * a word that needs a number, the first word of the line after it.
+ *
+ * The evidence a label curving out of sight leaves at the edge where it turns:
+ * a thousands group short of digits (`(50,0`), a stray letter (the `b` of
+ * `(b`), the start of a word without its end (`eve`), or a word that needs a
+ * number whose number never arrives (`every` above `days`).
+ *
+ * Deliberately not evidence: a trailing comma (`1.25MG(50,` wraps legitimately
+ * onto `000 UNIT)`), an unclosed bracket (a phrase in brackets can wrap), or a
+ * word that is merely unknown. Used by `truncation`, which also requires the
+ * line to end where others do; on its own this says nothing about a curve.
+ */
+export function endsCutOff(text: string, next?: string): boolean {
+  const tokens = text.split(/\s+/).filter(Boolean);
+  const last = tokens[tokens.length - 1];
+  if (!last) return false;
+
+  if (/\d,\d{1,2}\)?$/.test(last)) return true;
+
+  const word = core(last);
+  if (word.length === 0) return false;
+  if (/^[a-z]$/.test(word) && !LONE_LETTERS.has(word)) return true;
+  if (!isKnownSigWord(word) && startsKnownWord(word)) return true;
+
+  const needsNumber =
+    NEEDS_NUMBER_NEXT.has(word) || (word === 'to' && core(tokens[tokens.length - 2] ?? '') === 'up');
+  if (needsNumber) {
+    const following = next?.split(/\s+/).find((token) => core(token).length > 0);
+    return !(following && isQuantity(following));
+  }
+  return false;
+}
+
+/**
+ * The same judgement for the start of a line, for a label cut at its left
+ * edge: the end of a word without its start (`nits)` for `units)`), or a stray
+ * letter. Numbers are not judged here: `000 UNIT)` legitimately continues
+ * `(50,` from the line before.
+ */
+export function startsCutOff(text: string): boolean {
+  const first = text.split(/\s+/).find((token) => core(token).length > 0);
+  if (!first) return false;
+  const word = core(first);
+  if (/^[a-z]$/.test(word) && !LONE_LETTERS.has(word)) return true;
+  return !isKnownSigWord(word) && endsKnownWord(word);
+}
+
+function startsKnownWord(word: string): boolean {
+  if (word.length < 2 || !/^[a-z]+$/.test(word)) return false;
+  for (const known of SIG_VOCABULARY) {
+    if (known.length >= 4 && known.length > word.length && known.startsWith(word)) return true;
+  }
+  return false;
+}
+
+function endsKnownWord(word: string): boolean {
+  if (word.length < 3 || !/^[a-z]+$/.test(word)) return false;
+  for (const known of SIG_VOCABULARY) {
+    if (known.length >= 4 && known.length > word.length && known.endsWith(word)) return true;
+  }
+  return false;
+}
