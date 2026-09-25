@@ -3,7 +3,8 @@ import type { TransientImage } from '@/features/capture/transient-capture';
 import { LabelOcr } from '../../../modules/label-ocr';
 import { logRecognizedLines } from './dev-line-list';
 import { interpretLines } from './interpret-lines';
-import type { LabelRecognitionResult, LabelRecognizer } from './types';
+import type { LabelRecognizer } from './recognizer';
+import type { LabelRecognitionResult } from './types';
 
 /**
  * Adapts the native `label-ocr` module to the §3.1 recognizer contract.

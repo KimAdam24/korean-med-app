@@ -3,7 +3,8 @@ import { Platform } from 'react-native';
 import type { TransientImage } from '@/features/capture/transient-capture';
 
 import { deviceLabelRecognizer } from './device-recognizer';
-import type { LabelRecognitionResult, LabelRecognizer } from './types';
+import type { LabelRecognizer } from './recognizer';
+import type { LabelRecognitionResult } from './types';
 
 /**
  * Entry point for spec §3.1 label reading.

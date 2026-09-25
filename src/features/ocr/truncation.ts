@@ -1,4 +1,4 @@
-import { endsCutOff, startsCutOff, type FieldKind } from './field-integrity.ts';
+import { endsCutOff, isSigWord, startsCutOff, type FieldKind } from './field-integrity.ts';
 import { classifyLine, splitProduct } from './sig-parser.ts';
 import type { LinePoint, MedicationLabelFields, RecognizedTextLine } from './types.ts';
 
@@ -123,9 +123,11 @@ const comparable = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, ''
  * cost a line its field, as on the retaken vial, where the label's own edge
  * read as a leading `|` and "|Take …" was no longer recognised as directions —
  * the line's role by the parser's own classifier, judged without leading
- * punctuation (for attribution only; the text itself is not changed); and
- * failing that, the field of the line directly above, which a continuation
- * like "units) by mouth every" belongs to.
+ * punctuation (for attribution only; the text itself is not changed); then a
+ * line with a word of dosing directions in it (`capsule`, `mouth`, `every`)
+ * belongs to the directions; and failing all of that, a line continues the
+ * directions if the line above is part of them. Nothing else is inherited: a
+ * cut line of unknown role under a strength is not the strength's.
  */
 function fieldOf(
   index: number,
@@ -148,15 +150,20 @@ function fieldOf(
     const role = classifyLine(bare);
     if (role === 'directions') kind = 'instructions';
     else if (role === 'product') kind = splitProduct(bare).strength ? 'dosage' : 'name';
+    else if (role === 'unknown' && bare.split(/\s+/).some((token) => isSigWord(token) && !/^\d/.test(token))) {
+      kind = 'instructions';
+    }
   }
-  if (!kind && index > 0) kind = fieldOf(index - 1, lines, fields, known);
+  if (!kind && index > 0 && fieldOf(index - 1, lines, fields, known) === 'instructions') {
+    kind = 'instructions';
+  }
 
   known.set(index, kind);
   return kind;
 }
 
-/** The fields these lines belong to, in field order. */
-function fieldsOf(
+/** The fields these lines belong to, in field order. Also used by the sweep's merge. */
+export function fieldsOf(
   indexes: readonly number[],
   lines: readonly RecognizedTextLine[],
   fields: MedicationLabelFields

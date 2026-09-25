@@ -627,7 +627,9 @@ function startsKnownWord(word: string): boolean {
 }
 
 function endsKnownWord(word: string): boolean {
-  if (word.length < 3 || !/^[a-z]+$/.test(word)) return false;
+  // Two letters are enough at the start of a line, where they are not a word
+  // themselves: `ke` is what the edge left of `take`.
+  if (word.length < 2 || !/^[a-z]+$/.test(word)) return false;
   for (const known of SIG_VOCABULARY) {
     if (known.length >= 4 && known.length > word.length && known.endsWith(word)) return true;
   }
