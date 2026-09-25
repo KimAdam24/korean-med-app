@@ -2,6 +2,7 @@ import { StyleSheet, Text } from 'react-native';
 
 import { Fonts } from '@/constants/theme';
 
+import { redactForLog } from './log-redaction';
 import type { RecognizedTextLine } from './types';
 
 /**
@@ -44,13 +45,24 @@ function formatLine(line: RecognizedTextLine, index: number): string {
  * JSON rather than the rendered text: line boundaries and per-line confidence
  * are exactly what a human-readable dump loses, and exactly what the parser has
  * to be built against.
+ *
+ * **Redacted at the source, even in development.** The log is a copy outside
+ * the app — on a development phone it stays in the system log until it
+ * rotates, readable over USB — and it used to carry the patient's name and
+ * address verbatim. Lines that are not evidently label text are now written
+ * in shape only (see `log-redaction`), which is the form the corpus needs
+ * before a reading may be committed in any case. The on-screen list above is
+ * unredacted: it stays inside the app.
+ *
+ * Once per reading. The sweep calls this for its final, merged reading only,
+ * never for each frame it reads on the way.
  */
 export function logRecognizedLines(source: string, lines: readonly RecognizedTextLine[]): void {
   if (!__DEV__) return;
   // Delimited so it survives being pulled out of a noisy log with grep.
   console.log(
     `[label-ocr] BEGIN ${source} ${lines.length} line(s)\n` +
-      JSON.stringify(lines, null, 2) +
+      JSON.stringify(redactForLog(lines), null, 2) +
       `\n[label-ocr] END ${source}`
   );
 }

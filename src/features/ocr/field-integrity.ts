@@ -627,3 +627,13 @@ function endsKnownWord(word: string): boolean {
   }
   return false;
 }
+
+/**
+ * Whether a token is a word dispensed directions use — for telling a line of
+ * label text from a line naming a person, a street or a pharmacy. See
+ * `log-redaction`.
+ */
+export function isSigWord(token: string): boolean {
+  const word = core(token);
+  return word.length > 0 && isKnownSigWord(word);
+}

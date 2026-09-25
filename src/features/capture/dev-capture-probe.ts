@@ -15,6 +15,12 @@ import type { TransientImage } from './transient-capture';
  * Showing the captured frame next to the extracted text settles which of those
  * happened in one scan, instead of by argument.
  *
+ * **Off unless asked for, even in development.** It holds the photograph
+ * itself, and a development build is used on real bottles with real names on
+ * them; so it needs `EXPO_PUBLIC_DEV_CAPTURE_PREVIEW=1` in the environment
+ * the bundle was built with, as well as a development build. Nothing else in
+ * the app keeps pixels past their recognition call.
+ *
  * **Returns `null` outside `__DEV__`, and that gate must stay.** The preview is
  * the photograph itself, base64-encoded in memory — precisely the copy that
  * §4 forbids keeping. Metro evaluates `__DEV__` to `false` in production and
@@ -32,7 +38,7 @@ export type CaptureProbe = {
 };
 
 export async function probeCapture(image: TransientImage): Promise<CaptureProbe | null> {
-  if (!__DEV__) return null;
+  if (!__DEV__ || process.env.EXPO_PUBLIC_DEV_CAPTURE_PREVIEW !== '1') return null;
 
   try {
     const file = new File(image.uri);
