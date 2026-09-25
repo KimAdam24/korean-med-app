@@ -197,10 +197,18 @@ const PLURAL_INTERVALS = new Set([
 ]);
 
 const SPELLED_QUANTITIES = new Set(
-  'one two three four five six seven eight nine ten eleven twelve fifteen twenty thirty forty fifty hundred thousand half'.split(
-    ' '
+  `one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen
+  seventeen eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety hundred thousand half`.split(
+    /\s+/
   )
 );
+
+/**
+ * Words that may stand where an interval's count goes: "every few days",
+ * "for several days", "on alternate days". `even` and `odd` only after `on`
+ * ("on even days"); see `countsInterval`.
+ */
+const INTERVAL_QUANTIFIERS = new Set(['few', 'several', 'alternate', 'consecutive'])
 
 /** Letters that stand alone legitimately in directions: `a`, `3 x daily`, `1 g`. */
 const LONE_LETTERS = new Set(['a', 'x', 'g']);
@@ -407,6 +415,17 @@ function structuralDamage(tokens: readonly string[]): { position: number; damage
       (DOSE_UNITS.has(word) || word === 'times') &&
       !(position > 0 && isQuantity(tokens[position - 1]))
     ) {
+      found.push({ position, damage: 'missing-number' });
+    }
+
+    // A plural interval needs its count, whatever stands before it. "by mouth
+    // ee days", "by mouth er days" and "by mouth even days" are what the
+    // recogniser made of "every 7 days" squashed round the curve of a
+    // bottle, found in sweep replays: letters read as a word, so nothing
+    // else here saw them. Marked on the word before the unit, where the
+    // count should be, and on the unit.
+    if (PLURAL_INTERVALS.has(word) && position > 0 && !countsInterval(tokens, position)) {
+      found.push({ position: position - 1, damage: 'missing-number' });
       found.push({ position, damage: 'missing-number' });
     }
 
@@ -663,6 +682,22 @@ export function wordDamage(token: string, kind: FieldKind): DamageKind | null {
 }
 
 /** `days`, `weeks` … — an interval a number must come before. */
+/**
+ * Whether the word before the plural interval at `unit` says how many: a
+ * number ("7 days", "4-6 hours"), a spelled one ("ten days"), or a word that
+ * may stand there ("a few days", "on alternate days", "on even days").
+ */
+export function countsInterval(tokens: readonly string[], unit: number): boolean {
+  const before = tokens[unit - 1];
+  if (before === undefined) return false;
+  if (isQuantity(before)) return true;
+  const word = core(before);
+  if (INTERVAL_QUANTIFIERS.has(word)) return true;
+  // "3 more days", "2 additional weeks": the count is one word further back.
+  if (['more', 'additional', 'extra'].includes(word)) return unit >= 2 && isQuantity(tokens[unit - 2]);
+  return (word === 'even' || word === 'odd') && unit >= 2 && core(tokens[unit - 2]) === 'on';
+}
+
 export function isPluralInterval(token: string): boolean {
   return PLURAL_INTERVALS.has(core(token));
 }

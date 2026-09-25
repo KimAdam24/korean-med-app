@@ -63,7 +63,8 @@ test('flags the Vitamin D2 directions, whose every word is well-formed', () => {
   const result = assessField('instructions', text);
 
   assert.equal(result.level, 'damaged');
-  assert.deepEqual(damagedWords('instructions', text), ['(b', 'units)', 'eve']);
+  // `days` too: with "every 7" gone, nothing before it says how many.
+  assert.deepEqual(damagedWords('instructions', text), ['(b', 'units)', 'eve', 'days']);
   assert.ok(result.reasons.includes('not-a-word'), 'a stray letter where 50,000 was');
   assert.ok(result.reasons.includes('missing-number'), 'units with no quantity');
   assert.ok(result.reasons.includes('truncated'), '"eve" is "every" cut short');
@@ -349,6 +350,35 @@ test('a thousands group short of digits is a broken number, not a dose', () => {
   }
   assert.equal(assessField('instructions', 'Take 1 capsule (50,000 units) by mouth every 7 days').level, 'readable');
   assert.equal(assessField('instructions', 'Take 1,000 units by mouth daily').level, 'readable');
+});
+
+test('an interval with a word where its count should be is damaged: the curve misreads', () => {
+  // Each of these is what ML Kit read for "every 7 days" squashed round the
+  // curve of a (synthetic) bottle in a sweep replay: a whole-looking word,
+  // not a fragment, so the letter and fragment rules did not see them.
+  for (const tail of ['mouth ee', 'mouth er', 'mouth even', 'mouthe']) {
+    const text = `Take 1 capsule (50,000 units) by ${tail} days`;
+    assert.equal(assessField('instructions', text).level, 'damaged', text);
+  }
+  assert.ok(assessField('instructions', 'Take 1 capsule by mouth ee days').reasons.includes('missing-number'));
+});
+
+test('an interval with its count stays readable, however the count is written', () => {
+  for (const text of [
+    'Take 1 capsule (50,000 units) by mouth every 7 days',
+    'Take 1 tablet by mouth every 4-6 hours as needed',
+    'Take 1 tablet by mouth daily for 10 days',
+    'Take 1 tablet by mouth daily for fourteen days',
+    'Take 1 tablet by mouth daily for 3 more days',
+    'Apply to affected area every few days',
+    'Take 1 tablet by mouth on alternate days',
+    'Take 1 tablet by mouth on even days',
+    'Take 1 tablet by mouth daily for 7 to 10 days',
+  ]) {
+    assert.equal(assessField('instructions', text).level, 'readable', text);
+  }
+  // Not "on": "even" there is a misread, not a schedule.
+  assert.equal(assessField('instructions', 'Take 1 tablet by mouth even days').level, 'damaged');
 });
 
 test('directions that end on a bare number after "every" have lost their unit', () => {

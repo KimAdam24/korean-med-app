@@ -1,4 +1,4 @@
-import { endsCutOff, isPluralInterval, isSigWord, startsCutOff, wordDamage } from './field-integrity.ts';
+import { countsInterval, endsCutOff, isPluralInterval, isSigWord, startsCutOff, wordDamage } from './field-integrity.ts';
 import { fieldsOf } from './truncation.ts';
 import type { FieldKind } from './field-integrity.ts';
 import type { MedicationLabelFields, RecognizedTextLine } from './types.ts';
@@ -50,12 +50,17 @@ export function findGaps(
     tokens.forEach((token, position) => {
       const atCutEnd = cutEnd && position === tokens.length - 1;
       const atCutStart = cutStart && position === 0;
-      if (atCutEnd || atCutStart || wordDamage(token, 'instructions') !== null) {
+      const next = tokens[position + 1];
+      const countMissing = next !== undefined && isPluralInterval(next) && !countsInterval(tokens, position + 1);
+      const everyOrFor = /^(every|for)$/i.test(token.replace(/[^a-z]/gi, ''));
+      // "mouth ee days": the word where the count should be is the misread,
+      // shown as read, to be corrected ("every 7").
+      const misreadCount = countMissing && !everyOrFor;
+      if (atCutEnd || atCutStart || misreadCount || wordDamage(token, 'instructions') !== null) {
         gaps.push({ kind: 'word', line: index, token: position, read: token, cut: atCutEnd || atCutStart });
       }
       // "every days": the number between them is what is missing.
-      const next = tokens[position + 1];
-      if (next && isPluralInterval(next) && /^(every|for)$/i.test(token.replace(/[^a-z]/gi, ''))) {
+      if (countMissing && everyOrFor) {
         gaps.push({ kind: 'insert', line: index, after: position });
       }
     });

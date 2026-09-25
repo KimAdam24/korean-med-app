@@ -65,6 +65,23 @@ test('a missing number between two words is an empty box between them', () => {
   assert.equal(filled.fields.instructions?.text, 'Take 1 tablet by mouth every 3 days');
 });
 
+test('a misread count is a box holding the misread, to be corrected', () => {
+  // "every 7" read as "ee" at the curve of a bottle (a sweep replay).
+  const lines = [
+    { text: 'VITAMIN D2 1.25 MG CAPSULE', confidence: 0.9 },
+    { text: 'Take 1 capsule by mouth ee days', confidence: 0.9 },
+  ];
+  const result = reading(lines);
+  const gaps = findGaps(result.lines!, result.fields, 'instructions');
+  assert.deepEqual(
+    gaps.map((gap) => (gap.kind === 'word' ? gap.read : 'insert')),
+    ['ee']
+  );
+  const filled = reading(applyFillIns(result.lines!, gaps, new Map([[gapKey(gaps[0]), 'every 7']])));
+  assert.equal(filled.fields.instructions?.text, 'Take 1 capsule by mouth every 7 days');
+  assert.equal(assessField('instructions', filled.fields.instructions!.text).level, 'readable');
+});
+
 test('nothing typed changes nothing', () => {
   const result = reading();
   const gaps = findGaps(result.lines!, result.fields, 'instructions');
