@@ -17,7 +17,13 @@ import { EMPTY_PROFILE, type MedicationProfile } from './types';
 export type ProfileState =
   | { readonly status: 'loading' }
   | { readonly status: 'ready'; readonly profile: MedicationProfile }
-  | { readonly status: 'unrecoverable'; readonly reason: 'key-missing' | 'undecryptable' };
+  | { readonly status: 'unrecoverable'; readonly reason: 'key-missing' | 'undecryptable' }
+  /**
+   * The read itself failed twice — a keychain call, not the data. It used to be
+   * reported as `unrecoverable`, which told the user their list was gone and
+   * pointed them at erasing it, for what is usually a hiccup.
+   */
+  | { readonly status: 'unavailable' };
 
 export function useProfile(): {
   readonly state: ProfileState;
@@ -47,7 +53,8 @@ export function useProfile(): {
 /**
  * A thrown read — a keychain call that failed — is not the same as data that
  * cannot be decrypted, and often succeeds a moment later. It used to leave the
- * screen on "loading" for good. One retry, then the honest answer.
+ * screen on "loading" for good. One retry, then the honest answer: unavailable,
+ * with a way to try again.
  */
 async function loadWithRetry(): Promise<ProfileLoadResult | 'failed'> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -61,7 +68,7 @@ async function loadWithRetry(): Promise<ProfileLoadResult | 'failed'> {
 }
 
 function stateFor(result: ProfileLoadResult | 'failed'): ProfileState {
-  if (result === 'failed') return { status: 'unrecoverable', reason: 'undecryptable' };
+  if (result === 'failed') return { status: 'unavailable' };
   switch (result.status) {
     case 'ok':
       return { status: 'ready', profile: result.value };

@@ -4,6 +4,7 @@ import { ActivityIndicator, AppState } from 'react-native';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Emblem } from '@/components/emblem';
+import { Notice } from '@/components/notice';
 import { PinPad } from '@/components/pin-pad';
 import { ALL_EDGES, Screen } from '@/components/screen';
 import { clearProfile } from '@/features/medications/medication-store';
@@ -30,6 +31,11 @@ import {
 export function LockScreen() {
   const { status, capability, requestDeviceUnlock, markUnlocked, refresh } = useAppLock();
 
+  // Before the capability check below: a probe that failed never produced one.
+  if (status === 'check-failed') {
+    return <CheckFailed onRetry={refresh} />;
+  }
+
   if (status === 'checking' || !capability) {
     return (
       <Sheet>
@@ -49,10 +55,16 @@ export function LockScreen() {
   }
 
   if (status === 'needs-pin-setup') {
-    return <CreatePin onCreated={async () => {
-      await refresh();
-      markUnlocked();
-    }} />;
+    return (
+      <CreatePin
+        onCreated={async () => {
+          // The PIN is saved; a failed re-probe only leaves `pinSet` stale until
+          // the next one, and must not strand the user on a full keypad.
+          await refresh().catch(() => undefined);
+          markUnlocked();
+        }}
+      />
+    );
   }
 
   return (
@@ -61,6 +73,9 @@ export function LockScreen() {
       pinAvailable={capability.pinSet}
       onDeviceUnlock={requestDeviceUnlock}
       onPinAccepted={markUnlocked}
+      // Re-probes when what the lock screen was built on has changed under it:
+      // the phone's own lock removed, or the app PIN cleared.
+      onStale={() => refresh().catch(() => undefined)}
       // Only where the phone has no lock of its own. There, nothing else can
       // prove who is holding it, so a forgotten PIN has one honest way out —
       // and it had none: the erase lived in Settings, behind this very lock.
@@ -70,7 +85,9 @@ export function LockScreen() {
           : async () => {
               await clearProfile();
               await clearPin();
-              await refresh();
+              // Erased; see `onCreated` above for why a failed re-probe is not
+              // reported as a failed erase.
+              await refresh().catch(() => undefined);
             }
       }
     />
@@ -84,12 +101,14 @@ function Unlock({
   pinAvailable,
   onDeviceUnlock,
   onPinAccepted,
+  onStale,
   onEraseEverything,
 }: {
   canUseDevice: boolean;
   pinAvailable: boolean;
   onDeviceUnlock: () => Promise<{ kind: string }>;
   onPinAccepted: () => void;
+  onStale: () => Promise<void>;
   onEraseEverything?: () => Promise<void>;
 }) {
   // Start on the PIN when the OS has nothing to offer, so the user is not shown
@@ -101,6 +120,8 @@ function Unlock({
 
   const tryDevice = useCallback(async () => {
     setBusy(true);
+    // "Try again, or use your PIN" only where there is a PIN to use.
+    const failed = pinAvailable ? Strings.lock.rejected : Strings.failure.deviceUnlockFailed;
     try {
       const outcome = await onDeviceUnlock();
       switch (outcome.kind) {
@@ -110,20 +131,33 @@ function Unlock({
           setMessage(null);
           return;
         case 'rejected':
-          setMessage(Strings.lock.rejected);
+          setMessage(failed);
           return;
         case 'unavailable':
-          setMessage(Strings.lock.biometricUnavailable);
-          // The OS route is closed, so move the user to the one that is open.
-          if (pinAvailable) setShowPin(true);
+          if (pinAvailable) {
+            // The OS route is closed, so move the user to the one that is open.
+            setMessage(Strings.lock.biometricUnavailable);
+            setShowPin(true);
+          } else {
+            // No PIN to fall back on. Most likely the phone's own lock has been
+            // removed since the app last looked; re-probing then moves this
+            // phone to creating a PIN, rather than leaving a button that cannot
+            // work under a message that says to use a PIN that does not exist.
+            setMessage(Strings.failure.deviceUnlockOff);
+            await onStale();
+          }
           return;
         default:
-          setMessage(Strings.lock.rejected);
+          setMessage(failed);
       }
+    } catch {
+      // The prompt itself threw: no activity to show it on, an internal error.
+      // It used to escape unhandled, leaving the button doing nothing.
+      setMessage(failed);
     } finally {
       setBusy(false);
     }
-  }, [onDeviceUnlock, pinAvailable]);
+  }, [onDeviceUnlock, onStale, pinAvailable]);
 
   /**
    * Prompt once, unattended, when the screen first appears — the behaviour of
@@ -155,11 +189,14 @@ function Unlock({
     return () => subscription.remove();
   }, [canUseDevice, showPin, tryDevice]);
 
-  if (showPin) {
+  // Only while a PIN exists: one cleared underneath (see `onPinMissing`) sends
+  // the user back to the phone's own lock, or on to creating a new PIN.
+  if (showPin && pinAvailable) {
     return (
       <EnterPin
         message={message}
         onAccepted={onPinAccepted}
+        onPinMissing={onStale}
         onEraseEverything={onEraseEverything}
         onUseDevice={canUseDevice ? () => {
           setMessage(null);
@@ -200,11 +237,13 @@ function Unlock({
 function EnterPin({
   message,
   onAccepted,
+  onPinMissing,
   onUseDevice,
   onEraseEverything,
 }: {
   message: Bilingual | null;
   onAccepted: () => void;
+  onPinMissing: () => Promise<void>;
   onUseDevice?: () => void;
   onEraseEverything?: () => Promise<void>;
 }) {
@@ -213,6 +252,7 @@ function EnterPin({
   const [lockedMs, setLockedMs] = useState(0);
   const [busy, setBusy] = useState(false);
   const [forgot, setForgot] = useState<'no' | 'explain' | 'confirm' | 'erasing'>('no');
+  const [eraseFailed, setEraseFailed] = useState(false);
 
   // A lockout begun in a previous session is still running; find out before the
   // user spends an attempt discovering it.
@@ -267,21 +307,24 @@ function EnterPin({
             setError(formatLockout(Strings.pin.lockedOut, result.lockedForMs));
             return;
           case 'not-set':
-            // Only reachable if the PIN was cleared underneath us.
+            // Only reachable if the PIN was cleared underneath us. It used to
+            // say face unlock was unavailable, on the PIN screen; re-probing
+            // moves the user to whatever way in the phone actually has now.
             setPinValue('');
-            setError(Strings.lock.biometricUnavailable);
+            await onPinMissing();
+            return;
         }
       } catch {
         // A stored PIN record that cannot be read. Not a wrong guess, and not
-        // a crash: the entry is cleared, and on a phone without its own lock
-        // the way out below is still there.
+        // a crash: the entry is cleared, it says so, and on a phone without its
+        // own lock the way out below is still there.
         setPinValue('');
-        setError(Strings.lock.rejected);
+        setError(Strings.failure.pinCheckFailed);
       } finally {
         setBusy(false);
       }
     },
-    [onAccepted]
+    [onAccepted, onPinMissing]
   );
 
   const change = (next: string) => {
@@ -325,6 +368,13 @@ function EnterPin({
     return (
       <Sheet scroll>
         <BilingualText text={Strings.settings.eraseTitle} variant="heading" align="center" />
+        {eraseFailed ? (
+          <Notice
+            tone="warn"
+            title={Strings.failure.eraseIncompleteTitle}
+            body={Strings.failure.eraseIncompleteBody}
+          />
+        ) : null}
         <BilingualText text={Strings.settings.eraseBody} align="center" />
         <BigButton label={Strings.medications.cancel} onPress={() => setForgot('no')} />
         <BigButton
@@ -336,6 +386,8 @@ function EnterPin({
             try {
               await onEraseEverything();
             } catch {
+              // Said, not silent: see the same case in Settings.
+              setEraseFailed(true);
               setForgot('confirm');
             }
           }}
@@ -369,7 +421,7 @@ function EnterPin({
 
 // --- Creating a PIN on an unsecured device -------------------------------
 
-function CreatePin({ onCreated }: { onCreated: () => void }) {
+function CreatePin({ onCreated }: { onCreated: () => Promise<void> }) {
   const [first, setFirst] = useState<string | null>(null);
   const [pin, setPinValue] = useState('');
   const [error, setError] = useState<Bilingual | null>(null);
@@ -405,14 +457,17 @@ function CreatePin({ onCreated }: { onCreated: () => void }) {
       setBusy(true);
       try {
         await setPin(next);
-        onCreated();
       } catch {
-        // Not saved. Start again rather than leave a pad that did nothing.
+        // Not saved. Start again, and say so: a pad that silently went back to
+        // "choose a PIN" after the confirmation looked like a mistyped one.
         setFirst(null);
         setPinValue('');
-      } finally {
+        setError(Strings.failure.pinNotSaved);
         setBusy(false);
+        return;
       }
+      await onCreated();
+      setBusy(false);
     },
     [first, onCreated]
   );
@@ -428,6 +483,37 @@ function CreatePin({ onCreated }: { onCreated: () => void }) {
       {error && <BilingualText text={error} variant="label" align="center" />}
 
       <PinPad value={pin} length={PIN_LENGTH} onChange={change} disabled={busy} />
+    </Sheet>
+  );
+}
+
+// --- The device could not be checked ------------------------------------
+
+/**
+ * The lock probe failed even after retrying. Without this the screen stayed on
+ * "checking" for good, and the only way out was force-quitting the app.
+ */
+function CheckFailed({ onRetry }: { onRetry: () => Promise<void> }) {
+  const [retrying, setRetrying] = useState(false);
+  return (
+    <Sheet>
+      <LockEmblem />
+      <BilingualText text={Strings.failure.lockCheckFailedTitle} variant="heading" align="center" />
+      <BilingualText text={Strings.failure.lockCheckFailedBody} align="center" />
+      {retrying ? (
+        <ActivityIndicator size="large" />
+      ) : (
+        <BigButton
+          label={Strings.scan.retry}
+          onPress={async () => {
+            setRetrying(true);
+            // Success changes the lock's status and replaces this screen; a
+            // failure leaves it here, with the button back.
+            await onRetry().catch(() => undefined);
+            setRetrying(false);
+          }}
+        />
+      )}
     </Sheet>
   );
 }

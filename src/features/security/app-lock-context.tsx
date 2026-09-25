@@ -40,7 +40,12 @@ export type LockStatus =
   /** The device has no lock of its own, so an app PIN must be created first. */
   | 'needs-pin-setup'
   /** No secure storage on this platform; the profile is unavailable, not merely locked. */
-  | 'unsupported';
+  | 'unsupported'
+  /**
+   * The device could not be probed, even after retrying. It used to stay on
+   * `checking` — a spinner with no way out but force-quitting the app.
+   */
+  | 'check-failed';
 
 export type AppLockValue = {
   readonly status: LockStatus;
@@ -52,7 +57,10 @@ export type AppLockValue = {
   /** Called by the PIN flow once a PIN has been verified or newly set. */
   readonly markUnlocked: () => void;
   readonly lock: () => void;
-  /** Re-probes after a PIN is created, so `pinSet` stops being stale. */
+  /**
+   * Re-probes the device — after a PIN is created, so `pinSet` stops being
+   * stale, or to retry after `check-failed`. Throws if the probe fails.
+   */
   readonly refresh: () => Promise<void>;
   /**
    * Runs an interaction that hands focus to the OS — a file picker, a
@@ -115,7 +123,9 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
           if (!cancelled) applyCapability(next);
         },
         () => {
-          if (!cancelled && remaining > 0) setTimeout(() => attempt(remaining - 1), 1000);
+          if (cancelled) return;
+          if (remaining > 0) setTimeout(() => attempt(remaining - 1), 1000);
+          else setStatus((current) => (current === 'checking' ? 'check-failed' : current));
         }
       );
     };

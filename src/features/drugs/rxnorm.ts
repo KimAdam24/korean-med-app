@@ -27,7 +27,7 @@
  * the NDC directory, which is large but not impossible.
  */
 
-import { formatCms11 } from './ndc';
+import { formatCms11 } from './ndc.ts';
 
 const RXNAV_BASE = 'https://rxnav.nlm.nih.gov/REST';
 const RXNAV_ENDPOINT = `${RXNAV_BASE}/ndcstatus.json`;
@@ -66,7 +66,16 @@ export type NdcResolution =
   /** No candidate is known to RxNorm. A real barcode, but not a US drug we can name. */
   | { readonly status: 'unknown' }
   /** The lookup could not be performed. Distinct from "not found" — retrying may work. */
-  | { readonly status: 'offline' };
+  | { readonly status: 'offline' }
+  /**
+   * RxNav answered, but with an error or nonsense. The phone's connection is
+   * fine, so telling the user to check it would send them off fiddling with
+   * settings that are not the problem.
+   */
+  | { readonly status: 'unavailable' };
+
+/** RxNav was reached and answered badly: an error status, or a body that is not JSON. */
+class LookupServiceError extends Error {}
 
 type NdcStatusPayload = {
   ndcStatus?: {
@@ -92,10 +101,15 @@ async function lookupOne(ndc11: string, signal: AbortSignal): Promise<DrugIdenti
   });
 
   if (!response.ok) {
-    throw new Error(`RxNav responded ${response.status}`);
+    throw new LookupServiceError(`RxNav responded ${response.status}`);
   }
 
-  const payload = (await response.json()) as NdcStatusPayload;
+  let payload: NdcStatusPayload;
+  try {
+    payload = (await response.json()) as NdcStatusPayload;
+  } catch {
+    throw new LookupServiceError('RxNav answered with a body that is not JSON');
+  }
   const result = payload.ndcStatus;
   if (!result) return null;
 
@@ -196,8 +210,14 @@ export async function resolveNdcCandidates(
     // matched too, and "which of these two" is exactly the question that must
     // not be settled by a timeout. So a partial failure is "offline", as a
     // total one is.
-    if (settled.some((outcome) => outcome.status === 'rejected')) {
-      return { status: 'offline' };
+    const failures = settled.filter((outcome) => outcome.status === 'rejected');
+    if (failures.length > 0) {
+      // Only when every failure is the service's own is the connection known to
+      // be fine; a timeout or a dropped request may be either, and the
+      // connection is the likelier culprit and the one the user can fix.
+      return failures.every((failure) => failure.reason instanceof LookupServiceError)
+        ? { status: 'unavailable' }
+        : { status: 'offline' };
     }
 
     const matches: DrugIdentity[] = [];

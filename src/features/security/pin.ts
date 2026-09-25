@@ -124,8 +124,12 @@ export async function setPin(pin: string): Promise<void> {
     iterations: ITERATIONS,
   };
 
-  await SecureStore.setItemAsync(PIN_ITEM, JSON.stringify(stored), OPTIONS);
+  // The attempt counter is reset first, so that a failure anywhere leaves the
+  // old PIN in place: it used to be reset after writing, and a failure there
+  // threw with the new PIN already saved, while the screen said the old one
+  // still worked. A counter reset for a PIN that then failed to save is harmless.
   await resetAttempts();
+  await SecureStore.setItemAsync(PIN_ITEM, JSON.stringify(stored), OPTIONS);
 }
 
 export async function clearPin(): Promise<void> {

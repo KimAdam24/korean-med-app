@@ -8,11 +8,19 @@
  */
 const items = new Map<string, string>();
 let failNext = false;
+type Operation = 'get' | 'set' | 'delete';
+/** Targeted failures: the next `operation` on `key` throws, once. */
+const failures: { operation: Operation; key: string }[] = [];
 
-function guard(): void {
+function guard(operation: Operation, key: string): void {
   if (failNext) {
     failNext = false;
     throw new Error('Keychain unavailable (injected failure).');
+  }
+  const index = failures.findIndex((failure) => failure.operation === operation && failure.key === key);
+  if (index >= 0) {
+    failures.splice(index, 1);
+    throw new Error(`Keychain ${operation} of ${key} failed (injected failure).`);
   }
 }
 
@@ -26,17 +34,17 @@ export async function isAvailableAsync(): Promise<boolean> {
 }
 
 export async function getItemAsync(key: string): Promise<string | null> {
-  guard();
+  guard('get', key);
   return items.get(key) ?? null;
 }
 
 export async function setItemAsync(key: string, value: string): Promise<void> {
-  guard();
+  guard('set', key);
   items.set(key, value);
 }
 
 export async function deleteItemAsync(key: string): Promise<void> {
-  guard();
+  guard('delete', key);
   items.delete(key);
 }
 
@@ -45,8 +53,17 @@ export const keychain = {
   reset(): void {
     items.clear();
     failNext = false;
+    failures.length = 0;
   },
   failNextCall(): void {
     failNext = true;
+  },
+  /**
+   * Makes the next `operation` on one item throw — for failures partway
+   * through a sequence, such as an erase that removes the vault key and then
+   * cannot remove the PIN.
+   */
+  failNext(operation: Operation, key: string): void {
+    failures.push({ operation, key });
   },
 };

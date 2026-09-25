@@ -50,8 +50,9 @@ type Step =
       first?: string;
       error?: Bilingual;
     }
-  | { kind: 'forgot-pin' }
-  | { kind: 'confirm-erase' }
+  | { kind: 'forgot-pin'; error?: Bilingual }
+  /** `failed`: the last attempt did not finish, and some of it may have happened. */
+  | { kind: 'confirm-erase'; failed?: boolean }
   | { kind: 'working' }
   | { kind: 'done'; message: Bilingual };
 
@@ -72,13 +73,19 @@ export default function SettingsScreen() {
       // actually makes the records unreadable. Clearing the PIN is tidying.
       await clearProfile();
       await clearPin();
-      await refresh();
-      setStep({ kind: 'done', message: Strings.settings.eraseDone });
     } catch {
-      // Back to the question rather than a spinner that never ends. Nothing
-      // may say "erased" unless it was; the user can try again from here.
-      setStep({ kind: 'confirm-erase' });
+      // Back to the question, saying it did not finish. It used to return in
+      // silence — and because the key goes first, a failure clearing the PIN
+      // left the medicines erased behind a screen that looked untouched.
+      // Trying again finishes the job either way.
+      setStep({ kind: 'confirm-erase', failed: true });
+      return;
     }
+    // Erased. Re-reading the lock's state is housekeeping: if it fails, the
+    // next launch re-reads it, and it must not turn a finished erase into a
+    // reported failure.
+    await refresh().catch(() => undefined);
+    setStep({ kind: 'done', message: Strings.settings.eraseDone });
   }, [refresh]);
 
   const handlePinEntry = useCallback(
@@ -93,13 +100,19 @@ export default function SettingsScreen() {
         try {
           result = await verifyPin(next);
         } catch {
-          setStep({ kind: 'change-pin', stage: 'current', error: Strings.lock.rejected });
+          setStep({ kind: 'change-pin', stage: 'current', error: Strings.failure.pinCheckFailed });
           return;
         } finally {
           setChecking(false);
         }
         if (result.outcome === 'correct') {
           setStep({ kind: 'change-pin', stage: 'new' });
+        } else if (result.outcome === 'not-set') {
+          // No PIN to check against — cleared underneath, most likely by an
+          // erase whose re-probe failed. "Not correct" would be false; re-probe
+          // so this menu stops offering to change a PIN that does not exist.
+          void refresh().catch(() => undefined);
+          setStep({ kind: 'change-pin', stage: 'current', error: Strings.failure.pinCheckFailed });
         } else {
           setStep({
             kind: 'change-pin',
@@ -133,13 +146,14 @@ export default function SettingsScreen() {
 
       setStep({ kind: 'working' });
       try {
+        // A throw here means the PIN did not change; see `setPin`.
         await setPin(next);
-        await refresh();
-        setStep({ kind: 'done', message: Strings.settings.changePinDone });
       } catch {
-        // The old PIN is still the PIN. Start the new one again.
-        setStep({ kind: 'change-pin', stage: 'new' });
+        setStep({ kind: 'change-pin', stage: 'new', error: Strings.failure.pinNotChanged });
+        return;
       }
+      await refresh().catch(() => undefined);
+      setStep({ kind: 'done', message: Strings.settings.changePinDone });
     },
     [step, refresh]
   );
@@ -149,10 +163,29 @@ export default function SettingsScreen() {
    * PIN would have, so a new one may be set without knowing the old.
    */
   const recoverWithDevice = useCallback(async () => {
-    const outcome = await requestDeviceUnlock();
-    if (outcome.kind !== 'unlocked') return;
-    setEntry('');
-    setStep({ kind: 'change-pin', stage: 'new' });
+    let outcome: Awaited<ReturnType<typeof requestDeviceUnlock>>;
+    try {
+      outcome = await requestDeviceUnlock();
+    } catch {
+      setStep({ kind: 'forgot-pin', error: Strings.failure.deviceUnlockFailed });
+      return;
+    }
+    if (outcome.kind === 'unlocked') {
+      setEntry('');
+      setStep({ kind: 'change-pin', stage: 'new' });
+      return;
+    }
+    // Cancelling is a choice and stays quiet. Anything else used to be silent
+    // too, leaving a button that appeared to do nothing.
+    setStep({
+      kind: 'forgot-pin',
+      error:
+        outcome.kind === 'cancelled'
+          ? undefined
+          : outcome.kind === 'unavailable'
+            ? Strings.failure.deviceUnlockOff
+            : Strings.failure.deviceUnlockFailed,
+    });
   }, [requestDeviceUnlock]);
 
   if (step.kind === 'working') {
@@ -176,6 +209,13 @@ export default function SettingsScreen() {
     return (
       <Screen centered>
         <BilingualText text={Strings.settings.eraseTitle} variant="heading" />
+        {step.failed ? (
+          <Notice
+            tone="warn"
+            title={Strings.failure.eraseIncompleteTitle}
+            body={Strings.failure.eraseIncompleteBody}
+          />
+        ) : null}
         <BilingualText text={Strings.settings.eraseBody} />
         {/* Way out first and primary; the destructive action second, marked. */}
         <BigButton label={Strings.medications.cancel} onPress={() => setStep({ kind: 'menu' })} />
@@ -195,6 +235,7 @@ export default function SettingsScreen() {
     return (
       <Screen scroll>
         <BilingualText text={Strings.settings.forgotPin} variant="heading" />
+        {step.error ? <Notice tone="warn" title={step.error} /> : null}
 
         {canUseDevice ? (
           <>

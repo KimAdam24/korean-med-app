@@ -48,6 +48,7 @@ import {
   type RecognizedTextLine,
 } from '@/features/ocr/types';
 import { useAppLock } from '@/features/security/app-lock-context';
+import { VaultUnreadableError } from '@/features/security/secure-vault';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, type Bilingual } from '@/i18n/strings';
 
@@ -85,7 +86,14 @@ type Phase =
    * path deletes the capture file except `PhotoNotDiscardedError`, which is
    * precisely the case where we must not reassure the user.
    */
-  | { kind: 'problem'; message: Bilingual; photoDiscarded: boolean; retry?: () => void };
+  | {
+      kind: 'problem';
+      /** Heading, when the message needs one; otherwise the message is the heading. */
+      title?: Bilingual;
+      message: Bilingual;
+      photoDiscarded: boolean;
+      retry?: () => void;
+    };
 
 /**
  * The symbologies a US drug package actually carries: a linear UPC/EAN on the
@@ -116,9 +124,12 @@ export default function CameraScreen() {
    * show for it.
    */
   const askForCamera = useCallback(
-    () => runWithSystemUi(async () => {
-      await requestPermission();
-    }),
+    () =>
+      runWithSystemUi(async () => {
+        await requestPermission();
+      }).catch(() => {
+        // The status is unchanged, so this screen still offers to ask again.
+      }),
     [requestPermission, runWithSystemUi]
   );
 
@@ -217,6 +228,12 @@ export default function CameraScreen() {
     })();
   }, [imageUri]);
 
+  /** The reading on screen, kept so a failed save can go back to it. */
+  const lastReading = useRef<Extract<Phase, { kind: 'result' }> | null>(null);
+  useEffect(() => {
+    if (phase.kind === 'result') lastReading.current = phase;
+  }, [phase]);
+
   const cameraLive = phase.kind === 'preview' || phase.kind === 'capturing';
 
   const handleBarcode = useCallback(async (scan: BarcodeScanningResult) => {
@@ -240,20 +257,33 @@ export default function CameraScreen() {
         case 'ambiguous':
           setPhase({ kind: 'ambiguous', matches: resolution.matches, saving: false });
           return;
+        // A barcode lookup takes no photograph, so none of these says one was
+        // deleted; they used to, which told the user of a photo never taken.
         case 'unknown':
           setPhase({
             kind: 'problem',
+            title: Strings.scan.unrecognisedTitle,
             message: Strings.scan.unrecognisedBody,
-            photoDiscarded: true,
+            photoDiscarded: false,
           });
           return;
         case 'offline':
           setPhase({
             kind: 'problem',
+            title: Strings.scan.offlineTitle,
             message: Strings.scan.offlineBody,
-            photoDiscarded: true,
-            // Offline is the one failure worth retrying as-is; the others need
-            // a different bottle or a different method.
+            photoDiscarded: false,
+            // Offline is worth retrying as-is; `unknown` needs a different
+            // bottle or a different method.
+            retry: () => setPhase({ kind: 'preview' }),
+          });
+          return;
+        case 'unavailable':
+          setPhase({
+            kind: 'problem',
+            title: Strings.scan.offlineTitle,
+            message: Strings.failure.lookupUnavailable,
+            photoDiscarded: false,
             retry: () => setPhase({ kind: 'preview' }),
           });
       }
@@ -297,12 +327,8 @@ export default function CameraScreen() {
         },
       });
       setPhase({ kind: 'saved' });
-    } catch {
-      setPhase({
-        kind: 'problem',
-        message: Strings.vault.unrecoverableBody,
-        photoDiscarded: true,
-      });
+    } catch (error) {
+      setPhase(saveProblem(error, () => setPhase({ kind: 'identified', drug, saving: false })));
     }
   }, []);
 
@@ -327,16 +353,15 @@ export default function CameraScreen() {
       const toSave = medicationFromReading(fields);
       if (!toSave) return;
 
+      const reading = lastReading.current;
       setPhase({ kind: 'saving' });
       try {
         await addMedication(toSave.record);
         setPhase({ kind: 'saved' });
-      } catch {
-        setPhase({
-          kind: 'problem',
-          message: Strings.vault.unrecoverableBody,
-          photoDiscarded: true,
-        });
+      } catch (error) {
+        // Back to the same reading, not the camera: the photo is gone, and
+        // "retake" after a failed save threw away a reading that was fine.
+        setPhase(saveProblem(error, reading ? () => setPhase(reading) : undefined));
       }
     },
     []
@@ -417,6 +442,11 @@ export default function CameraScreen() {
       <Sheet>
         <ActivityIndicator size="large" />
         <BilingualText text={Strings.permission.checking} align="center" />
+        {/*
+          A status check that fails never answers, and this is a full-screen
+          modal: without a button here it was a spinner with no way out.
+        */}
+        <BigButton label={Strings.camera.close} onPress={close} tone="secondary" />
       </Sheet>
     );
   }
@@ -433,7 +463,10 @@ export default function CameraScreen() {
       <Sheet>
         <BilingualText text={Strings.permission.deniedTitle} variant="heading" align="center" />
         <BilingualText text={Strings.permission.deniedBody} align="center" />
-        <BigButton label={Strings.permission.openSettings} onPress={() => Linking.openSettings()} />
+        <BigButton
+          label={Strings.permission.openSettings}
+          onPress={() => void Linking.openSettings().catch(() => undefined)}
+        />
         <BigButton label={Strings.camera.close} onPress={close} tone="secondary" />
       </Sheet>
     );
@@ -452,6 +485,7 @@ export default function CameraScreen() {
       <Sheet>
         <ActivityIndicator size="large" />
         <BilingualText text={Strings.scan.looking} align="center" />
+        <BigButton label={Strings.camera.close} onPress={close} tone="secondary" />
       </Sheet>
     );
   }
@@ -520,7 +554,14 @@ export default function CameraScreen() {
   if (phase.kind === 'problem') {
     return (
       <Sheet scroll>
-        <BilingualText text={phase.message} variant="heading" />
+        {phase.title ? (
+          <>
+            <BilingualText text={phase.title} variant="heading" />
+            <BilingualText text={phase.message} />
+          </>
+        ) : (
+          <BilingualText text={phase.message} variant="heading" />
+        )}
         <CapturedFramePanel probe={devProbe} />
         {phase.photoDiscarded && <DiscardNotice />}
         <BigButton
@@ -686,7 +727,11 @@ function ReadingResult({
     </>
   );
 
-  const saveBlock = toSave ? (
+  const saveBlock = !toSave ? (
+    // No name, so nothing to match against the box; the reading cannot become a
+    // record. It used to show no save button and no reason.
+    <Notice tone="warn" title={Strings.failure.nameUnreadable} />
+  ) : (
     <View style={styles.actions}>
       {/* Said before the tap rather than after: what will be left out, and why. */}
       {toSave.dropped.includes('instructions') ? (
@@ -704,7 +749,7 @@ function ReadingResult({
         tone={degraded ? 'secondary' : 'primary'}
       />
     </View>
-  ) : null;
+  );
 
   if (degraded) {
     return (
@@ -770,6 +815,35 @@ function ReadingResult({
  * because it is already English and must not be paired with a translation —
  * this is the one string on the screen that has to match the box exactly.
  */
+/**
+ * What a failed save says. It used to be the new-phone message — "saved on
+ * another phone, scan your medicines again" — for every failure, which told
+ * someone whose write had merely hiccuped that their whole list was gone.
+ *
+ * Only an unreadable vault gets the unreadable-vault message, worded for its
+ * actual cause. Anything else is a save that did not happen, said plainly, with
+ * a way back to what was about to be saved. No photo is mentioned: a barcode
+ * save took none, and a reading's photo was deleted, and said so, earlier.
+ */
+function saveProblem(error: unknown, retry?: () => void): Phase {
+  if (error instanceof VaultUnreadableError) {
+    return {
+      kind: 'problem',
+      title: Strings.vault.unrecoverableTitle,
+      message:
+        error.reason === 'key-missing' ? Strings.vault.unrecoverableBody : Strings.failure.listDamagedBody,
+      photoDiscarded: false,
+    };
+  }
+  return {
+    kind: 'problem',
+    title: Strings.scan.saveFailedTitle,
+    message: Strings.failure.addNotSaved,
+    photoDiscarded: false,
+    retry,
+  };
+}
+
 function DrugCard({ drug }: { drug: DrugIdentity }) {
   return (
     <Card>

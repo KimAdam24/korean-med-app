@@ -9,6 +9,7 @@ import { Icon } from '@/components/icon';
 import { ListRow } from '@/components/list-row';
 import { Screen } from '@/components/screen';
 import { IconSize, Radius, Spacing } from '@/constants/theme';
+import { ProfileProblem } from '@/features/medications/profile-problem';
 import { useProfile } from '@/features/medications/use-profile';
 import type { MedicationRecord } from '@/features/medications/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -46,25 +47,8 @@ export default function MedicationsScreen() {
     );
   }
 
-  if (state.status === 'unrecoverable') {
-    return (
-      <Screen centered>
-        <BilingualText text={Strings.vault.unrecoverableTitle} variant="heading" />
-        <BilingualText text={Strings.vault.unrecoverableBody} />
-        {/*
-          Deliberately not offering "start over" here. Erasing is destructive
-          and lives behind settings, where the consequence is spelled out —
-          putting it on the screen someone reaches while confused invites a tap
-          that cannot be undone.
-        */}
-        <BigButton
-          label={Strings.settings.open}
-          icon="settings"
-          tone="secondary"
-          onPress={() => router.push('/settings')}
-        />
-      </Screen>
-    );
+  if (state.status === 'unrecoverable' || state.status === 'unavailable') {
+    return <ProfileProblem state={state} onRetry={reload} />;
   }
 
   const { medications } = state.profile;

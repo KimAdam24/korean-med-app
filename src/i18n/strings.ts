@@ -490,6 +490,52 @@ export const Strings = {
     },
   },
 
+  /**
+   * What the user is told when something they asked for did not happen.
+   *
+   * Every one of these replaced a silent return to the previous step — a
+   * failed erase, save or removal that looked, on screen, exactly like one
+   * that had not been attempted, or like one that had worked. English
+   * placeholders for now; see `untranslated`.
+   */
+  failure: {
+    eraseIncompleteTitle: untranslated('Erasing did not finish'),
+    eraseIncompleteBody: untranslated(
+      'Some of your information may already be erased. Please try again to finish.',
+      'After a failed erase. Must not suggest the list is safe: part of it may already be gone.'
+    ),
+    pinNotChanged: untranslated('Your PIN was not changed. Your old PIN still works. Please try again.'),
+    pinNotSaved: untranslated('Your PIN could not be saved. Please choose it again.'),
+    pinCheckFailed: untranslated('Your PIN could not be checked just now. Please try again.'),
+    editNotSaved: untranslated('Your changes were not saved. Please try again.'),
+    confirmNotSaved: untranslated('It was not marked as checked. Please try again.'),
+    removeFailed: untranslated('This medicine could not be removed. It is still on your list. Please try again.'),
+    addNotSaved: untranslated('It was not added to your list. Please try again.'),
+    listUnavailableTitle: untranslated('Your medicine list could not be opened just now'),
+    listUnavailableBody: untranslated(
+      'This is usually temporary. Please try again.',
+      'Distinct from the permanent "cannot be opened" message: nothing is lost.'
+    ),
+    listDamagedBody: untranslated(
+      'Your saved medicine list is damaged and cannot be opened. You will need to add your medicines again.',
+      'Saved data on this same phone that cannot be read — not the new-phone case.'
+    ),
+    medicineGone: untranslated('This medicine is no longer on your list.'),
+    lockCheckFailedTitle: untranslated("Your phone's lock could not be checked"),
+    lockCheckFailedBody: untranslated('Please try again. If this keeps happening, restart your phone.'),
+    deviceUnlockFailed: untranslated('Phone unlock did not work. Please try again.'),
+    deviceUnlockOff: untranslated(
+      "Phone unlock is not available right now. Check that your phone still has a screen lock, then try again."
+    ),
+    lookupUnavailable: untranslated(
+      'The medicine information service is not answering right now. Please try again later.',
+      'Shown when the internet works but the US lookup service does not; must not tell the user to check their connection.'
+    ),
+    nameUnreadable: untranslated(
+      'The medicine name could not be read, so it cannot be added. Please take another photo.'
+    ),
+  },
+
   problem: {
     captureFailed: {
       ko: '사진을 찍지 못했어요. 다시 해 볼까요?',

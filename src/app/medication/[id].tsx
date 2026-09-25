@@ -14,6 +14,7 @@ import {
   removeMedication,
   updateMedication,
 } from '@/features/medications/medication-store';
+import { ProfileProblem } from '@/features/medications/profile-problem';
 import { useProfile } from '@/features/medications/use-profile';
 import { goBackOr } from '@/features/navigation/go-back';
 import { assessField } from '@/features/ocr/field-integrity';
@@ -30,7 +31,8 @@ import { Strings, type Bilingual } from '@/i18n/strings';
  * teaches people to ignore warnings.
  */
 type Mode =
-  | { kind: 'viewing' }
+  /** `notice` says what just failed, when something did. */
+  | { kind: 'viewing'; notice?: Bilingual }
   | { kind: 'editing'; name: string; dosage: string; instructions: string; error?: Bilingual }
   | { kind: 'confirming-removal' }
   | { kind: 'working' };
@@ -89,9 +91,10 @@ export default function MedicationScreen() {
       await reload();
       setMode({ kind: 'viewing' });
     } catch {
-      // Back to the form with what was typed, rather than a spinner that never
-      // ends. Nothing was saved, and nothing says it was.
-      setMode(editing);
+      // Back to the form with what was typed — and, now, saying why. It used to
+      // return to the form silently, which looked exactly like a save that had
+      // not been attempted; the back button then discarded the edit.
+      setMode({ ...editing, error: Strings.failure.editNotSaved });
     }
   }, [mode, record, reload]);
 
@@ -101,10 +104,11 @@ export default function MedicationScreen() {
     try {
       await confirmMedication(record.id);
       await reload();
-    } finally {
-      // Whether or not it stuck, the record on screen is re-read, so it shows
-      // what is actually stored rather than a spinner that never ends.
       setMode({ kind: 'viewing' });
+    } catch {
+      // Still unconfirmed, and the notice beside it says so; this says why the
+      // tap did not take.
+      setMode({ kind: 'viewing', notice: Strings.failure.confirmNotSaved });
     }
   }, [record, reload]);
 
@@ -115,8 +119,9 @@ export default function MedicationScreen() {
       await removeMedication(record.id);
       goBackOr(router, '/medications');
     } catch {
-      // Still in the list. Say nothing false; show it as it is.
-      setMode({ kind: 'viewing' });
+      // Still in the list, and now said so: returning to the medicine's page in
+      // silence after "yes, remove it" read as though it had gone.
+      setMode({ kind: 'viewing', notice: Strings.failure.removeFailed });
     }
   }, [record, router]);
 
@@ -128,10 +133,16 @@ export default function MedicationScreen() {
     );
   }
 
-  if (state.status === 'unrecoverable' || !record) {
+  if (state.status === 'unrecoverable' || state.status === 'unavailable') {
+    return <ProfileProblem state={state} onRetry={reload} />;
+  }
+
+  if (!record) {
+    // Removed elsewhere, or a stale link. Not a problem with the list, which
+    // the old "cannot be opened" message here implied.
     return (
       <Screen centered>
-        <BilingualText text={Strings.vault.unrecoverableTitle} variant="heading" />
+        <BilingualText text={Strings.failure.medicineGone} variant="heading" />
         <BigButton label={Strings.camera.close} onPress={() => goBackOr(router, '/medications')} />
       </Screen>
     );
@@ -178,9 +189,7 @@ export default function MedicationScreen() {
           onChange={(instructions) => setMode({ ...mode, instructions })}
         />
 
-        {mode.error ? (
-          <BilingualText text={mode.error} variant="label" color={theme.warnText} />
-        ) : null}
+        {mode.error ? <Notice tone="warn" title={mode.error} /> : null}
 
         <BigButton label={Strings.medications.save} onPress={save} />
         <BigButton
@@ -212,6 +221,7 @@ export default function MedicationScreen() {
 
   return (
     <Screen scroll>
+      {mode.kind === 'viewing' && mode.notice ? <Notice tone="warn" title={mode.notice} /> : null}
       <Card>
         <ReadingField
           label={Strings.medications.fieldName}
