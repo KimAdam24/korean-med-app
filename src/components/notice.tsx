@@ -12,6 +12,11 @@ import type { Bilingual } from '@/i18n/strings';
  * marked badge, and words that say what is going on — so the meaning survives
  * colour blindness, a greyscale display, and a screen reader alike.
  *
+ * The panel is a soft tint with a fine outline in its own colour. It once
+ * carried a thick accent bar down its left edge as well, which made every
+ * notice — including a routine "please compare with the bottle" — look like
+ * an alert.
+ *
  * Two tones only. `info` is for "please do this", `warn` for "this is not what
  * it looks like". There is deliberately no red: nothing this app shows is an
  * emergency, and a reader who is alarmed by a scan result may stop a medicine
@@ -33,10 +38,10 @@ export function Notice({
   const theme = useTheme();
   const surface = tone === 'warn' ? theme.warnSurface : theme.infoSurface;
   const text = tone === 'warn' ? theme.warnText : theme.infoText;
-  const accent = tone === 'warn' ? theme.warnAccent : theme.infoAccent;
+  const edge = tone === 'warn' ? theme.warnEdge : theme.infoEdge;
 
   return (
-    <View style={[styles.panel, { backgroundColor: surface, borderLeftColor: accent }]}>
+    <View style={[styles.panel, { backgroundColor: surface, borderColor: edge }]}>
       <View style={styles.header}>
         <StatusBadge tone={tone} />
         <BilingualText text={title} variant="label" color={text} style={styles.title} />
@@ -79,8 +84,9 @@ export function StatusBadge({ tone }: { tone: NoticeTone }) {
 
 const styles = StyleSheet.create({
   panel: {
-    borderLeftWidth: 6,
+    borderWidth: 1,
     borderRadius: Radius.inner,
+    borderCurve: 'continuous',
     padding: Spacing.three,
     gap: Spacing.two,
   },

@@ -5,7 +5,7 @@
 
 import '@/global.css';
 
-import { Platform } from 'react-native';
+import { Platform, type ViewStyle } from 'react-native';
 
 /**
  * Every foreground/background pair below was checked with the WCAG contrast
@@ -19,17 +19,31 @@ import { Platform } from 'react-native';
  */
 export const Colors = {
   light: {
-    text: '#111418', // 18.5 on surface, 16.6 on page
+    text: '#111418', // 18.5 on surface, 16.7 on page
     background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
+    backgroundElement: '#EFECE6',
+    /** Pressed rows and outlined buttons. Their labels clear 5.0 (blue), 4.5 (caution). */
+    backgroundSelected: '#E9E5DD',
     textSecondary: '#4B5059', // 8.1 on surface, 7.3 on page
 
-    /** Behind cards. Grey so a white card reads as an object. */
-    page: '#F2F3F5',
+    /**
+     * Behind cards. A warm paper tone rather than grey: the white cards on it
+     * read as objects, and the whole app reads as calm rather than clinical.
+     */
+    page: '#F5F3EF',
     surface: '#FFFFFF',
-    /** Card and field edges. 3.3 — visible to low vision, not heavy. */
-    border: '#8A8F98',
+    /**
+     * Edges of controls a finger has to find — keypad keys, outlined buttons.
+     * 3.4 on page, 3.7 on surface: the 3:1 WCAG asks of a control's boundary.
+     */
+    border: '#80858E',
+    /**
+     * Edges of cards and the rules inside them. Deliberately faint (1.3):
+     * a card is a grouping, not a control, and it is also set apart by its
+     * shadow and by white on a tinted page. Everything a reader must find or
+     * press keeps a contrast-checked edge (`border`).
+     */
+    hairline: '#E5E1D9',
     /** Secondary button outline and link text. 5.7 on page. */
     outline: '#1B5FB0',
     /** Primary button fill. */
@@ -45,10 +59,14 @@ export const Colors = {
     infoAccent: '#1B5FB0',
     onInfoAccent: '#FFFFFF', // 6.3
 
+    /** A notice's outline: decorative, since its badge and words carry the meaning. */
+    infoEdge: '#BFD5F2',
+
     warnSurface: '#FFF3E0',
     warnText: '#6B3A00', // 8.6
     warnAccent: '#A34F00', // edge 5.2 against the tint
     onWarnAccent: '#FFFFFF', // 5.7
+    warnEdge: '#EFC994',
 
     /** Where raw OCR text is shown as evidence rather than as an answer. */
     recessed: '#ECEDF0',
@@ -65,7 +83,8 @@ export const Colors = {
 
     page: '#0E0F11',
     surface: '#1A1C20',
-    border: '#6B7079', // 3.4
+    border: '#6B7079', // 3.4 on surface, 3.9 on page
+    hairline: '#2C2F35',
     outline: '#5B93DB', // 6.1 on page
     // The same fill in both modes: white on it clears 6.3 either way, and a
     // lighter blue would need dark text and stop reading as the same button.
@@ -80,11 +99,13 @@ export const Colors = {
     infoText: '#CFE3FB', // 11.9
     infoAccent: '#8DBBF5',
     onInfoAccent: '#0B1A2E', // 8.8
+    infoEdge: '#2A4C78',
 
     warnSurface: '#2E1D06',
     warnText: '#FFD7A3', // 12.0
     warnAccent: '#E8912A', // edge 6.6
     onWarnAccent: '#1A1000', // 7.6
+    warnEdge: '#6A4613',
 
     recessed: '#24272C',
     recessedText: '#D5D8DE', // 10.5
@@ -92,6 +113,27 @@ export const Colors = {
     damagedMarkText: '#FFE7C7', // 8.6
   },
 } as const;
+
+/**
+ * Depth, for surfaces that are objects rather than controls. Soft and low: it
+ * separates a card from the page without drawing the eye. Light mode only — on
+ * a dark page a shadow cannot be seen, and a surface is already lighter than
+ * the page beneath it.
+ *
+ * `boxShadow` needs the New Architecture (always on in SDK 57) and draws on
+ * Android 9 and later; below that the card keeps its hairline edge.
+ */
+export const Elevation = {
+  light: {
+    card: { boxShadow: '0 1px 2px rgba(45, 38, 25, 0.06), 0 6px 20px rgba(45, 38, 25, 0.07)' },
+    /** The primary button: lifted a little, in its own colour, so it reads as pressable. */
+    raised: { boxShadow: '0 4px 12px rgba(27, 95, 176, 0.28)' },
+  },
+  dark: {
+    card: {},
+    raised: {},
+  },
+} as const satisfies Record<'light' | 'dark', Record<'card' | 'raised', ViewStyle>>;
 
 /** Corner radii, shared so every surface in the app reads as one family. */
 export const Radius = {

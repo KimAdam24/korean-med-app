@@ -28,7 +28,7 @@ function navigationTheme(scheme: 'light' | 'dark'): Theme {
       background: palette.page,
       card: palette.page,
       text: palette.text,
-      border: palette.border,
+      border: palette.hairline,
       notification: palette.warnAccent,
     },
   };

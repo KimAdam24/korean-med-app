@@ -19,8 +19,8 @@ import { Strings, type Bilingual } from '@/i18n/strings';
 /**
  * Home: one thing to do, and two places to go.
  *
- * The capture action leads, inside the card that explains it, because it is
- * the reason the app is opened. The other destinations sit below as one
+ * The capture action leads, inside a tinted card that explains it, because it
+ * is the reason the app is opened. The other destinations sit below as one
  * grouped list, so they read as "elsewhere" rather than as three more buttons
  * competing with it for the same attention.
  */
@@ -58,8 +58,8 @@ export default function HomeScreen() {
 
   return (
     <Screen scroll>
-      <Card>
-        <View style={[styles.heroIcon, { backgroundColor: theme.primaryWash }]}>
+      <Card variant="hero">
+        <View style={[styles.heroIcon, { backgroundColor: theme.surface }]}>
           <Icon name="camera" color={theme.primaryIcon} size={IconSize.hero} />
         </View>
         <BilingualText text={Strings.home.captureHint} />

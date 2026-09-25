@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'rea
 import { BilingualText } from '@/components/bilingual-text';
 import { Icon, type IconName } from '@/components/icon';
 import { IconSize, Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useElevation, useTheme } from '@/hooks/use-theme';
 import type { Bilingual } from '@/i18n/strings';
 
 /**
@@ -15,6 +15,10 @@ import type { Bilingual } from '@/i18n/strings';
  * is everything else. `caution` is for the actions that cannot be undone —
  * removing a medicine, erasing everything — and is marked by colour and by the
  * words on it, never colour alone.
+ *
+ * The primary button sits a little above the page on a shadow of its own blue,
+ * and every tone settles slightly when pressed, so a tap is felt as well as
+ * seen — useful to a reader who is not sure the press registered.
  */
 export type BigButtonProps = {
   label: Bilingual;
@@ -34,6 +38,7 @@ export function BigButton({
   style,
 }: BigButtonProps) {
   const theme = useTheme();
+  const elevation = useElevation();
   const primary = tone === 'primary';
   // Outline colours come from the theme rather than being fixed: the brand
   // blue that works as an outline on white falls to about 3:1 on the dark page.
@@ -49,7 +54,10 @@ export function BigButton({
       style={({ pressed }) => [
         styles.base,
         primary
-          ? { backgroundColor: pressed ? theme.primaryPressed : theme.primary }
+          ? [
+              { backgroundColor: pressed ? theme.primaryPressed : theme.primary },
+              !pressed && !disabled && elevation.raised,
+            ]
           : [
               styles.outlined,
               {
@@ -57,6 +65,7 @@ export function BigButton({
                 backgroundColor: pressed ? theme.backgroundSelected : theme.surface,
               },
             ],
+        pressed && styles.pressed,
         disabled && styles.disabled,
         style,
       ]}>
@@ -99,6 +108,9 @@ const styles = StyleSheet.create({
     // Shrinks rather than pushing the icon off the button when the system
     // font size is large and the label wraps.
     flexShrink: 1,
+  },
+  pressed: {
+    transform: [{ scale: 0.98 }],
   },
   disabled: {
     opacity: 0.4,

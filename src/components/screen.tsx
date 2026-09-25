@@ -69,7 +69,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    gap: Spacing.three,
+    // A little more air than the 16 between a card's own lines, so sections
+    // read as separate without a heading to say so.
+    gap: Spacing.three + Spacing.one,
     padding: Spacing.four,
   },
   centered: {
