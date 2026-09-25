@@ -51,3 +51,6 @@ example
 
 # Integration-test failure log (integration/failure-log-reporter.js)
 /.test-results/
+
+# translation batches exported for review (npm run copy:pending -- --export)
+copy-batch-*.csv
