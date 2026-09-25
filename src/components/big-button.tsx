@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'rea
 import { BilingualText } from '@/components/bilingual-text';
 import { Icon, type IconName } from '@/components/icon';
 import { IconSize, Radius, Spacing } from '@/constants/theme';
+import { useLargeText } from '@/hooks/use-large-text';
 import { useElevation, useTheme } from '@/hooks/use-theme';
 import type { Bilingual } from '@/i18n/strings';
 
@@ -39,6 +40,7 @@ export function BigButton({
 }: BigButtonProps) {
   const theme = useTheme();
   const elevation = useElevation();
+  const large = useLargeText();
   const primary = tone === 'primary';
   // Outline colours come from the theme rather than being fixed: the brand
   // blue that works as an outline on white falls to about 3:1 on the dark page.
@@ -70,7 +72,8 @@ export function BigButton({
         style,
       ]}>
       <View style={styles.content}>
-        {icon ? <Icon name={icon} color={accent} size={IconSize.button} /> : null}
+        {/* The icon repeats the label; at large sizes the label needs the room. */}
+        {icon && !large ? <Icon name={icon} color={accent} size={IconSize.button} /> : null}
         <BilingualText
           text={label}
           variant="button"

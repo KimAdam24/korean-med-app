@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { BilingualText } from '@/components/bilingual-text';
+import { useAnnouncement } from '@/hooks/use-announcement';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Bilingual } from '@/i18n/strings';
@@ -28,14 +29,22 @@ export function Notice({
   tone,
   title,
   body,
+  live = false,
   children,
 }: {
   tone: NoticeTone;
   title: Bilingual;
   body?: Bilingual;
+  /**
+   * Speaks the notice when it appears: for one that reports what an action
+   * just did (or failed to do), rather than one that is simply part of the
+   * screen. See `useAnnouncement`.
+   */
+  live?: boolean;
   children?: React.ReactNode;
 }) {
   const theme = useTheme();
+  useAnnouncement(live ? [title.ko, body?.ko].filter(Boolean).join(' ') : null);
   const surface = tone === 'warn' ? theme.warnSurface : theme.infoSurface;
   const text = tone === 'warn' ? theme.warnText : theme.infoText;
   const edge = tone === 'warn' ? theme.warnEdge : theme.infoEdge;
@@ -77,7 +86,12 @@ export function StatusBadge({ tone }: { tone: NoticeTone }) {
         the platform's own colours, which were not contrast-checked here, and
         vary across Android vendors.
       */}
-      <Text style={[styles.glyph, { color: glyph }]}>{tone === 'warn' ? '!' : 'i'}</Text>
+      <Text
+        style={[styles.glyph, { color: glyph }]}
+        // A mark in a fixed circle, not text to read: scaled, it spilled out.
+        maxFontSizeMultiplier={1}>
+        {tone === 'warn' ? '!' : 'i'}
+      </Text>
     </View>
   );
 }
@@ -92,7 +106,9 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // Beside the title's first line: centred, it floated halfway down a title
+    // wrapped over several lines at large text sizes.
+    alignItems: 'flex-start',
     gap: Spacing.two,
   },
   title: {

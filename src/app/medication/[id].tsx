@@ -142,7 +142,7 @@ export default function MedicationScreen() {
     // the old "cannot be opened" message here implied.
     return (
       <Screen centered>
-        <BilingualText text={Strings.failure.medicineGone} variant="heading" />
+        <BilingualText text={Strings.failure.medicineGone} variant="heading" autoFocus />
         <BigButton label={Strings.camera.close} onPress={() => goBackOr(router, '/medications')} />
       </Screen>
     );
@@ -151,7 +151,7 @@ export default function MedicationScreen() {
   if (mode.kind === 'confirming-removal') {
     return (
       <Screen centered>
-        <BilingualText text={Strings.medications.removeConfirmTitle} variant="heading" />
+        <BilingualText text={Strings.medications.removeConfirmTitle} variant="heading" autoFocus />
         <BilingualText text={Strings.medications.removeConfirmBody} />
         {/*
           The destructive option is second and the way out is first. On a list
@@ -170,7 +170,7 @@ export default function MedicationScreen() {
 
   if (mode.kind === 'editing') {
     return (
-      <Screen scroll>
+      <Screen>
         <Field
           label={Strings.medications.fieldName}
           value={mode.name}
@@ -189,7 +189,7 @@ export default function MedicationScreen() {
           onChange={(instructions) => setMode({ ...mode, instructions })}
         />
 
-        {mode.error ? <Notice tone="warn" title={mode.error} /> : null}
+        {mode.error ? <Notice tone="warn" title={mode.error} live /> : null}
 
         <BigButton label={Strings.medications.save} onPress={save} />
         <BigButton
@@ -220,8 +220,8 @@ export default function MedicationScreen() {
   ).some(([kind, text]) => assess && text && assessField(kind, text).level === 'damaged');
 
   return (
-    <Screen scroll>
-      {mode.kind === 'viewing' && mode.notice ? <Notice tone="warn" title={mode.notice} /> : null}
+    <Screen>
+      {mode.kind === 'viewing' && mode.notice ? <Notice tone="warn" title={mode.notice} live /> : null}
       <Card>
         <ReadingField
           label={Strings.medications.fieldName}

@@ -71,7 +71,7 @@ export default function MedicationsScreen() {
   }
 
   return (
-    <Screen scroll>
+    <Screen>
       <Card flush>
         {medications.map((record, index) => (
           <Fragment key={record.id}>

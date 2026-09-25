@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { BilingualText } from '@/components/bilingual-text';
 import { Icon, type IconName } from '@/components/icon';
 import { IconSize, Spacing } from '@/constants/theme';
+import { useLargeText } from '@/hooks/use-large-text';
 import { useTheme } from '@/hooks/use-theme';
 import type { Bilingual } from '@/i18n/strings';
 
@@ -37,6 +38,9 @@ export function ListRow({
 }) {
   const theme = useTheme();
   const caution = tone === 'caution';
+  // At large text sizes the icon well gives its width to the words; the title
+  // already says what the row is.
+  const large = useLargeText();
 
   return (
     <Pressable
@@ -47,7 +51,7 @@ export function ListRow({
         styles.row,
         pressed && { backgroundColor: theme.backgroundSelected },
       ]}>
-      {icon ? (
+      {icon && !large ? (
         <View
           style={[
             styles.iconWell,

@@ -103,6 +103,15 @@ type Phase =
  */
 const DRUG_BARCODE_TYPES = ['upc_a', 'ean13', 'datamatrix', 'code128'] as const;
 
+/**
+ * How far text over the live preview may grow with the system text size.
+ * Everywhere else it grows to the system's own body size, but here the banner,
+ * the two hints and the controls share the screen with the viewfinder; grown
+ * that far they covered it, and the frame the label is lined up in shrank to a
+ * sliver. 1.4x of sizes already well above the default is still large.
+ */
+const OVERLAY_MAX_SCALE = 1.4;
+
 export default function CameraScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
@@ -492,8 +501,8 @@ export default function CameraScreen() {
 
   if (phase.kind === 'identified') {
     return (
-      <Sheet scroll>
-        <BilingualText text={Strings.scan.foundTitle} variant="heading" />
+      <Sheet>
+        <BilingualText text={Strings.scan.foundTitle} variant="heading" autoFocus />
         <DrugCard drug={phase.drug} />
         <BilingualText text={Strings.scan.foundBody} variant="label" />
         {phase.saving ? (
@@ -509,8 +518,8 @@ export default function CameraScreen() {
 
   if (phase.kind === 'ambiguous') {
     return (
-      <Sheet scroll>
-        <BilingualText text={Strings.scan.ambiguousTitle} variant="heading" />
+      <Sheet>
+        <BilingualText text={Strings.scan.ambiguousTitle} variant="heading" autoFocus />
         <BilingualText text={Strings.scan.ambiguousBody} />
         {phase.matches.map((match) => (
           <View key={match.ndc11} style={styles.choice}>
@@ -530,7 +539,7 @@ export default function CameraScreen() {
   if (phase.kind === 'saved') {
     return (
       <Sheet>
-        <BilingualText text={Strings.scan.saved} variant="heading" align="center" />
+        <BilingualText text={Strings.scan.saved} variant="heading" align="center" autoFocus />
         <BigButton label={Strings.scan.scanAgain} onPress={retake} />
         <BigButton label={Strings.camera.done} onPress={close} tone="secondary" />
       </Sheet>
@@ -553,14 +562,14 @@ export default function CameraScreen() {
 
   if (phase.kind === 'problem') {
     return (
-      <Sheet scroll>
+      <Sheet>
         {phase.title ? (
           <>
-            <BilingualText text={phase.title} variant="heading" />
+            <BilingualText text={phase.title} variant="heading" autoFocus />
             <BilingualText text={phase.message} />
           </>
         ) : (
-          <BilingualText text={phase.message} variant="heading" />
+          <BilingualText text={phase.message} variant="heading" autoFocus />
         )}
         <CapturedFramePanel probe={devProbe} />
         {phase.photoDiscarded && <DiscardNotice />}
@@ -597,6 +606,7 @@ export default function CameraScreen() {
             variant="label"
             align="center"
             onDark
+            maxScale={OVERLAY_MAX_SCALE}
           />
         </View>
 
@@ -605,8 +615,14 @@ export default function CameraScreen() {
         </View>
 
         <View style={styles.hintArea}>
-          <BilingualText text={Strings.scan.hint} align="center" onDark />
-          <BilingualText text={Strings.scan.orPhoto} variant="label" align="center" onDark />
+          <BilingualText text={Strings.scan.hint} align="center" onDark maxScale={OVERLAY_MAX_SCALE} />
+          <BilingualText
+            text={Strings.scan.orPhoto}
+            variant="label"
+            align="center"
+            onDark
+            maxScale={OVERLAY_MAX_SCALE}
+          />
         </View>
 
         {phase.kind === 'capturing' || phase.kind === 'reading' ? (
@@ -616,6 +632,7 @@ export default function CameraScreen() {
               text={phase.kind === 'capturing' ? Strings.camera.capturing : Strings.camera.reading}
               align="center"
               onDark
+              maxScale={OVERLAY_MAX_SCALE}
             />
           </View>
         ) : (
@@ -753,7 +770,7 @@ function ReadingResult({
 
   if (degraded) {
     return (
-      <Sheet scroll>
+      <Sheet>
         <Card>
           <View style={styles.headingRow}>
             <StatusBadge tone="warn" />
@@ -790,7 +807,7 @@ function ReadingResult({
   }
 
   return (
-    <Sheet scroll>
+    <Sheet>
       <BilingualText text={Strings.result.title} variant="heading" />
       <Notice tone="info" title={Strings.result.compareWithBottle} />
 
@@ -985,14 +1002,16 @@ function DiscardNotice() {
   );
 }
 
-function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll?: boolean }) {
+function Sheet({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
-  const content = <View style={styles.sheetContent}>{children}</View>;
   return (
     // The page colour sits behind cards so that a white card reads as an
     // object; on plain white, cards and page merge and the grouping is lost.
+    // Always scrollable, for the reason given in `Screen`.
     <SafeAreaView style={[styles.sheet, { backgroundColor: theme.page }]}>
-      {scroll ? <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView> : content}
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={styles.sheetContent}>{children}</View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

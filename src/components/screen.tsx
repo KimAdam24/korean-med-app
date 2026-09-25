@@ -17,32 +17,32 @@ import { useTheme } from '@/hooks/use-theme';
  */
 export function Screen({
   children,
-  scroll = false,
   centered = false,
   edges = HEADER_EDGES,
 }: {
   children: React.ReactNode;
-  scroll?: boolean;
   /** Centre the content vertically: short screens with one job. */
   centered?: boolean;
   edges?: readonly Edge[];
 }) {
   const theme = useTheme();
-  const content = <View style={[styles.content, centered && styles.centered]}>{children}</View>;
 
   return (
     <View style={[styles.root, { backgroundColor: theme.page }]}>
       <SafeAreaView style={styles.safeArea} edges={edges}>
-        {scroll ? (
-          <ScrollView
-            contentContainerStyle={styles.scroll}
-            // A tap on a button must not first be spent dismissing a keyboard.
-            keyboardShouldPersistTaps="handled">
-            {content}
-          </ScrollView>
-        ) : (
-          content
-        )}
+        {/*
+          Always scrollable. Scrolling used to be opt-in, for screens expected
+          to be long; the short ones — "erase everything?", "remove this
+          medicine?" — fit at the default text size and not at large ones,
+          where their buttons were pushed below the edge of the screen with
+          no way to reach them. A screen that fits does not scroll anyway.
+        */}
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          // A tap on a button must not first be spent dismissing a keyboard.
+          keyboardShouldPersistTaps="handled">
+          <View style={[styles.content, centered && styles.centered]}>{children}</View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );

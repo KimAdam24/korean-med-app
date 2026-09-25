@@ -1,6 +1,6 @@
 import { useCameraPermissions } from 'expo-camera';
-import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, BackHandler, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, BackHandler, StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
@@ -49,21 +49,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     return () => subscription.remove();
   }, [index]);
 
-  // A screen reader stays on the button that was pressed, which now belongs to
-  // a different step; say which one, so the change is not silent.
-  const firstRender = useRef(true);
-  useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
-    AccessibilityInfo.announceForAccessibility(TITLES[step].ko);
-  }, [step]);
-
   const progress = fillTemplate(Strings.onboarding.step, { n: index + 1, total: STEPS.length });
 
   return (
-    <Screen scroll centered edges={ALL_EDGES}>
+    <Screen centered edges={ALL_EDGES}>
       <Progress text={progress} />
       {step === 'welcome' ? (
         <Welcome onNext={() => setIndex(1)} />
@@ -76,17 +65,11 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   );
 }
 
-const TITLES = {
-  welcome: Strings.onboarding.welcomeTitle,
-  storage: Strings.onboarding.storageTitle,
-  camera: Strings.onboarding.cameraTitle,
-} as const;
-
 function Welcome({ onNext }: { onNext: () => void }) {
   return (
     <>
       <Emblem icon="medicines" />
-      <BilingualText text={Strings.onboarding.welcomeTitle} variant="heading" align="center" />
+      <BilingualText text={Strings.onboarding.welcomeTitle} variant="heading" align="center" autoFocus />
       <BilingualText text={Strings.onboarding.welcomeBody} align="center" />
       <BilingualText text={Strings.onboarding.welcomeCheck} variant="label" align="center" />
       <BigButton label={Strings.onboarding.next} onPress={onNext} />
@@ -98,7 +81,8 @@ function Storage({ onNext, onBack }: { onNext: () => void; onBack?: () => void }
   return (
     <>
       <Emblem icon="lock" />
-      <BilingualText text={Strings.onboarding.storageTitle} variant="heading" align="center" />
+      {/* Each step's heading takes the screen reader's focus as it appears. */}
+      <BilingualText text={Strings.onboarding.storageTitle} variant="heading" align="center" autoFocus />
       <Card>
         <Fact icon="lock" text={Strings.onboarding.storageLocked} />
         <CardDivider />
@@ -140,7 +124,7 @@ function CameraStep({ onDone, onBack }: { onDone: () => void; onBack?: () => voi
   return (
     <>
       <Emblem icon="camera" />
-      <BilingualText text={Strings.onboarding.cameraTitle} variant="heading" align="center" />
+      <BilingualText text={Strings.onboarding.cameraTitle} variant="heading" align="center" autoFocus />
       {!permission || asking ? (
         <ActivityIndicator size="large" />
       ) : permission.granted ? (

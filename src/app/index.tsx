@@ -57,7 +57,7 @@ export default function HomeScreen() {
       : undefined;
 
   return (
-    <Screen scroll>
+    <Screen>
       <Card variant="hero">
         <View style={[styles.heroIcon, { backgroundColor: theme.surface }]}>
           <Icon name="camera" color={theme.primaryIcon} size={IconSize.hero} />

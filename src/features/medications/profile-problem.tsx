@@ -38,7 +38,7 @@ export function ProfileProblem({ state, onRetry }: { state: Problem; onRetry: ()
   if (state.status === 'unavailable') {
     return (
       <Screen centered>
-        <BilingualText text={Strings.failure.listUnavailableTitle} variant="heading" />
+        <BilingualText text={Strings.failure.listUnavailableTitle} variant="heading" autoFocus />
         <BilingualText text={Strings.failure.listUnavailableBody} />
         {retrying ? (
           <ActivityIndicator size="large" color={theme.primaryIcon} />
@@ -61,7 +61,7 @@ export function ProfileProblem({ state, onRetry }: { state: Problem; onRetry: ()
 
   return (
     <Screen centered>
-      <BilingualText text={Strings.vault.unrecoverableTitle} variant="heading" />
+      <BilingualText text={Strings.vault.unrecoverableTitle} variant="heading" autoFocus />
       <BilingualText
         text={
           state.reason === 'key-missing'

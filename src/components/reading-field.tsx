@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BilingualText } from '@/components/bilingual-text';
 import { Notice } from '@/components/notice';
-import { Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing, TypeMaxScale } from '@/constants/theme';
 import { assessField, type FieldKind } from '@/features/ocr/field-integrity';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, type Bilingual } from '@/i18n/strings';
@@ -123,8 +123,11 @@ export function ReadingField({
       ) : (
         <Text
           style={[prominent ? styles.valueProminent : styles.value, { color: theme.text }]}
-          // Drug names are English and are read aloud as written.
-          accessibilityLabel={text}>
+          maxFontSizeMultiplier={prominent ? TypeMaxScale.heading : TypeMaxScale.body}
+          // Drug names are English and are read aloud as written, in an English
+          // voice: this is the label's own text, not ours.
+          accessibilityLabel={text}
+          accessibilityLanguage="en-US">
           {text}
         </Text>
       )}

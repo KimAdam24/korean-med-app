@@ -160,6 +160,35 @@ export const Type = {
   gloss: { fontSize: 14, lineHeight: 20, fontWeight: '500' },
 } as const;
 
+/**
+ * How far each size may grow with the system text size — so that nothing here
+ * grows past what the system itself would draw for its own body text at the
+ * user's setting.
+ *
+ * The ramp above already starts about 1.3x the platform defaults. Scaled
+ * again without limit, iOS's largest accessibility size (3.1x) turned a 30pt
+ * heading into 94pt: one word to a line, and far more than the user asked the
+ * phone for. Each limit stops a size at roughly the system's largest body
+ * text (iOS AX5 body is 53pt), headings a little above. Android tops out at
+ * 2x, below every limit but the heading's, so there nothing changes.
+ */
+export const TypeMaxScale = {
+  heading: 2, // 60pt
+  button: 2.2, // 53pt
+  title: 2.4, // 53pt
+  body: 2.4, // 53pt
+  label: 3, // 54pt
+  gloss: 3, // 42pt
+} as const;
+
+/**
+ * Where the system text size counts as large enough that layouts should make
+ * room — dropping a decorative icon beside a label, say — rather than squeeze
+ * the words. Android's largest setting is 2x, iOS's first accessibility size
+ * about 1.8x.
+ */
+export const LARGE_TEXT_SCALE = 1.6;
+
 /** Icon sizes, matched to the type they sit beside. */
 export const IconSize = {
   row: 28,

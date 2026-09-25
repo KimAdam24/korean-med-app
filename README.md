@@ -220,3 +220,12 @@ platform behaviour (Android dropping a prompt started in the background,
 the picker copying photos into the cache), it follows the platform source it
 was checked against; it is still no substitute for a physical device, on which
 the native modules have not yet been exercised.
+
+Accessibility is covered the same way, above the boundary.
+`integration/accessibility.test.tsx` asserts what the app asks the platform
+for — which heading takes focus, what is announced, which voice language a
+string is marked with, how far each size may grow — and every screen state is
+scrollable. Layout at large text sizes was checked by rendering the components
+in a browser at a simulated 200% on a 320pt-wide column. Neither is TalkBack or
+VoiceOver actually speaking on a phone with large text set, which has not been
+tried.

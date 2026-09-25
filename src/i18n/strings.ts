@@ -536,6 +536,14 @@ export const Strings = {
     ),
   },
 
+  /** Heard, not seen: labels for screen readers only. */
+  a11y: {
+    pinProgress: untranslated(
+      '{n} of {total} digits entered',
+      'Spoken by the screen reader after each PIN digit. Never shown. {n} and {total} are numbers.'
+    ),
+  },
+
   problem: {
     captureFailed: {
       ko: '사진을 찍지 못했어요. 다시 해 볼까요?',

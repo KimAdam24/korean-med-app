@@ -199,7 +199,7 @@ export default function SettingsScreen() {
   if (step.kind === 'done') {
     return (
       <Screen centered>
-        <BilingualText text={step.message} variant="heading" align="center" />
+        <BilingualText text={step.message} variant="heading" align="center" autoFocus />
         <BigButton label={Strings.camera.done} onPress={() => goBackOr(router, '/')} />
       </Screen>
     );
@@ -208,9 +208,10 @@ export default function SettingsScreen() {
   if (step.kind === 'confirm-erase') {
     return (
       <Screen centered>
-        <BilingualText text={Strings.settings.eraseTitle} variant="heading" />
+        <BilingualText text={Strings.settings.eraseTitle} variant="heading" autoFocus />
         {step.failed ? (
           <Notice
+            live
             tone="warn"
             title={Strings.failure.eraseIncompleteTitle}
             body={Strings.failure.eraseIncompleteBody}
@@ -233,9 +234,9 @@ export default function SettingsScreen() {
     const canUseDevice = capability?.deviceSecured ?? false;
 
     return (
-      <Screen scroll>
-        <BilingualText text={Strings.settings.forgotPin} variant="heading" />
-        {step.error ? <Notice tone="warn" title={step.error} /> : null}
+      <Screen>
+        <BilingualText text={Strings.settings.forgotPin} variant="heading" autoFocus />
+        {step.error ? <Notice tone="warn" title={step.error} live /> : null}
 
         {canUseDevice ? (
           <>
@@ -272,10 +273,10 @@ export default function SettingsScreen() {
           : Strings.pin.confirmTitle;
 
     return (
-      <Screen scroll centered>
-        <BilingualText text={title} variant="heading" align="center" />
+      <Screen centered>
+        <BilingualText text={title} variant="heading" align="center" autoFocus />
         {step.error ? (
-          <BilingualText text={step.error} variant="label" align="center" color={theme.warnText} />
+          <BilingualText text={step.error} variant="label" align="center" color={theme.warnText} live />
         ) : null}
 
         <PinPad
@@ -308,7 +309,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <Screen scroll>
+    <Screen>
       {/*
         Said here rather than buried in a policy document. Device-only storage
         is the trade this app makes for privacy, and the cost — a new phone

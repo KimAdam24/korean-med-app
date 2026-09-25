@@ -210,9 +210,9 @@ function Unlock({
   return (
     <Sheet>
       <LockEmblem />
-      <BilingualText text={Strings.lock.title} variant="heading" align="center" />
+      <BilingualText text={Strings.lock.title} variant="heading" align="center" autoFocus />
       <BilingualText text={Strings.lock.body} align="center" />
-      {message && <BilingualText text={message} variant="label" align="center" />}
+      {message && <BilingualText text={message} variant="label" align="center" live />}
 
       {busy ? (
         <ActivityIndicator size="large" />
@@ -345,8 +345,8 @@ function EnterPin({
 
   if (forgot === 'explain' && onEraseEverything) {
     return (
-      <Sheet scroll>
-        <BilingualText text={Strings.settings.forgotPin} variant="heading" align="center" />
+      <Sheet>
+        <BilingualText text={Strings.settings.forgotPin} variant="heading" align="center" autoFocus />
         <BilingualText text={Strings.settings.forgotPinNoDevice} align="center" />
         <BigButton
           label={Strings.settings.eraseTitle}
@@ -366,10 +366,11 @@ function EnterPin({
   if (forgot === 'confirm' && onEraseEverything) {
     // The same question Settings asks, with the way out first.
     return (
-      <Sheet scroll>
-        <BilingualText text={Strings.settings.eraseTitle} variant="heading" align="center" />
+      <Sheet>
+        <BilingualText text={Strings.settings.eraseTitle} variant="heading" align="center" autoFocus />
         {eraseFailed ? (
           <Notice
+            live
             tone="warn"
             title={Strings.failure.eraseIncompleteTitle}
             body={Strings.failure.eraseIncompleteBody}
@@ -397,11 +398,11 @@ function EnterPin({
   }
 
   return (
-    <Sheet scroll>
+    <Sheet>
       <LockEmblem />
-      <BilingualText text={Strings.pin.enterTitle} variant="heading" align="center" />
+      <BilingualText text={Strings.pin.enterTitle} variant="heading" align="center" autoFocus />
       <BilingualText text={Strings.pin.enterBody} align="center" />
-      {error && <BilingualText text={error} variant="label" align="center" />}
+      {error && <BilingualText text={error} variant="label" align="center" live />}
 
       <PinPad value={pin} length={PIN_LENGTH} onChange={change} disabled={busy || lockedMs > 0} />
 
@@ -473,14 +474,16 @@ function CreatePin({ onCreated }: { onCreated: () => Promise<void> }) {
   );
 
   return (
-    <Sheet scroll>
+    <Sheet>
       <BilingualText
         text={first === null ? Strings.pin.createTitle : Strings.pin.confirmTitle}
         variant="heading"
         align="center"
+        // Refocuses when the title changes from "choose" to "once more".
+        autoFocus
       />
       {first === null && <BilingualText text={Strings.pin.createBody} align="center" />}
-      {error && <BilingualText text={error} variant="label" align="center" />}
+      {error && <BilingualText text={error} variant="label" align="center" live />}
 
       <PinPad value={pin} length={PIN_LENGTH} onChange={change} disabled={busy} />
     </Sheet>
@@ -498,7 +501,7 @@ function CheckFailed({ onRetry }: { onRetry: () => Promise<void> }) {
   return (
     <Sheet>
       <LockEmblem />
-      <BilingualText text={Strings.failure.lockCheckFailedTitle} variant="heading" align="center" />
+      <BilingualText text={Strings.failure.lockCheckFailedTitle} variant="heading" align="center" autoFocus />
       <BilingualText text={Strings.failure.lockCheckFailedBody} align="center" />
       {retrying ? (
         <ActivityIndicator size="large" />
@@ -524,9 +527,9 @@ function CheckFailed({ onRetry }: { onRetry: () => Promise<void> }) {
  * The lock replaces the navigator, so there is no header above it and every
  * safe-area edge is its own.
  */
-function Sheet({ children, scroll = false }: { children: React.ReactNode; scroll?: boolean }) {
+function Sheet({ children }: { children: React.ReactNode }) {
   return (
-    <Screen scroll={scroll} centered edges={ALL_EDGES}>
+    <Screen centered edges={ALL_EDGES}>
       {children}
     </Screen>
   );

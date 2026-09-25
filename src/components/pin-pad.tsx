@@ -3,8 +3,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { BilingualText } from '@/components/bilingual-text';
 import { Icon } from '@/components/icon';
 import { IconSize, Radius, Spacing } from '@/constants/theme';
+import { useAnnouncement } from '@/hooks/use-announcement';
 import { useTheme } from '@/hooks/use-theme';
-import { Strings } from '@/i18n/strings';
+import { Strings, fillTemplate } from '@/i18n/strings';
 
 /**
  * A numeric keypad, drawn rather than delegated to `TextInput`.
@@ -42,6 +43,12 @@ export function PinPad({ value, length, onChange, disabled = false }: PinPadProp
     onChange(value.slice(0, -1));
   };
 
+  // Progress in words, never the digits. It was "2 / 4", which a Korean voice
+  // may read as a fraction. Said after each key, because the dots that show it
+  // are not where a screen reader's focus is.
+  const progress = fillTemplate(Strings.a11y.pinProgress, { n: value.length, total: length }).ko;
+  useAnnouncement(value.length > 0 ? progress : null);
+
   return (
     <View style={styles.root}>
       <View
@@ -49,7 +56,7 @@ export function PinPad({ value, length, onChange, disabled = false }: PinPadProp
         accessible
         accessibilityRole="text"
         // Announces progress without ever speaking the digits aloud.
-        accessibilityLabel={`${value.length} / ${length}`}>
+        accessibilityLabel={progress}>
         {Array.from({ length }, (_, index) => (
           <View
             key={index}
@@ -123,7 +130,13 @@ function Key({
       {icon ? (
         <Icon name="backspace" color={theme.text} size={IconSize.button + 4} />
       ) : (
-        <BilingualText text={{ ko: label ?? '', en: '' }} variant="heading" align="center" />
+        <BilingualText
+          text={{ ko: label ?? '', en: '' }}
+          variant="heading"
+          align="center"
+          // The key is a fixed size; a digit grown past 1.5x no longer fits it.
+          maxScale={1.5}
+        />
       )}
     </Pressable>
   );
@@ -148,12 +161,20 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: Spacing.three,
+    justifyContent: 'space-between',
+    rowGap: Spacing.three,
+    width: '100%',
     maxWidth: 340,
   },
   key: {
-    width: 96,
+    /**
+     * A share of the row, not a fixed 96pt. Three fixed keys and their gaps
+     * need 320pt, and a 360pt-wide phone leaves 312 inside the screen's
+     * padding — less again with Android's "display size" enlarged, as it often
+     * is for older users — so the third key wrapped and the pad fell into two
+     * columns.
+     */
+    width: '30%',
     height: 84,
     borderRadius: Radius.button,
     borderCurve: 'continuous',

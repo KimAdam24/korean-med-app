@@ -1,6 +1,7 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Radius, Spacing } from '@/constants/theme';
+import { useLargeText } from '@/hooks/use-large-text';
 import { useElevation, useTheme } from '@/hooks/use-theme';
 
 /**
@@ -66,8 +67,12 @@ export function Card({
  */
 export function CardDivider({ inset = false }: { inset?: boolean }) {
   const theme = useTheme();
+  // Rows drop their icons at large text sizes, and the indent past them with it.
+  const large = useLargeText();
   return (
-    <View style={[styles.divider, inset && styles.inset, { backgroundColor: theme.hairline }]} />
+    <View
+      style={[styles.divider, inset && !large && styles.inset, { backgroundColor: theme.hairline }]}
+    />
   );
 }
 
