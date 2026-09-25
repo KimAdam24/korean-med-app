@@ -23,6 +23,10 @@ import kotlin.math.roundToInt
  *
  * ## Where frames come from
  *
+ * Chosen in the app, from a development-only list on the capture screen
+ * ([names]). Not from a deep link: delivering an intent pauses the app,
+ * which its lock rightly takes for leaving it.
+ *
  * Only this app's own `sweep-replay` folder, on external storage:
  * `/sdcard/Android/data/<package>/files/sweep-replay/<name>`, which `adb push`
  * can write and the app can read without a storage permission. `<name>` is
@@ -143,6 +147,22 @@ internal class SweepReplay private constructor(
       (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     fun folder(context: Context): File? = context.getExternalFilesDir("sweep-replay")
+
+    /** The replays in the folder, by name: image folders and videos. None in a release build. */
+    fun names(context: Context): List<String> {
+      if (!available(context)) return emptyList()
+      val root = folder(context) ?: return emptyList()
+      return root.listFiles()
+        .orEmpty()
+        .filter { entry ->
+          NAME.matches(entry.name) && !entry.name.startsWith(".") && when {
+            entry.isDirectory -> entry.listFiles()?.any { it.isFile && IMAGE.matches(it.name) } == true
+            else -> entry.isFile && VIDEO.matches(entry.name)
+          }
+        }
+        .map { it.name }
+        .sorted()
+    }
 
     /**
      * The replay named [name] in this app's replay folder, or an error saying

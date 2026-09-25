@@ -14,7 +14,9 @@ type Line = { text: string; confidence: number | null };
 type Props = {
   active: boolean;
   replay?: string;
-  onLines: (event: { nativeEvent: { lines: readonly Line[]; width: number; height: number } }) => void;
+  onLines: (event: {
+    nativeEvent: { lines: readonly Line[]; width: number; height: number; source?: 'camera' | 'replay' };
+  }) => void;
   onSweepError?: (event: { nativeEvent: { message: string } }) => void;
 };
 
@@ -22,6 +24,8 @@ const state = {
   /** Android with the module compiled in; false is iOS, where the Swift is not linked. */
   available: true,
   props: null as Props | null,
+  /** The development replays in the app's folder. */
+  replays: [] as string[],
 };
 
 export function LabelSweepView(props: Props) {
@@ -52,11 +56,22 @@ export const sweep = {
   get replay() {
     return state.props?.replay;
   },
-  /** One frame's lines, as the native view would send them, only while it is reading. */
-  async frame(lines: readonly Line[]): Promise<void> {
+  get replays() {
+    return state.replays;
+  },
+  set replays(names: string[]) {
+    state.replays = names;
+  },
+  /**
+   * One frame's lines, as the native view would send them, only while it is
+   * reading: marked as a replay's when the view is replaying, as the native
+   * code marks them, unless `source` says otherwise.
+   */
+  async frame(lines: readonly Line[], source?: 'camera' | 'replay'): Promise<void> {
     const props = state.props;
     if (!props?.active) return;
-    await act(async () => props.onLines({ nativeEvent: { lines, width: 1080, height: 1920 } }));
+    const from = source ?? (props.replay ? 'replay' : 'camera');
+    await act(async () => props.onLines({ nativeEvent: { lines, width: 1080, height: 1920, source: from } }));
   },
   async fail(): Promise<void> {
     const props = state.props;
@@ -65,5 +80,6 @@ export const sweep = {
   reset(): void {
     state.available = true;
     state.props = null;
+    state.replays = [];
   },
 };

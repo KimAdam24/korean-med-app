@@ -13,6 +13,12 @@ export type SweepLinesEvent = {
   readonly lines: readonly RecognizedLine[];
   readonly width: number;
   readonly height: number;
+  /**
+   * Where the frame came from, as the native code that read it says: the
+   * camera, or a development replay's file. Only a replay's frames may be
+   * kept for debugging (`replay-log.ts`).
+   */
+  readonly source?: 'camera' | 'replay';
 };
 
 export type LabelSweepViewProps = ViewProps & {
@@ -41,3 +47,19 @@ export const sweepAvailable =
 export const LabelSweepView: ComponentType<LabelSweepViewProps> | null = sweepAvailable
   ? requireNativeView<LabelSweepViewProps>('LabelSweep')
   : null;
+
+const native = sweepAvailable ? requireOptionalNativeModule<{ replays(): string[] }>('LabelSweep') : null;
+
+/**
+ * DEVELOPMENT ONLY: the names of the replays on this phone, from the app's
+ * `sweep-replay` folder. Always empty in a release build, on both sides.
+ */
+export function listReplays(): string[] {
+  if (!__DEV__ || !native) return [];
+  try {
+    return native.replays();
+  } catch {
+    // A build from before the list existed.
+    return [];
+  }
+}

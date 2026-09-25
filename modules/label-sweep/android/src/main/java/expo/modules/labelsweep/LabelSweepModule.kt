@@ -11,6 +11,12 @@ class LabelSweepModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("LabelSweep")
 
+    /** DEVELOPMENT ONLY: the replays in this app's folder; none unless the app is debuggable. */
+    Function("replays") {
+      val context = appContext.reactContext ?: return@Function emptyList<String>()
+      SweepReplay.names(context)
+    }
+
     View(LabelSweepView::class) {
       Events("onLines", "onSweepError")
 

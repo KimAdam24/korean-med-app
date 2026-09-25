@@ -10,6 +10,8 @@ import { Strings, fillTemplate } from '@/i18n/strings';
 import { LabelSweepView, type SweepLinesEvent } from '../../../../modules/label-sweep';
 import { logRecognizedLines } from '../dev-line-list';
 import { EMPTY_SWEEP, addFrame, mergeSweep, type MergedReading, type SweepState } from './merge';
+import { logReplayFrames } from './replay-log';
+import type { RecognizedTextLine } from '../types';
 
 /**
  * No line newly completed for this long, and the sweep ends with what it has:
@@ -53,6 +55,8 @@ export function SweepReader({
   const sweep = useRef<SweepState>(EMPTY_SWEEP);
   /** The latest merged reading, for the stall timer, which outlives renders. */
   const latest = useRef<MergedReading | null>(null);
+  /** DEVELOPMENT REPLAY ONLY: every frame read, logged once at the end. See `replay-log`. */
+  const replayFrames = useRef<(readonly RecognizedTextLine[])[]>([]);
   const finished = useRef(false);
   /** When the reading last got further; set when the sweep starts. */
   const progressAt = useRef(0);
@@ -61,6 +65,7 @@ export function SweepReader({
   const drop = () => {
     sweep.current = EMPTY_SWEEP;
     latest.current = null;
+    replayFrames.current = [];
     setMerged(null);
   };
 
@@ -70,12 +75,14 @@ export function SweepReader({
       finished.current = true;
       setActive(false);
       if (result) logRecognizedLines('sweep', result.result.lines ?? []);
+      if (__DEV__ && replay) logReplayFrames(replay, replayFrames.current);
       // The per-frame history goes; only the merged reading moves on.
       sweep.current = EMPTY_SWEEP;
       latest.current = null;
+      replayFrames.current = [];
       onDone(result, ending);
     },
-    [onDone]
+    [onDone, replay]
   );
 
   // Backgrounding drops everything read, rather than trusting the lock to.
@@ -106,6 +113,9 @@ export function SweepReader({
   const onLines = useCallback(
     ({ nativeEvent }: { nativeEvent: SweepLinesEvent }) => {
       if (finished.current) return;
+      // Kept only in a replay, and only a frame the native view read from a
+      // replay's file: nothing sets this for a camera's frame.
+      if (__DEV__ && replay && nativeEvent.source === 'replay') replayFrames.current.push(nativeEvent.lines);
       sweep.current = addFrame(sweep.current, nativeEvent.lines);
       const next = mergeSweep(sweep.current);
       latest.current = next;
@@ -118,7 +128,7 @@ export function SweepReader({
       }
       if (next?.complete) finish(next, 'complete');
     },
-    [finish]
+    [finish, replay]
   );
 
   if (!LabelSweepView) return null;

@@ -280,7 +280,7 @@ class LabelSweepView(context: Context, appContext: AppContext) : ExpoView(contex
       return
     }
 
-    read(input, width, height) {
+    read(input, width, height, SOURCE_CAMERA) {
       // Success or failure: the frame goes before the next is taken.
       frame.close()
       reading.set(false)
@@ -291,14 +291,19 @@ class LabelSweepView(context: Context, appContext: AppContext) : ExpoView(contex
    * Reads one frame and sends its lines, and only its lines, to JavaScript.
    * The one path every frame takes, from the camera or a replay. [done] runs
    * when the read is over, whether it succeeded or not.
+   *
+   * [source] says which, and is decided here, by the code that produced the
+   * frame, not by anything JavaScript sets: a development replay may keep
+   * its frames for debugging, and only frames marked as a replay's can be
+   * kept (see `replay-log.ts`).
    */
-  private fun read(input: InputImage, width: Int, height: Int, done: () -> Unit) {
+  private fun read(input: InputImage, width: Int, height: Int, source: String, done: () -> Unit) {
     recognizer.process(input)
       .addOnSuccessListener { text ->
         val lines = text.textBlocks.flatMap { block -> block.lines }.mapNotNull { line -> describeLine(line) }
         post {
           if (active && !released) {
-            onLines(mapOf("lines" to lines, "width" to width, "height" to height))
+            onLines(mapOf("lines" to lines, "width" to width, "height" to height, "source" to source))
           }
         }
       }
@@ -337,7 +342,7 @@ class LabelSweepView(context: Context, appContext: AppContext) : ExpoView(contex
           val height = if (upright) frame.bitmap.width else frame.bitmap.height
           val input = InputImage.fromBitmap(frame.bitmap, frame.rotationDegrees)
           suspendCancellableCoroutine { resumed ->
-            read(input, width, height) { if (resumed.isActive) resumed.resume(Unit) }
+            read(input, width, height, SOURCE_REPLAY) { if (resumed.isActive) resumed.resume(Unit) }
           }
           // The camera's cadence: no sooner than it would read the next frame.
           delay((MIN_INTERVAL_MS - (SystemClock.elapsedRealtime() - startedAt)).coerceAtLeast(0))
@@ -376,5 +381,9 @@ class LabelSweepView(context: Context, appContext: AppContext) : ExpoView(contex
 
     private const val TAG = "LabelSweep"
     private const val CAMERA = "camera"
+
+    /** Where a frame came from, as sent with its lines. */
+    private const val SOURCE_CAMERA = "camera"
+    private const val SOURCE_REPLAY = "replay"
   }
 }

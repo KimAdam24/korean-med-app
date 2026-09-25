@@ -242,28 +242,77 @@ describe('reading a curved label while it turns', () => {
 });
 
 describe('the development replay', () => {
-  it('opens the sweep straight away, reading the named replay, and merges it as it would the camera', async () => {
+  const replayLog = (log: jest.SpyInstance) =>
+    log.mock.calls.map(([text]) => String(text)).filter((text) => text.startsWith('[sweep-replay]'));
+
+  async function replay(name: string) {
+    launchApp('/camera');
+    fireEvent.press(await screen.findByRole('button', { name: 'DEV: replay a sweep' }));
+    fireEvent.press(await screen.findByRole('button', { name }));
+    await screen.findByText(Strings.sweep.privacy.ko);
+  }
+
+  it('is chosen on the capture screen, and merged as the camera would be', async () => {
     runtime.__DEV__ = true;
+    sweep.replays = ['synthetic-images', 'vial-turning.mp4'];
     const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     try {
-      launchApp('/camera?sweepReplay=vial-turning');
-      await screen.findByText(Strings.sweep.privacy.ko);
-      expect(sweep.replay).toBe('vial-turning');
-      // The frames the replay reads arrive exactly as the camera's do.
+      await replay('vial-turning.mp4');
+      expect(sweep.replay).toBe('vial-turning.mp4');
       await sweep.frame(FACING);
       await sweep.frame(TURNED);
       await sweep.frame(FURTHER);
       await screen.findByText(TRUTH);
       expect(sweep.mounted).toBe(false);
+
+      // Every frame, once, at the end, redacted: the test material for the merge.
+      const lines = replayLog(log);
+      expect(lines[0]).toBe('[sweep-replay] BEGIN vial-turning.mp4 3 frame(s)');
+      expect(lines.filter((line) => line.startsWith('[sweep-replay] FRAME'))).toHaveLength(3);
+      expect(lines.at(-1)).toBe('[sweep-replay] END vial-turning.mp4');
+      expect(lines.join('\n')).not.toMatch(/JANE|OAK|SPRINGFIELD/);
+      expect(lines.join('\n')).toContain('Take 1 capsule (50,0');
     } finally {
       log.mockRestore();
     }
   });
 
-  it('is ignored by a release build', async () => {
-    launchApp('/camera?sweepReplay=vial-turning');
+  it('keeps no frame the native view did not mark as a replay’s', async () => {
+    runtime.__DEV__ = true;
+    sweep.replays = ['synthetic-images'];
+    const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      await replay('synthetic-images');
+      await sweep.frame(FACING, 'camera');
+      press(Strings.sweep.stop.ko);
+      await screen.findByText(Strings.result.curved.title.ko);
+      expect(replayLog(log).filter((line) => line.startsWith('[sweep-replay] FRAME'))).toEqual([]);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('a sweep from the camera keeps no frames, even in a development build', async () => {
+    runtime.__DEV__ = true;
+    sweep.replays = ['synthetic-images'];
+    const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      await startSweep();
+      await sweep.frame(FACING);
+      await sweep.frame(TURNED);
+      await sweep.frame(FURTHER);
+      await screen.findByText(TRUTH);
+      expect(replayLog(log)).toEqual([]);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('is not offered in a release build', async () => {
+    sweep.replays = ['synthetic-images'];
+    launchApp('/camera');
     await screen.findByRole('button', { name: Strings.camera.shutter.ko });
-    expect(sweep.mounted).toBe(false);
+    expect(screen.queryByRole('button', { name: 'DEV: replay a sweep' })).toBeNull();
   });
 });
 

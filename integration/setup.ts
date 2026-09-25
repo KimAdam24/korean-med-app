@@ -23,6 +23,7 @@ jest.mock('../modules/label-sweep', () => {
       return fake.sweep.available;
     },
     LabelSweepView: fake.LabelSweepView,
+    listReplays: () => fake.sweep.replays,
   };
 });
 

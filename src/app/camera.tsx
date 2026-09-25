@@ -53,7 +53,7 @@ import {
   type ReadQuality,
   type RecognizedTextLine,
 } from '@/features/ocr/types';
-import { sweepAvailable } from '../../modules/label-sweep';
+import { listReplays, sweepAvailable } from '../../modules/label-sweep';
 import { useAppLock } from '@/features/security/app-lock-context';
 import { VaultUnreadableError } from '@/features/security/secure-vault';
 import { useTheme } from '@/hooks/use-theme';
@@ -86,6 +86,8 @@ type Phase =
    * `replay` is development only: frames from files instead of the camera.
    */
   | { kind: 'sweeping'; replay?: string }
+  /** DEVELOPMENT ONLY: choosing a replay to sweep. */
+  | { kind: 'replay-picker'; names: readonly string[] }
   | {
       kind: 'result';
       fields: MedicationLabelFields;
@@ -241,22 +243,17 @@ export default function CameraScreen() {
    * If the copy cannot be deleted, that is reported instead of the reading,
    * as it is for the camera.
    */
-  const { imageUri, sweepReplay } = useLocalSearchParams<{ imageUri?: string; sweepReplay?: string }>();
+  const { imageUri } = useLocalSearchParams<{ imageUri?: string }>();
   const readImported = useRef(false);
 
   /**
-   * DEVELOPMENT ONLY: `/camera?sweepReplay=<name>` opens the sweep straight
-   * away, reading frames from a replay instead of the camera, so the sweep
-   * and its merge can be driven on an emulator. See
-   * `modules/label-sweep/README.md`. A release build ignores the parameter,
-   * and its native view would refuse the replay anyway.
+   * DEVELOPMENT ONLY: the sweep replays on this phone, offered on the
+   * preview so the sweep and its merge can be driven on an emulator (see
+   * `modules/label-sweep/README.md`). Chosen in the app rather than by deep
+   * link, which pauses the app and so, rightly, locks it. Always empty in a
+   * release build, whose native view would refuse a replay anyway.
    */
-  const startedReplay = useRef(false);
-  useEffect(() => {
-    if (!__DEV__ || !sweepReplay || !sweepAvailable || startedReplay.current) return;
-    startedReplay.current = true;
-    setPhase({ kind: 'sweeping', replay: sweepReplay });
-  }, [sweepReplay]);
+  const [replays] = useState<readonly string[]>(() => (__DEV__ ? listReplays() : []));
 
   useEffect(() => {
     if (!imageUri || readImported.current) return;
@@ -620,6 +617,18 @@ export default function CameraScreen() {
     );
   }
 
+  if (__DEV__ && phase.kind === 'replay-picker') {
+    return (
+      <Sheet>
+        <Text style={styles.devTitle}>Development: replay a sweep</Text>
+        {phase.names.map((name) => (
+          <DevButton key={name} label={name} onPress={() => setPhase({ kind: 'sweeping', replay: name })} />
+        ))}
+        <DevButton label="Cancel" onPress={retake} />
+      </Sheet>
+    );
+  }
+
   if (phase.kind === 'sweeping') {
     return <SweepReader onDone={sweepDone} onCancel={sweepCancelled} replay={phase.replay} />;
   }
@@ -707,6 +716,12 @@ export default function CameraScreen() {
             onDark
             maxScale={OVERLAY_MAX_SCALE}
           />
+          {__DEV__ && replays.length > 0 && phase.kind === 'preview' ? (
+            <DevButton
+              label="DEV: replay a sweep"
+              onPress={() => setPhase({ kind: 'replay-picker', names: listReplays() })}
+            />
+          ) : null}
         </View>
 
         {phase.kind === 'capturing' || phase.kind === 'reading' ? (
@@ -1192,6 +1207,19 @@ function DiscardNotice() {
   );
 }
 
+/** A development-only control: plain English, never shipped, not in the copy batch. */
+function DevButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [styles.devButton, pressed && styles.shutterPressed]}>
+      <Text style={styles.devButtonText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function SweepNotice() {
   return (
     <View style={styles.notice}>
@@ -1338,5 +1366,24 @@ const styles = StyleSheet.create({
   },
   notice: {
     paddingVertical: Spacing.two,
+  },
+  devTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  devButton: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.three,
+    borderWidth: 2,
+    borderColor: '#D4A017',
+    borderRadius: Radius.inner,
+    backgroundColor: '#FFF8DC',
+  },
+  devButtonText: {
+    fontSize: 16,
+    fontFamily: Fonts.mono,
+    color: '#3D2E00',
   },
 });

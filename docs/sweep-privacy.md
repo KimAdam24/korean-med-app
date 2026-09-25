@@ -136,11 +136,18 @@ Debug builds can replay a sweep from files instead of the camera
 (`modules/label-sweep/README.md`), so the merge can be exercised on an
 emulator. It reads only from the app's own `sweep-replay` folder, where a
 developer put the files by hand, and writes nothing. It cannot run in a
-release build: JavaScript passes a replay only in development, and the
-native view refuses one unless the app is debuggable. The invariant is
-unchanged for it: its frames, too, stay in native code, and only lines
+release build: JavaScript offers and passes a replay only in development,
+and the native view refuses one unless the app is debuggable. The invariant
+is unchanged for it: its frames, too, stay in native code, and only lines
 cross. The files themselves are test material, and a real label's are
 private: they stay off the repository and are deleted after use.
+
+A replay, and only a replay, logs the lines of every frame it read, once at
+its end and redacted, so a merge problem can become a test. That is not a
+switch that a real sweep could have turned on: lines are kept only from
+frames the native view marks as read from a replay's file, and the camera
+path marks its frames as the camera's. A sweep from the camera logs its
+merged reading once, as before, and nothing else.
 
 ## Logging
 

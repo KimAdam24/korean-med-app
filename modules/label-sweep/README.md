@@ -71,8 +71,13 @@ when done.
     adb shell mkdir -p $dir
     adb push vial.mp4 "$dir/vial.mp4"          # or a folder: adb push frames "$dir/vial"
 
-    # With the app open and unlocked:
-    adb shell am start -a android.intent.action.VIEW -d "koreanmedassistant://camera?sweepReplay=vial.mp4" com.togurt5.koreanmedassistant
+Then, in the app: open the capture screen (약 사진 찍기), press
+**DEV: replay a sweep** under the hints, and choose the replay. The button
+shows only in a development build, and only when the folder holds a replay;
+reopen the capture screen after pushing a new one.
+
+Not a deep link: `adb shell am start` delivers an intent, which pauses the
+app, and the lock (rightly) takes a pause for leaving and locks.
 
     adb logcat -s LabelSweep                   # frame counts and decode problems, no text
     adb shell rm -r "$dir/vial.mp4"            # afterwards
@@ -84,5 +89,17 @@ the last frame that added anything. The merged reading then appears on the
 result screen, and a development build logs it once, redacted, as it does
 for a live sweep.
 
-A release build ignores `sweepReplay`, and its native view refuses a replay
-even if asked: it checks that the app is debuggable.
+### Its frames, for a test
+
+A replay also logs every frame it read, once, when it ends: redacted as
+every development log is, between `[sweep-replay] BEGIN` and `END`, one
+entry per frame. `replay-log.ts` reads them back (`expand`), so a merge
+problem found on the emulator can become a test in `merge.test.ts`.
+
+This cannot happen in a sweep from the camera, whatever is configured.
+Frames are kept only while the sweep is a replay, and only frames the native
+view marks as read from a replay's file; the camera path marks its own
+frames as the camera's, and nothing in JavaScript can change that.
+
+A release build shows no replay button, lists no replays, and its native
+view refuses a replay even if asked: it checks that the app is debuggable.
