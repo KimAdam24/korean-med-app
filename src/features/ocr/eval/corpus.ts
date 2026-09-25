@@ -198,11 +198,9 @@ export const CORPUS: readonly EvalCase[] = [
       // Both numbers, as printed and as the reader knows it. The metric alone
       // is right too, just less helpful; the parser tests pin the full form.
       dosage: ['1.25 MG (50,000 UNIT)', '1.25 MG'],
-      // N is the interval, to be read off the bottle — it is under a finger in
-      // the photograph. Until it is filled in, no reading of this line can
-      // match, so any directions shown as clean score as wrong. Given the
-      // finger, that is also the truth.
-      instructions: 'Take 1 capsule (50,000 units) by mouth every N days',
+      // Read off the bottle. The 7 is under a finger in the photograph, so no
+      // reading of this line has it: withheld is the best these can score.
+      instructions: 'Take 1 capsule (50,000 units) by mouth every 7 days',
     },
     lines: VITAMIN_D2_VIAL_LINES,
     redacted: true,
@@ -223,11 +221,9 @@ export const CORPUS: readonly EvalCase[] = [
       // Both numbers, as printed and as the reader knows it. The metric alone
       // is right too, just less helpful; the parser tests pin the full form.
       dosage: ['1.25 MG (50,000 UNIT)', '1.25 MG'],
-      // N is the interval, to be read off the bottle — it is under a finger in
-      // the photograph. Until it is filled in, no reading of this line can
-      // match, so any directions shown as clean score as wrong. Given the
-      // finger, that is also the truth.
-      instructions: 'Take 1 capsule (50,000 units) by mouth every N days',
+      // Read off the bottle. The 7 is under a finger in the photograph, so no
+      // reading of this line has it: withheld is the best these can score.
+      instructions: 'Take 1 capsule (50,000 units) by mouth every 7 days',
     },
     lines: VITAMIN_D2_VIAL_NO_GEOMETRY_LINES,
     redacted: true,

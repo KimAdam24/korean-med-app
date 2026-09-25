@@ -56,7 +56,7 @@ test('flags a drug name one letter from a real ingredient', () => {
 
 test('flags the Vitamin D2 directions, whose every word is well-formed', () => {
   // A real dispensed vial. The label says "Take 1 capsule (50,000 units) by
-  // mouth every N days"; both numbers are gone and the rest still reads as a
+  // mouth every 7 days"; both numbers are gone and the rest still reads as a
   // sentence. This passed as clean before directions were checked for
   // structure, not just vocabulary.
   const text = 'Take 1 capsule (b units) by mouth eve days';

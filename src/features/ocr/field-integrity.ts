@@ -38,9 +38,9 @@ import { editDistance, nearestIngredient } from '../drugs/ingredients.ts';
  * It cannot catch damage *between* them, and the worst misreads are made of
  * well-formed words. A real vial printed
  *
- *     Take 1 capsule (50,000 units) by mouth every N days
+ *     Take 1 capsule (50,000 units) by mouth every 7 days
  *
- * (N under a finger in the photograph) and was read as
+ * (the 7 under a finger in the photograph) and was read as
  *
  *     Take 1 capsule (b units) by mouth eve days
  *
