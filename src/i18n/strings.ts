@@ -563,6 +563,58 @@ export const Strings = {
   },
 
   /**
+   * Reading a label while the bottle turns, and filling in by hand what no
+   * reading could recover. English placeholders; see `untranslated`.
+   */
+  sweep: {
+    start: untranslated('Read it while turning the bottle', 'Button under the curved-label message.'),
+    privacy: untranslated(
+      'The camera reads the label as you turn it. It keeps only the words, never a picture.',
+      'Shown the whole time the camera is reading. Must stay true: no picture is kept or taken.'
+    ),
+    instructions: untranslated('Hold the bottle in front of the camera and turn it slowly, all the way round.'),
+    waiting: untranslated('Point the camera at the label.'),
+    progress: untranslated(
+      'Keep turning slowly. {n} line(s) still cut off.',
+      '{n} is a number of printed lines on the label.'
+    ),
+    allRead: untranslated('All read.'),
+    stalled: untranslated(
+      'The camera stopped, because nothing new was read for a while. This is what it read.',
+      'Shown above the reading when the sweep ended by itself.'
+    ),
+    unclear: untranslated(
+      'All of it is in view, but part could not be read clearly. Hold it still for a moment, or stop and use what was read.'
+    ),
+    stop: untranslated('Stop and use what was read', 'Button.'),
+    failed: untranslated('The camera could not start. Please close this and try again.'),
+    nothingTaken: untranslated(
+      'No picture was taken. Only the words were kept.',
+      'Shown under a reading made by turning the bottle, where a photo reading says the photo was deleted.'
+    ),
+  },
+  fillIn: {
+    start: untranslated('Fill in the missing part', 'Button under a field that could not be read in full.'),
+    title: untranslated('Fill in what the bottle says'),
+    body: untranslated(
+      'Check each box against the bottle in your hand, and type only what is missing or wrong.'
+    ),
+    wordLabel: untranslated(
+      'Line {line}: what the camera read as "{read}"',
+      'Spoken by the screen reader for one box. {read} is the text the camera saw, often broken.'
+    ),
+    insertLabel: untranslated('Line {line}: the missing number', 'Spoken by the screen reader for an empty box.'),
+    check: untranslated('Check', 'Button.'),
+    confirmTitle: untranslated('Is this what the bottle says?'),
+    confirmYes: untranslated('Yes, that is right', 'Button.'),
+    confirmNo: untranslated('Change it', 'Button.'),
+    stillIncomplete: untranslated(
+      'That still does not read in full. Please check each box against the bottle.'
+    ),
+    filledNote: untranslated('You filled in part of this from the bottle.'),
+  },
+
+  /**
    * Dose reminders. The notification itself never names the medicine: it is
    * shown on the lock screen, and stored in the phone's scheduler outside the
    * encrypted vault. English placeholders for now; see `untranslated`.
