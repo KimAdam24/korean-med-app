@@ -161,3 +161,20 @@ test('glimpses are counted and ignored; the base survives a long sweep', () => {
   assert.equal(state.frames.length, 60);
   assert.equal(mergeSweep(state)?.complete, true);
 });
+
+test('the base is the frame that read the label best, not the first: a curve misread is passed over', () => {
+  // Seen in a sweep replay: "every 7" squashed round the curve and read as a
+  // whole-looking word. Not cut by its text, so as the base it was never
+  // replaced; and it came first, so it won every tie.
+  const squashed = frame({ 7: 'units) by mouth ee' });
+  const merged = mergeSweep(sweep(squashed, frame()))!;
+  assert.equal(merged.complete, true);
+  assert.equal(directions(sweep(squashed, frame())), TRUTH);
+});
+
+test('a misread alone is withheld: no frame read it better, and nothing is made up', () => {
+  const merged = mergeSweep(sweep(frame({ 7: 'units) by mouth even' })))!;
+  assert.equal(merged.complete, false);
+  const text = merged.result.fields.instructions?.text ?? '';
+  assert.equal(assessField('instructions', text).level, 'damaged');
+});

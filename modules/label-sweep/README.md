@@ -69,7 +69,13 @@ when done.
 
     $dir = '/sdcard/Android/data/com.togurt5.koreanmedassistant/files/sweep-replay'
     adb shell mkdir -p $dir
-    adb push vial.mp4 "$dir/vial.mp4"          # or a folder: adb push frames "$dir/vial"
+    adb push vial.mp4 "$dir/vial.mp4"
+
+    # Or a folder of images. A folder adb creates there belongs to adb's own
+    # user, which the app may not look inside (it could not on Android 16),
+    # so open it up; a video, being one file, needs nothing more.
+    adb push frames "$dir/vial"
+    adb shell chmod 777 "$dir/vial"
 
 Then, in the app: open the capture screen (약 사진 찍기), press
 **DEV: replay a sweep** under the hints, and choose the replay. The button

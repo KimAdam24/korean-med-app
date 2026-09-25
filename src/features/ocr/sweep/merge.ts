@@ -44,6 +44,14 @@ type Analysed = {
   readonly keys: readonly string[];
   /** Whether each line ends (or starts) cut off. */
   readonly cut: readonly boolean[];
+  /** This frame's own fields that read whole: read, readable, and not cut. */
+  readonly whole: number;
+  /**
+   * Its fields that read damaged without being cut: a misread, which the
+   * merge cannot repair, since it replaces only cut lines, and only with a
+   * reading that contains them.
+   */
+  readonly misread: number;
   readonly score: number;
 };
 
@@ -67,14 +75,32 @@ function analyse(frame: SweepFrame): Analysed {
   );
   const confidence =
     lines.reduce((sum, line) => sum + (line.confidence ?? 0), 0) / Math.max(1, lines.length);
+
+  // The frame read on its own, as a single capture would be.
+  const own = interpretLines(frame);
+  let whole = 0;
+  let misread = 0;
+  if (own.status === 'recognized') {
+    for (const kind of FIELD_KINDS) {
+      const text = own.fields[kind]?.text;
+      if (!text || own.truncation?.fields.includes(kind)) continue;
+      if (assessField(kind, text).level === 'readable') whole += 1;
+      else misread += 1;
+    }
+  }
+
   return {
     lines,
     keys: lines.map((line) => keyOf(line.text)),
     cut,
+    whole,
+    misread,
     // More lines, fewer of them cut; confidence breaks ties, and only ties.
     score: lines.length * 2 - cut.filter(Boolean).length + confidence / 10,
   };
 }
+
+const FIELD_KINDS = ['name', 'dosage', 'instructions'] as const;
 
 /** Adds one frame. Frames too sparse to be a reading of the label are counted and dropped. */
 export function addFrame(state: SweepState, frame: SweepFrame): SweepState {
@@ -90,10 +116,26 @@ export function addFrame(state: SweepState, frame: SweepFrame): SweepState {
   return { frames, seen };
 }
 
+/**
+ * The base: the best single frame. The one whose own reading has the most
+ * whole fields; then the fewest misread ones; then the score. It used to be
+ * the score alone, and a tie went to the earliest frame. In a sweep replay,
+ * the earliest was the one that read "every 7" squashed round the curve as
+ * "ee", and it outscored nothing and was outscored by nothing, so it was the
+ * base, while later frames read the line whole. A misread line is not cut,
+ * so it was never replaced, and the sweep could not finish.
+ */
 function bestIndex(frames: readonly Analysed[]): number {
   let best = 0;
   frames.forEach((frame, index) => {
-    if (frame.score > frames[best].score) best = index;
+    const than = frames[best];
+    const better =
+      frame.whole !== than.whole
+        ? frame.whole > than.whole
+        : frame.misread !== than.misread
+          ? frame.misread < than.misread
+          : frame.score > than.score;
+    if (better) best = index;
   });
   return best;
 }
