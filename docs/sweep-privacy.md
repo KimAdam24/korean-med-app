@@ -1,6 +1,9 @@
 # The sweep: what it keeps, and for how long
 
-**Status:** design, for decision before any code. Written 2026-09-25.
+**Status:** approved 2026-09-25, and revised the same day before any code, by
+the shutter precondition: frames now come from the camera's analysis stream,
+not from repeated photographs. The invariant below is the revised one, and it
+is stronger than the approved one.
 
 The sweep reads the label repeatedly while the user slowly turns the bottle,
 keeping what each reading adds, until every line reads complete. That breaks
@@ -12,147 +15,133 @@ what replaces it, stated as what is true rather than what would be nice.
 
 `withTransientCapture`: the camera writes one JPEG to the app's cache, the
 caller's recogniser reads it inside a callback, and a `finally` deletes it
-whatever happened; a failure to delete wins over the reading. The caller only
-ever sees a URI that is dead when its callback returns. What survives is the
-recognised text and its geometry.
+whatever happened; a failure to delete wins over the reading. What survives is
+the recognised text and its geometry. (Its comment says expo-camera "has no
+in-memory capture path on native"; SDK 57 has `pictureRef`, but see below for
+why the sweep does not use it.)
 
-One thing in that file's own explanation is out of date: it says expo-camera
-"has no in-memory capture path on native". SDK 57 has one — `pictureRef` —
-and it changes the answer below.
+## Why not repeated photographs
 
-## How a sweep can get frames at all
+The approved design took repeated in-memory photographs (`pictureRef`). Every
+photograph is a shutter event, and a shutter cannot always be silenced: on
+iPhones sold in Korea (and Japan) iOS plays it for every photo capture and no
+app can turn it off, and Galaxy phones sold in Korea play it too, as far as can
+be established without one in hand. A sweep would click several times a
+second. `shutterSound: false` does not help where the sound is enforced.
 
-expo-camera 57 has **no frame processor** and no live-frame callback; the only
-live-frame analysis it does is its own barcode scanning. So there are exactly
-three ways, established from its documentation and native source:
+What no phone treats as a photograph is the camera's **analysis stream**: the
+frames it delivers continuously for live processing, as expo-camera's own
+barcode scanner uses. It is silent on every phone, in every market. expo-camera
+exposes no frame processor, so the sweep has its own small native camera view.
 
-1. **Repeated file captures**: today's `withTransientCapture`, in a loop.
-2. **Repeated in-memory captures**: `takePictureAsync({ pictureRef: true })`.
-   On both platforms this returns the picture as an in-memory image reference
-   and **does not write a file** (Android: `ResolveTakenPicture` resolves a
-   `PictureRef` before the write; iOS: `CameraPhotoCapture` builds a `UIImage`
-   and returns before `generatePathInCache`).
-3. **A frame-processor camera** (react-native-vision-camera or similar), with
-   native recognition plugins on both platforms.
+## How the sweep gets frames
 
-Recommended: **2**, with **1** as the fallback. Option 3 means a second camera
-library on the capture screen and plugins in Swift that cannot be tested here;
-it buys a higher frame rate, which a slow hand-turned sweep does not need.
+`LabelSweepView`, a native view in `modules/label-sweep`:
+
+- **Android (Kotlin):** CameraX `Preview` for the viewfinder and `ImageAnalysis`
+  for frames, the same CameraX (1.6.0) expo-camera ships; ML Kit text
+  recognition, the same model the single capture uses, run on each analysed
+  frame inside native code.
+- **iOS (Swift):** `AVCaptureSession` with an `AVCaptureVideoDataOutput`; Vision
+  text recognition, the same request the single capture uses, on each frame.
+
+It reads about three frames a second, which is plenty for a bottle turned by
+hand, and sends JavaScript one event per frame read: the lines. The viewfinder
+and the sweep never run at the same time as expo-camera's preview; the screen
+switches between them.
 
 ## The invariant
 
-With option 2:
+> **Frames never leave native code, and no frame is ever written anywhere.**
+> The analyser holds at most one frame at a time — CameraX's
+> keep-only-latest backpressure on Android, a video output that discards late
+> frames on iOS, and a frame is dropped unread while another is being read —
+> and each is released as soon as its own recognition completes, before the
+> next is taken. **What crosses into JavaScript is only what the recogniser
+> returned**: each line's text, confidence and position, and the frame's size.
+> That, and the merge's bookkeeping derived from it, is everything the sweep
+> holds. It lives in memory in the capture screen and is gone when the screen
+> is.
 
-> **At most one frame exists at any moment, and it is never a file.** Each is
-> an in-memory image reference, released in a `finally` as soon as its own
-> recognition call returns, before the next is taken. **Between frames, only
-> what the recogniser returned persists** — each line's text, its confidence
-> and its position in that frame — plus the merge's bookkeeping, which is
-> derived from those and nothing else. It is all held in memory by the capture
-> screen, never written anywhere, and is gone when the screen is.
-
-With option 1 the first sentence becomes "at most one frame exists at any
-moment, as a file in the app's cache, deleted in a `finally` before the next is
-taken" — today's guarantee, per frame. A crash mid-sweep can leave that one
-file; the launch-time cache sweep already removes it.
-
-It is kept structural, as today's is, rather than by care: the frame loop is
-the only code that touches a frame, and it hands the accumulator
-`RecognizedTextLine[]` and nothing else. The accumulator module must not import
-anything from `features/capture` or `expo-camera` — asserted by a boundary
-test, as `content-drafts` is — so there is no type through which a frame could
-reach it.
+It is structural, not a matter of care. The JavaScript side cannot receive a
+frame: the view's only event carries lines. The code that accumulates lines
+imports nothing from the camera or capture code — asserted by a boundary test,
+as `content-drafts` is — so there is no type through which a frame could reach
+it even if one were sent.
 
 ## Is any image data held between frames?
 
-- **By this app: no.** The reference is released before the next frame is
-  taken, and nothing derived from pixels is kept — no crop, no thumbnail, no
-  brightness figure.
-- **By the camera pipeline: yes, as today.** While the capture screen is open
-  the OS streams preview frames through its camera service and GPU buffers to
-  draw the viewfinder and to scan barcodes. That already happens on today's
-  screen, for as long as it is open; the sweep does not change it.
-- **By the engines: not knowable, and that is the honest answer.** ML Kit
-  (Google Play Services text recognition) and Apple Vision both run on the
-  device, and neither API returns or exposes anything that holds the image
-  after the call completes. Whether they cache internally cannot be inspected
-  from here. That is equally true of today's single capture — the sweep runs
-  the same engines on more frames, not different ones.
-- **The picture reference itself** holds native bitmap memory until released;
-  left to the garbage collector it could outlive its call by seconds. The
-  design releases it explicitly, and a test can hold that the loop always does.
+- **By this app: no.** No frame reaches JavaScript, and native code releases
+  each when its recognition completes. Nothing derived from pixels is kept —
+  no crop, no thumbnail, no brightness figure.
+- **By the camera pipeline: yes, as today.** While the viewfinder is open the
+  OS camera stack streams frames through its own buffers — a small, recycled
+  pool — to draw the preview and to feed the analyser. That is what happens on
+  today's capture screen too, for as long as it is open.
+- **By the engines: not knowable, and that is the honest answer.** ML Kit and
+  Apple Vision run on the device, and neither API returns or exposes anything
+  that holds the image after the call completes. Whether they cache internally
+  cannot be inspected from here. That is equally true of today's single
+  capture; the sweep runs the same engines on more frames, not different ones.
 
 ## What accumulates, exactly
 
 Per frame: for each line the engine returned, its text, confidence, frame and
-corners (numbers in that frame's pixels), and which frame it came from. Across
-frames: the merged set of lines, each with its best reading and why it was
-chosen. **Text and geometry only.** The text includes the patient's name and
-address, exactly as a single reading's does today.
+corners (numbers in that frame's pixels), the frame's size, and which frame it
+came from. Across frames: the merged set of lines, each with its best reading
+and why it was chosen. **Text and geometry only.** The text includes the
+patient's name and address, exactly as a single reading's does today.
 
 ## When it is discarded
 
-- **Leaving the capture screen**, by any route — the state lives in the screen.
-- **The app going to the background.** The lock replaces the whole navigator
-  when the app leaves, which unmounts the screen and everything in it; the
-  sweep also stops and drops its state on the `background` event itself, so it
-  does not depend on the lock to do so.
+- **Leaving the capture screen**, by any route — the state lives in the screen,
+  and the native view stops its camera when it is removed.
+- **The app going to the background.** The native view's camera is bound to
+  the activity's lifecycle and stops; the lock replaces the navigator, which
+  unmounts the screen; and the sweep drops its state on the `background`
+  event itself, so it does not depend on either.
 - **A completed read.** The per-frame history is dropped and only the merged
-  lines go to the result, exactly as a single reading's lines do today; after
-  that, nothing distinguishes it from a one-photo read.
-- **Retake or restart**, and **a sweep that stalls** (no new line completed for
-  a set time), which stops the camera and asks the user to start again.
+  lines go to the result, as a single reading's lines do today.
+- **Retake or restart**, and **a sweep that stalls** (no line newly completed
+  for a set time), which stops the camera and says so.
 
 Nothing reaches the vault until the user saves, as today.
 
-## One exception to fix first: development builds
+## Logging
 
-Development builds print every reading — text, name and address included — to
-the device log (`logRecognizedLines`); that is how the retaken vial reached the
-corpus. It is compiled out of release builds, but on a development phone that
-text sits in the system log until it rotates. A sweep must not log each frame:
-at most the final reading, as today, and the header of `dev-line-list` should
-say that the log is a copy outside the app.
+Development builds log a reading once, with anything not evidently label
+text redacted in shape (`log-redaction`). The sweep logs its final merged
+reading only, never a frame.
 
 ## Does it need new copy?
 
-- "Photos are not saved" (`camera.privacyBanner`) stays true — with option 2,
-  more literally than today, since no frame is ever a file.
+- "Photos are not saved" (`camera.privacyBanner`) stays true — more literally
+  than today, since the sweep takes no photograph at all.
 - The home screen's "deleted right after the text is read" is under rewrite in
   `content-drafts/privacy-copy.draft.md`, whose guarantee — *the image is never
   kept and never sent; only the words on it are used* — describes the sweep
-  exactly. That wording is the one to prefer.
-- The sweep needs its own instructions ("turn the bottle slowly…"), progress
-  and a stall message, and one plain privacy line for a screen where the
-  camera is visibly reading continuously: *"The camera reads the label as you
-  turn it. It keeps only the words, never a picture."* All marked for the
-  batch; none written in Korean.
+  exactly.
+- The sweep needs its own instructions, progress, a stall message, and one
+  plain privacy line for a screen where the camera is visibly reading all the
+  time. All marked for the translation batch; none written in Korean.
 
 ## Is it as private as the single capture?
 
-**Yes, with option 2 — and in one respect more so**: no frame is ever written
-to storage, where today one file exists for the length of a read. In two
-respects it is more exposure of the same kind: many frames pass through the
-engines instead of one, and the extracted text is held for the length of the
-sweep instead of one read. Neither is a new kind of data, and neither leaves
-the device. With option 1 it is today's guarantee, repeated.
+**Yes, and more so**: no frame is ever a file, and no pixel ever reaches
+JavaScript. It is more exposure of the same kind in two ways — many frames pass
+through the engines instead of one, and the extracted text is held for the
+length of the sweep — but neither is a new kind of data, and neither leaves the
+device.
 
-Nothing here trades the guarantee away. If option 2's native work does not
-come together, option 1 is the fallback, not something weaker.
+## What it costs, and the Swift
 
-## What option 2 costs
+Native code on both platforms: a camera view each, the recognition reused from
+`LabelOcr`. **The Swift half is written but not linked.** It cannot be compiled
+here (there is no Xcode on Windows), so it is not even compile-verified, and an
+uncompiled Swift file in a linked module would break every iOS build. The
+module's `expo-module.config.json` lists Android only; on iOS the app offers
+the single capture and manual fill-in instead. Linking it is one line — add
+`"apple"` to `platforms` — once a Mac has compiled it.
 
-**Native code, both platforms**: `LabelOcr` today takes a file URI. It would
-need an entry point taking the picture reference — Kotlin
-(`InputImage.fromBitmap` on the `SharedRef<Bitmap>`) and **Swift** (a
-`CGImage` from the `SharedRef<UIImage>`). The Swift half would be
-compile-verified only.
-
-## Also to settle before building
-
-**The shutter.** Repeated captures play the shutter sound unless
-`shutterSound: false` is passed (expo-camera plays it itself, on Android with
-`MediaActionSound`). Phones made for the Korean market sound it regardless — an
-industry standard there since 2004 — so if the phone it runs on was bought in Korea, a
-sweep could click several times a second. Worth one test capture on that phone
-before the sweep is designed around repeated captures at all.
+Single captures are unchanged: pressing the shutter takes one photograph, and
+one click is what a user expects from it.
