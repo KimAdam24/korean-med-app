@@ -43,11 +43,17 @@ import { assessField } from '@/features/ocr/field-integrity';
 import { medicationFromReading } from '@/features/ocr/reading-to-record';
 import { isCutAtEdge, type EdgeTruncation } from '@/features/ocr/truncation';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
+import { FillInPanel } from '@/features/ocr/fill-in-panel';
+import { findGaps } from '@/features/ocr/fill-in';
+import type { MergedReading } from '@/features/ocr/sweep/merge';
+import { SweepReader, type SweepEnding } from '@/features/ocr/sweep/sweep-reader';
 import {
+  type LabelRecognitionResult,
   type MedicationLabelFields,
   type ReadQuality,
   type RecognizedTextLine,
 } from '@/features/ocr/types';
+import { sweepAvailable } from '../../modules/label-sweep';
 import { useAppLock } from '@/features/security/app-lock-context';
 import { VaultUnreadableError } from '@/features/security/secure-vault';
 import { useTheme } from '@/hooks/use-theme';
@@ -75,13 +81,25 @@ type Phase =
   | { kind: 'ambiguous'; matches: readonly DrugIdentity[]; saving: boolean }
   | { kind: 'saved' }
   | { kind: 'saving' }
+  /** Reading the label while the user turns the bottle; see `SweepReader`. */
+  | { kind: 'sweeping' }
   | {
       kind: 'result';
       fields: MedicationLabelFields;
-      /** Carried only so the development-only panel can show it. */
+      /**
+       * The lines the fields were read from: for the development-only panel,
+       * and for filling in what could not be read. Text, like the fields, and
+       * gone with the screen.
+       */
       lines?: readonly RecognizedTextLine[];
       quality?: ReadQuality;
       truncation?: EdgeTruncation | null;
+      /** Read while turning the bottle: no photograph was taken for it. */
+      swept?: boolean;
+      /** The sweep ended itself, having read nothing new for a while. */
+      stalled?: boolean;
+      /** The user typed part of it in from the bottle. */
+      filled?: boolean;
     }
   /**
    * `photoDiscarded` is carried explicitly rather than assumed: every failure
@@ -113,6 +131,20 @@ const DRUG_BARCODE_TYPES = ['upc_a', 'ean13', 'datamatrix', 'code128'] as const;
  * sliver. 1.4x of sizes already well above the default is still large.
  */
 const OVERLAY_MAX_SCALE = 1.4;
+
+type Recognised = Extract<LabelRecognitionResult, { status: 'recognized' }>;
+
+const resultPhase = (
+  result: Recognised,
+  how: { swept?: boolean; stalled?: boolean; filled?: boolean } = {}
+): Extract<Phase, { kind: 'result' }> => ({
+  kind: 'result',
+  fields: result.fields,
+  lines: result.lines,
+  quality: result.quality,
+  truncation: result.truncation,
+  ...how,
+});
 
 export default function CameraScreen() {
   const router = useRouter();
@@ -224,13 +256,7 @@ export default function CameraScreen() {
         const result = interpretLines(lines);
         next =
           result.status === 'recognized'
-            ? {
-                kind: 'result',
-                fields: result.fields,
-                lines: result.lines,
-                quality: result.quality,
-                truncation: result.truncation,
-              }
+            ? resultPhase(result)
             : { kind: 'problem', message: Strings.problem.unreadable, photoDiscarded: true };
       } catch {
         next = { kind: 'problem', message: Strings.problem.captureFailed, photoDiscarded: true };
@@ -406,13 +432,7 @@ export default function CameraScreen() {
 
       switch (result.status) {
         case 'recognized':
-          setPhase({
-            kind: 'result',
-            fields: result.fields,
-            lines: result.lines,
-            quality: result.quality,
-            truncation: result.truncation,
-          });
+          setPhase(resultPhase(result));
           return;
         case 'unreadable':
           setPhase({
@@ -451,6 +471,34 @@ export default function CameraScreen() {
   const retake = useCallback(() => {
     scanning.current = false;
     setPhase({ kind: 'preview' });
+  }, []);
+
+  /**
+   * The sweep, offered when a reading ran off the edge of a curved label. Its
+   * reading replaces the photograph's whole — the two are never blended — and
+   * cancelling it goes back to the photograph's.
+   */
+  const startSweep = useCallback(() => {
+    setTorchOn(false);
+    // The last photograph's frame is not what the sweep read.
+    setDevProbe(null);
+    setPhase({ kind: 'sweeping' });
+  }, []);
+  const sweepDone = useCallback((merged: MergedReading | null, ending: SweepEnding) => {
+    if (!open.current) return;
+    setPhase(
+      merged
+        ? resultPhase(merged.result, { swept: true, stalled: ending === 'stalled' })
+        : { kind: 'problem', message: Strings.problem.unreadable, photoDiscarded: false }
+    );
+  }, []);
+  const sweepCancelled = useCallback(() => setPhase(lastReading.current ?? { kind: 'preview' }), []);
+
+  /** The same reading with the user's words in it, already judged whole and confirmed. */
+  const filledIn = useCallback((reading: Recognised) => {
+    setPhase((current) =>
+      current.kind === 'result' ? resultPhase(reading, { swept: current.swept, filled: true }) : current
+    );
   }, []);
   const close = useCallback(() => goBackOr(router, '/'), [router]);
 
@@ -555,6 +603,10 @@ export default function CameraScreen() {
     );
   }
 
+  if (phase.kind === 'sweeping') {
+    return <SweepReader onDone={sweepDone} onCancel={sweepCancelled} />;
+  }
+
   if (phase.kind === 'result') {
     return (
       <ReadingResult
@@ -562,9 +614,14 @@ export default function CameraScreen() {
         lines={phase.lines}
         quality={phase.quality}
         truncation={phase.truncation}
+        swept={phase.swept}
+        stalled={phase.stalled}
+        filled={phase.filled}
         devProbe={devProbe}
         onSave={saveFromLabel}
         onRetake={retake}
+        onSweep={sweepAvailable ? startSweep : undefined}
+        onFilled={filledIn}
         onClose={close}
       />
     );
@@ -695,24 +752,42 @@ export default function CameraScreen() {
  * no longer stand between the reader and the thing to do next.
  *
  * The safety rule is unchanged in both: damaged text is never shown as a value.
+ *
+ * ## Getting the rest
+ *
+ * When a curved label ran out of sight, and this phone can, the curve notice
+ * offers to read it again while the bottle is turned (`onSweep`). Whatever is
+ * still withheld after that, or on a phone without the sweep, can be filled in
+ * by hand, one gap at a time, from the bottle (`FillInPanel`).
  */
 function ReadingResult({
   fields,
   lines,
   quality,
   truncation,
+  swept = false,
+  stalled = false,
+  filled = false,
   devProbe,
   onSave,
   onRetake,
+  onSweep,
+  onFilled,
   onClose,
 }: {
   fields: MedicationLabelFields;
   lines?: readonly RecognizedTextLine[];
   quality?: ReadQuality;
   truncation?: EdgeTruncation | null;
+  swept?: boolean;
+  stalled?: boolean;
+  filled?: boolean;
   devProbe: CaptureProbe | null;
   onSave: (fields: MedicationLabelFields, truncation?: EdgeTruncation | null) => void;
   onRetake: () => void;
+  /** Absent where the sweep is not available: iOS, until its Swift is built. */
+  onSweep?: () => void;
+  onFilled: (reading: Recognised) => void;
   onClose: () => void;
 }) {
   const theme = useTheme();
@@ -720,6 +795,25 @@ function ReadingResult({
   const toSave = medicationFromReading(fields, truncation);
   const cut = (kind: 'name' | 'dosage' | 'instructions') =>
     isCutAtEdge(truncation, kind) ? (truncation?.diagnosed ? 'curve' : 'edge') : undefined;
+
+  /**
+   * The withheld fields with something specific to fill in.
+   *
+   * Only a field the reading found: filling in words cannot make the parser
+   * find one it did not, so for a field never found the answer could only
+   * come back "still incomplete". And only with a gap: without one, nothing
+   * is identifiably missing, and an empty "type the directions" box would be
+   * free text with nothing to check it by.
+   */
+  const fillable = lines
+    ? FIELD_KINDS.filter((kind) => {
+        const text = fields[kind]?.text;
+        if (!text) return false;
+        const withheld = isCutAtEdge(truncation, kind) || assessField(kind, text).level === 'damaged';
+        return withheld && findGaps(lines, fields, kind).length > 0;
+      })
+    : [];
+  const [filling, setFilling] = useState(false);
 
   /**
    * The curve, said once, with its own remedy. It replaces the degraded
@@ -737,9 +831,31 @@ function ReadingResult({
       ) : null}
     </Notice>
   ) : null;
+  // Only for the curve, where turning the bottle is the remedy: an edge cut on
+  // a label not judged curved is told to retake, not to turn it.
+  const sweepButton =
+    truncation?.diagnosed && onSweep ? <BigButton label={Strings.sweep.start} onPress={onSweep} /> : null;
+
   // Local, so it starts closed on every new reading rather than inheriting
   // whatever the last one left.
   const [showFields, setShowFields] = useState(false);
+
+  if (filling && lines) {
+    return (
+      <Sheet>
+        <FillInPanel
+          lines={lines}
+          fields={fields}
+          kinds={fillable}
+          onConfirm={(reading) => {
+            setFilling(false);
+            onFilled(reading);
+          }}
+          onCancel={() => setFilling(false)}
+        />
+      </Sheet>
+    );
+  }
 
   const fieldCards = (
     <>
@@ -776,8 +892,21 @@ function ReadingResult({
           cutAtEdge={cut('instructions')}
         />
       </Card>
+
+      {fillable.length > 0 ? (
+        <BigButton label={Strings.fillIn.start} onPress={() => setFilling(true)} tone="secondary" />
+      ) : null}
     </>
   );
+
+  // A sweep took no photograph, so there is none to say was deleted.
+  const discardNotice = swept ? <SweepNotice /> : <DiscardNotice />;
+  const filledNotice = filled ? (
+    <Notice tone="info" title={Strings.fillIn.filledNote} />
+  ) : stalled ? (
+    // Said, so a screen that changed by itself mid-turn is not a mystery.
+    <Notice tone="info" title={Strings.sweep.stalled} />
+  ) : null;
 
   const saveBlock = !toSave ? (
     // No name, so nothing to match against the box; the reading cannot become a
@@ -816,8 +945,14 @@ function ReadingResult({
             />
           </View>
           {curvedNotice ?? <BilingualText text={Strings.result.degradedBody} hideEnglish />}
-          <BigButton label={Strings.camera.retake} onPress={onRetake} />
+          {sweepButton}
+          <BigButton
+            label={Strings.camera.retake}
+            onPress={onRetake}
+            tone={sweepButton ? 'secondary' : 'primary'}
+          />
         </Card>
+        {filledNotice}
 
         <BigButton
           label={showFields ? Strings.result.hideReading : Strings.result.showReading}
@@ -833,7 +968,7 @@ function ReadingResult({
         ) : null}
 
         <BigButton label={Strings.camera.done} onPress={onClose} tone="secondary" />
-        <DiscardNotice />
+        {discardNotice}
 
         <RawLinesPanel lines={lines} />
         <CapturedFramePanel probe={devProbe} />
@@ -845,11 +980,13 @@ function ReadingResult({
     <Sheet>
       <BilingualText text={Strings.result.title} variant="heading" />
       {curvedNotice}
+      {sweepButton}
+      {filledNotice}
       <Notice tone="info" title={Strings.result.compareWithBottle} />
 
       {fieldCards}
 
-      <DiscardNotice />
+      {discardNotice}
       {saveBlock}
 
       <BigButton label={Strings.camera.retake} onPress={onRetake} tone="secondary" />
@@ -1037,6 +1174,16 @@ function DiscardNotice() {
     </View>
   );
 }
+
+function SweepNotice() {
+  return (
+    <View style={styles.notice}>
+      <BilingualText text={Strings.sweep.nothingTaken} variant="label" />
+    </View>
+  );
+}
+
+const FIELD_KINDS = ['name', 'dosage', 'instructions'] as const;
 
 function Sheet({ children }: { children: React.ReactNode }) {
   const theme = useTheme();

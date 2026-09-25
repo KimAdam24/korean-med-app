@@ -5,6 +5,11 @@ the shutter precondition: frames now come from the camera's analysis stream,
 not from repeated photographs. The invariant below is the revised one, and it
 is stronger than the approved one.
 
+**Built** 2026-09-25: the Android view is compiled and the whole app
+assembles with it, but it has **not yet run on a device**; the iOS view is
+written, not compiled and not linked (below). The screen is
+`src/features/ocr/sweep/sweep-reader.tsx`, the merge `sweep/merge.ts`.
+
 The sweep reads the label repeatedly while the user slowly turns the bottle,
 keeping what each reading adds, until every line reads complete. That breaks
 the shape of today's guarantee — one photograph, bounded lifetime, deleted in a
@@ -102,10 +107,28 @@ patient's name and address, exactly as a single reading's does today.
   event itself, so it does not depend on either.
 - **A completed read.** The per-frame history is dropped and only the merged
   lines go to the result, as a single reading's lines do today.
-- **Retake or restart**, and **a sweep that stalls** (no line newly completed
-  for a set time), which stops the camera and says so.
+- **Cancel**, which goes back to the photograph's reading and keeps nothing
+  the sweep read.
+- **A sweep that stalls**: nothing newly read for 20 seconds. The camera
+  stops, and what was read goes to the result, as when the user stops it,
+  with a line saying why the screen changed by itself.
 
 Nothing reaches the vault until the user saves, as today.
+
+## When it is offered
+
+Only under the curve notice: after a photograph whose lines ran off a label
+judged curved, by the same under-triggering rule as the notice. A line cut at
+the edge of a label not judged curved is withheld and told to retake, not to
+turn the bottle. Where a merged reading still has cut lines, they are withheld
+on their text alone (a line ending mid-word), but a curve is still said only
+where the edge check finds one; text alone is not a diagnosis.
+
+What the sweep cannot recover can be filled in by hand
+(`src/features/ocr/fill-in.ts`): the user types only the broken or missing
+words, from the bottle, into boxes in the line; the result is read again by
+the whole pipeline and shown back for confirmation. Offered only for a field
+the reading found and withheld, with a specific gap in it.
 
 ## Logging
 

@@ -3,6 +3,7 @@ import { ocr, picker } from './fakes/devices';
 import { disk } from './fakes/file-system';
 import { biometrics } from './fakes/local-authentication';
 import { notifications } from './fakes/notifications';
+import { sweep } from './fakes/label-sweep';
 import { keychain } from './fakes/secure-store';
 
 /**
@@ -20,6 +21,7 @@ beforeEach(() => {
   picker.reset();
   ocr.reset();
   notifications.reset();
+  sweep.reset();
   disk.write(ONBOARDED, '');
 });
 

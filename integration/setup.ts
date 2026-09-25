@@ -15,6 +15,16 @@ jest.mock('expo-image-picker', () => ({
 jest.mock('../modules/label-ocr', () => ({ LabelOcr: require('./fakes/devices').LabelOcr }));
 jest.mock('expo-notifications', () => require('./fakes/notifications'));
 jest.mock('../modules/dose-alarms', () => ({ DoseAlarms: require('./fakes/notifications').doseAlarms }));
+jest.mock('../modules/label-sweep', () => {
+  const fake = require('./fakes/label-sweep');
+  // A getter, so a test can take the sweep away (as on iOS) after the app has loaded.
+  return {
+    get sweepAvailable() {
+      return fake.sweep.available;
+    },
+    LabelSweepView: fake.LabelSweepView,
+  };
+});
 
 // Icons are decorative and hidden from assistive technology; nothing to test.
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
