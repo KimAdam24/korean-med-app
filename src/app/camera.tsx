@@ -1014,7 +1014,8 @@ function ReadingResult({
       {curvedNotice}
       {sweepButton}
       {filledNotice}
-      <Notice tone="info" title={Strings.result.compareWithBottle} />
+      {/* A sweep took no photo, so its reading is not "read from a photo". */}
+      <Notice tone="info" title={swept ? Strings.sweep.compareWithBottle : Strings.result.compareWithBottle} />
 
       {fieldCards}
 

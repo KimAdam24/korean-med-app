@@ -198,6 +198,12 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     when: 'The reading stopped by itself after 20 seconds in which nothing new was read.',
     notes: 'The screen changed without the user pressing anything; this says why.',
   },
+  'sweep.compareWithBottle': {
+    section: SWEEP,
+    where: "Result screen: the blue notice above the medicine's details.",
+    when: 'After a reading made by turning the bottle.',
+    notes: 'The same request as 사진으로 읽은 내용이에요. 저장하기 전에 약병과 한 번 비교해 주세요. (This was read from a photo...), which a photo reading shows; this one cannot say "photo".',
+  },
   'sweep.nothingTaken': {
     section: SWEEP,
     where: 'Result screen: a small line near the bottom.',

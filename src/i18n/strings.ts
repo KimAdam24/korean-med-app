@@ -588,6 +588,10 @@ export const Strings = {
     ),
     stop: untranslated('Stop and use what was read', 'Button.'),
     failed: untranslated('The camera could not start. Please close this and try again.'),
+    compareWithBottle: untranslated(
+      'This was read by the camera as you turned the bottle. Please compare it with the bottle once before saving.',
+      'Replaces "This was read from a photo..." (사진으로 읽은 내용이에요...) above a reading made by turning the bottle, where no photo was taken.'
+    ),
     nothingTaken: untranslated(
       'No picture was taken. Only the words were kept.',
       'Shown under a reading made by turning the bottle, where a photo reading says the photo was deleted.'

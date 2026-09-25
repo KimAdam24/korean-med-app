@@ -124,8 +124,10 @@ describe('reading a curved label while it turns', () => {
     await screen.findByText(TRUTH);
     expect(sweep.mounted).toBe(false);
     expect(screen.queryByText(Strings.result.curved.title.ko)).toBeNull();
-    // No photograph was taken, so none is said to have been deleted.
+    // No photograph was taken, so none is said to have been deleted, or read.
     expect(screen.getByText(Strings.sweep.nothingTaken.ko)).toBeTruthy();
+    expect(screen.getByText(Strings.sweep.compareWithBottle.ko)).toBeTruthy();
+    expect(screen.queryByText(Strings.result.compareWithBottle.ko)).toBeNull();
     expect(screen.queryByText(Strings.camera.discarded.ko)).toBeNull();
     expect(camera.state.shots).toBe(0);
 
