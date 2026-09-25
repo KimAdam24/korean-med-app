@@ -1,0 +1,3 @@
+<manifest>
+  <!-- The camera permission is the app's own (app.json); this view asks for nothing more. -->
+</manifest>

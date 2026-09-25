@@ -88,7 +88,7 @@ class LabelOcrModule : Module() {
          */
         return@Coroutine recognised.textBlocks
           .flatMap { block -> block.lines }
-          .mapNotNull { line -> describe(line) }
+          .mapNotNull { line -> describeLine(line) }
       } finally {
         recognizer.close()
       }
@@ -104,8 +104,12 @@ class LabelOcrModule : Module() {
  * Both geometry fields are nullable in ML Kit's API and are passed on as null
  * rather than invented; a line without geometry still carries its text, and
  * the ordering code places it last.
+ *
+ * Public so that the sweep (`modules/label-sweep`) reports lines in exactly
+ * this shape: the TypeScript side treats a sweep frame and a photograph the
+ * same, and two copies of this mapping would drift.
  */
-private fun describe(line: Text.Line): Map<String, Any?>? {
+fun describeLine(line: Text.Line): Map<String, Any?>? {
   val text = line.text.trim()
   if (text.isEmpty()) return null
 
