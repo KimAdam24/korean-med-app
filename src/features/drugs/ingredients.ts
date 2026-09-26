@@ -1,3 +1,5 @@
+import { koreanIngredientNames } from './korean-names.ts';
+
 /**
  * The ingredient lexicon: English names from RxNorm, Korean names to come.
  *
@@ -28,19 +30,18 @@ export type IngredientEntry = {
    */
   readonly aliases?: readonly string[];
   /**
-   * Korean ingredient name.
+   * Korean ingredient name: **never set here.**
    *
-   * **Deliberately absent throughout.** These are not translations to be
-   * derived — 식약처 publishes the Korean name for each ingredient, and that
-   * list is the only acceptable source. Writing plausible Hangul here would
-   * produce a name that looks authoritative to a reader who cannot check it,
-   * which is precisely the failure this app must not have.
-   *
-   * With every entry unmapped, `koreanNameFor` returns null and the UI shows
-   * the English name alone — which is the specified behaviour for an unmapped
-   * ingredient, so the feature is correct today and merely not yet useful.
+   * These are not translations to be derived — 식약처 publishes the Korean
+   * name for each ingredient, and that list is the only acceptable source.
+   * Writing plausible Hangul here would produce a name that looks
+   * authoritative to a reader who cannot check it, which is precisely the
+   * failure this app must not have. The names are imported from 식약처's own
+   * data into `mfds-names.ts` (by `scripts/import-mfds-names.ts`), and
+   * `koreanNameFor` reads them from there. A test fails if this field is
+   * ever filled in.
    */
-  readonly ko?: string;
+  readonly ko?: never;
 };
 
 /**
@@ -200,11 +201,12 @@ export function nearestIngredient(text: string, maxDistance = 1): NearMiss | nul
 }
 
 /**
- * The Korean name for an ingredient, or null when it has none recorded.
- *
- * Null is the honest answer and the common one: no entry carries a `ko` value
- * yet. Callers show the English name in that case, which §3.2 specifies.
+ * The Korean name for an ingredient, or null when 식약처's imported names
+ * (`mfds-names.ts`) have none for it: the honest answer, and until the first
+ * import, the only one. Callers show the English name in that case, which
+ * §3.2 specifies.
  */
 export function koreanNameFor(text: string): string | null {
-  return findIngredient(text)?.ko ?? null;
+  const entry = findIngredient(text);
+  return entry ? (koreanIngredientNames([entry.en])?.[0] ?? null) : null;
 }
