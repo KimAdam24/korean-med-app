@@ -14,6 +14,8 @@ import {
   removeMedication,
   updateMedication,
 } from '@/features/medications/medication-store';
+import { koreanDirections } from '@/features/directions/korean-directions';
+import { koreanIngredientNames } from '@/features/drugs/korean-names';
 import { ProfileProblem } from '@/features/medications/profile-problem';
 import { useProfile } from '@/features/medications/use-profile';
 import { ReminderSection } from '@/features/reminders/reminder-section';
@@ -225,6 +227,12 @@ export default function MedicationScreen() {
     ] as const
   ).some(([kind, text]) => assess && text && assessField(kind, text).level === 'damaged');
 
+  // §3.2: Korean only from approved sources, and null until they arrive: the
+  // ingredients in 식약처's names (a barcode record's, all or none), and the
+  // directions built from reviewed phrases (all of them, or none).
+  const koreanName = koreanIngredientNames(record.identity?.ingredients)?.join(' + ') ?? null;
+  const koreanHow = record.instructions ? koreanDirections(record.instructions) : null;
+
   return (
     <Screen>
       {mode.kind === 'viewing' && mode.notice ? <Notice tone="warn" title={mode.notice} live /> : null}
@@ -235,6 +243,7 @@ export default function MedicationScreen() {
           text={record.name}
           assess={assess}
           prominent
+          korean={koreanName ? { text: koreanName, source: Strings.guidance.perMfds } : undefined}
         />
         <CardDivider />
         <ReadingField
@@ -251,6 +260,7 @@ export default function MedicationScreen() {
           kind="instructions"
           text={record.instructions}
           assess={assess}
+          korean={koreanHow ? { text: koreanHow.ko, source: Strings.guidance.perReviewedPhrases } : undefined}
         />
       </Card>
 

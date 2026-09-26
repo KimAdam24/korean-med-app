@@ -45,6 +45,7 @@ import { isCutAtEdge, type EdgeTruncation } from '@/features/ocr/truncation';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
 import { FillInPanel } from '@/features/ocr/fill-in-panel';
 import { findGaps } from '@/features/ocr/fill-in';
+import { koreanDirections } from '@/features/directions/korean-directions';
 import type { MergedReading } from '@/features/ocr/sweep/merge';
 import { SweepReader, type SweepEnding } from '@/features/ocr/sweep/sweep-reader';
 import {
@@ -846,6 +847,9 @@ function ReadingResult({
       })
     : [];
   const [filling, setFilling] = useState(false);
+  // §3.2: the directions in Korean, only from reviewed phrases; null until
+  // they are approved, and for any direction not wholly covered by them.
+  const koreanHow = fields.instructions?.text ? koreanDirections(fields.instructions.text) : null;
 
   /**
    * The curve, said once, with its own remedy. It replaces the degraded
@@ -922,6 +926,7 @@ function ReadingResult({
           assess
           compact={degraded}
           cutAtEdge={cut('instructions')}
+          korean={koreanHow ? { text: koreanHow.ko, source: Strings.guidance.perReviewedPhrases } : undefined}
         />
       </Card>
 

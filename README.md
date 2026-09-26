@@ -68,7 +68,7 @@ src/i18n/strings.ts       all user-facing copy, Korean-first
 | OCR label reading (§3.1 fallback)       | Custom native module — not yet verified on device  |
 | App lock, biometric + PIN (§3.3)        | Built                                             |
 | Encrypted medication storage (§3.3)     | Built                                             |
-| Korean translation (§3.2)               | Decided, not built                                |
+| Korean translation (§3.2)               | Plumbing built; shows nothing until 식약처's names are imported and the dosing phrases are approved |
 | Interaction guidance (§3.4)             | Not started, by choice — needs authoritative data |
 | First-launch introduction               | Built — copy awaiting translation                 |
 | Dose reminders                          | Built — not yet rung on a device; see `docs/reminders.md` |

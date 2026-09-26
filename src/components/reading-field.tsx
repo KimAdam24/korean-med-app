@@ -36,6 +36,7 @@ export function ReadingField({
   prominent = false,
   compact = false,
   cutAtEdge,
+  korean,
 }: {
   label: Bilingual;
   kind: FieldKind;
@@ -60,6 +61,13 @@ export function ReadingField({
    * left of "every other day" with `other` round the curve is "every day".
    */
   cutAtEdge?: 'curve' | 'edge';
+  /**
+   * The value in Korean, from an approved source, with that source named:
+   * 식약처's name for the ingredient, or the directions built from reviewed
+   * phrases. Shown under the English only when the English itself is shown;
+   * a field withheld as damaged or cut shows no Korean either.
+   */
+  korean?: { text: string; source: Bilingual };
 }) {
   const cutNote = cutAtEdge === 'curve' ? Strings.result.curved.fieldNote : Strings.result.curved.edgeNote;
   const theme = useTheme();
@@ -149,6 +157,18 @@ export function ReadingField({
           {text}
         </Text>
       )}
+
+      {text && korean && integrity?.level !== 'damaged' && !cutAtEdge ? (
+        <View style={styles.korean}>
+          <Text
+            style={[styles.value, { color: theme.text }]}
+            maxFontSizeMultiplier={TypeMaxScale.body}
+            accessibilityLanguage="ko-KR">
+            {korean.text}
+          </Text>
+          <BilingualText text={korean.source} variant="label" color={theme.textSecondary} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -166,6 +186,9 @@ const styles = StyleSheet.create({
     fontSize: 28,
     lineHeight: 36,
     fontWeight: '700',
+  },
+  korean: {
+    gap: Spacing.one,
   },
   missing: {
     fontSize: 20,

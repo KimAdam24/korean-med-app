@@ -310,6 +310,12 @@
     "reminders.later": {
       "ko": "{field} 늘리기",
       "note": "Spoken as, e.g., \"분 늘리기\": the plus button moves it later."
+    },
+    "guidance.perMfds": {
+      "ko": "식약처 기준 한글 성분명"
+    },
+    "guidance.perReviewedPhrases": {
+      "ko": "검토를 거친 문구로 옮긴 한국어예요. 위의 영어가 약국에서 인쇄한 원문이에요."
     }
   }
 }

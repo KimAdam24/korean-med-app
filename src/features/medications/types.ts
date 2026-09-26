@@ -30,10 +30,11 @@ export type ReminderTime = {
 export type MedicationRecord = {
   readonly id: string;
   /**
-   * As printed on the label, never translated. The §3.2 decision is to show the
-   * original name alongside a Korean phonetic rendering, which means the
-   * original has to survive in storage exactly as read — a translated name
-   * cannot be turned back into the one on the box.
+   * As printed on the label, never translated. §3.2 shows the original name
+   * with 식약처's Korean name for its ingredients beneath it (looked up from
+   * `identity.ingredients`), which means the original has to survive in
+   * storage exactly as read — a translated name cannot be turned back into
+   * the one on the box.
    */
   readonly name: string;
   readonly dosage?: string;

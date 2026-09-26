@@ -506,6 +506,14 @@ export const Strings = {
     perRxNorm: { ko: '미국 의약품 표준 정보(RxNorm) 기준', en: 'per RxNorm' },
     perOncList: { ko: '미국 ONC 주요 상호작용 목록 기준', en: 'per the ONC high-priority list' },
     perCredibleMeds: { ko: 'CredibleMeds 기준', en: 'per CredibleMeds' },
+    perMfds: untranslated(
+      "Korean name per 식약처 (Korea's Ministry of Food and Drug Safety)",
+      "Under a medicine's English name, beside its Korean ingredient name, which comes from 식약처's own data."
+    ),
+    perReviewedPhrases: untranslated(
+      'Korean from reviewed phrases. The English above is what the pharmacy printed.',
+      "Under the directions, beside their Korean, which is built only from phrases she has approved."
+    ),
     /**
      * Attached wherever guidance is shown. The app quotes sources; it does not
      * advise, and the copy should not let that blur.

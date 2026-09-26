@@ -20,6 +20,7 @@ export const SECTIONS = [
   "On the lock screen, and in the phone's settings",
   'Only when something goes wrong',
   'Heard only with the screen reader',
+  'Not on screen yet: Korean names and directions',
 ] as const;
 
 export type Section = (typeof SECTIONS)[number];
@@ -42,6 +43,7 @@ const REMIND: Section = "A medicine's page: reminders";
 const OUTSIDE: Section = "On the lock screen, and in the phone's settings";
 const WRONG: Section = 'Only when something goes wrong';
 const SPOKEN: Section = 'Heard only with the screen reader';
+const KOREAN: Section = 'Not on screen yet: Korean names and directions';
 
 export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   // --- Reading a label: the result screen ---------------------------------
@@ -595,6 +597,18 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     where: 'Spoken for the minus button in the time picker. Never shown.',
     when: 'When the screen reader reaches that button.',
     notes: '{field} will be the Korean for "Hour" or "Minute" from this batch.',
+  },
+  'guidance.perMfds': {
+    section: KOREAN,
+    where: "A medicine's page: a small line under the medicine's Korean name, which sits under its English name.",
+    when: "Once 식약처's Korean ingredient names are imported, for a medicine identified by its barcode. Not yet.",
+    notes: 'It names where the Korean name came from. The other sources in the app read, e.g., 미국 FDA 허가사항 기준 (per the FDA-approved label).',
+  },
+  'guidance.perReviewedPhrases': {
+    section: KOREAN,
+    where: 'The result screen and a medicine\'s page: a small line under the Korean directions, which sit under the English ones.',
+    when: 'Once she has approved the dosing phrases, for directions made wholly of approved phrases. Not yet.',
+    notes: 'It says the Korean was put together from phrases she reviewed, and that the English is the original.',
   },
   'reminders.later': {
     section: SPOKEN,
