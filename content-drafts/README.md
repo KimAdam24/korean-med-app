@@ -37,6 +37,6 @@ uncertain and the reviewer should expect to rewrite rather than approve.
 
 | File | Covers | Blocks |
 | --- | --- | --- |
-| `sig-phrases.draft.md` | Dosing instruction patterns, English → Korean | §3.2(b) |
+| `sig-phrases.draft.md` | Dosing instruction patterns, English → Korean. Reviewed as a sheet: `npm run copy:pending -- --export-phrases`; signed-off rows go into `src/features/directions/approved-phrases.ts` | §3.2(b) |
 | `dailymed-sections.draft.md` | Which FDA label sections to show, and how much | §3.2(b) |
 | `copy-batch.draft.json` | Korean drafts of the app's own wording awaiting translation (the copy batch), for the reviewer to correct rather than write; the safety warnings left blank for her. Exported beside the English by `npm run copy:pending -- --export` | Each string's move from `untranslated()` into `src/i18n/strings.ts` |

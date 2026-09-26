@@ -54,3 +54,4 @@ example
 
 # translation batches exported for review (npm run copy:pending -- --export)
 copy-batch-*.csv
+sig-phrases-*.csv

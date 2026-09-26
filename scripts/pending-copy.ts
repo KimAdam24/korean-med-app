@@ -10,6 +10,11 @@
  * wording and whether it changed the draft:
  *
  *     npm run copy:pending -- --export [file.csv]
+ *
+ * Or the dosing phrases (`content-drafts/sig-phrases.draft.md`) as a sheet in
+ * the same shape, the limits that could read as schedules first:
+ *
+ *     npm run copy:pending -- --export-phrases [file.csv]
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -18,11 +23,19 @@ import { pendingCopy, pendingCopyTable } from '../src/i18n/pending.ts';
 import { Strings } from '../src/i18n/strings.ts';
 import { SECTIONS } from './copy-context.ts';
 import { exportCsv, exportRows, missingContext, missingDrafts, type CopyDrafts } from './copy-export.ts';
+import { parseSigDraft, phrasesCsv } from './sig-phrases-export.ts';
 
 const args = process.argv.slice(2);
 const at = args.indexOf('--export');
+const phrasesAt = args.indexOf('--export-phrases');
+const today = new Date().toISOString().slice(0, 10);
 
-if (at === -1) {
+if (phrasesAt !== -1) {
+  const rows = parseSigDraft(readFileSync(new URL('../content-drafts/sig-phrases.draft.md', import.meta.url), 'utf8'));
+  const file = resolve(args[phrasesAt + 1] ?? `sig-phrases-${today}.csv`);
+  writeFileSync(file, phrasesCsv(rows), 'utf8');
+  console.log(`${rows.length} phrase row(s) written to ${file}`);
+} else if (at === -1) {
   console.log(pendingCopyTable(Strings));
 } else {
   const pending = pendingCopy(Strings);
@@ -39,7 +52,7 @@ if (at === -1) {
     process.exit(1);
   }
   const rows = exportRows(pending);
-  const file = resolve(args[at + 1] ?? `copy-batch-${new Date().toISOString().slice(0, 10)}.csv`);
+  const file = resolve(args[at + 1] ?? `copy-batch-${today}.csv`);
   writeFileSync(file, exportCsv(rows, drafts), 'utf8');
   const blank = rows.filter((row) => !drafts.strings[row.copy.key]?.ko).length;
   console.log(`${rows.length} string(s) written to ${file}; ${rows.length - blank} drafted, ${blank} left for her to write`);

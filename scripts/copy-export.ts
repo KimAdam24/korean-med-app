@@ -66,11 +66,18 @@ export function exportRows(pending: readonly PendingCopy[]): ExportRow[] {
     );
 }
 
-const cell = (text: string) => (/[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
+/** One CSV cell: quoted when it holds a quote, a comma or a line break. */
+export const cell = (text: string) => (/[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
+
+/**
+ * The "Changed?" formula for one row: blank until her final is filled in,
+ * then whether it kept the draft, changed it, or was written with no draft.
+ */
+export const changedFormula = (row: number, draft: string, final: string) =>
+  `=IF(${final}${row}="","",IF(${draft}${row}="","written by her",IF(EXACT(${final}${row},${draft}${row}),"same as draft","CHANGED")))`;
 
 /** Column letters, for the formula: draft G, final I. */
-const changed = (row: number) =>
-  `=IF(I${row}="","",IF(G${row}="","written by her",IF(EXACT(I${row},G${row}),"same as draft","CHANGED")))`;
+const changed = (row: number) => changedFormula(row, 'G', 'I');
 
 export function exportCsv(rows: readonly ExportRow[], drafts: CopyDrafts): string {
   const lines = [
