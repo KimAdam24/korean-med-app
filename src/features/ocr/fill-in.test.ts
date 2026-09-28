@@ -6,7 +6,18 @@ import test from 'node:test';
 
 import { VITAMIN_D2_VIAL_LINES } from './eval/corpus.ts';
 import { assessField } from './field-integrity.ts';
-import { answerProblems, applyFillIns, expectsNumber, findGaps, gapKey, mustKeep, type Gap } from './fill-in.ts';
+import {
+  answerProblems,
+  applyFillIns,
+  assemble,
+  expectsNumber,
+  fieldLines,
+  findGaps,
+  gapKey,
+  mustKeep,
+  repetition,
+  type Gap,
+} from './fill-in.ts';
 import { interpretLines } from './interpret-lines.ts';
 
 const reading = (lines = VITAMIN_D2_VIAL_LINES) => {
@@ -134,4 +145,47 @@ test('a box left as read, or emptied, is not refused here: it changes nothing', 
   const gap = word('eve', 'end');
   assert.deepEqual(refused(gap, 'eve'), []);
   assert.deepEqual(refused(gap, '   '), []);
+});
+
+test('the whole field is shown, its last line too: "days" is on a line with no gap', () => {
+  const result = reading();
+  assert.deepEqual(
+    fieldLines(result.lines!, result.fields, 'instructions').map((index) => result.lines![index].text),
+    ['Take 1 capsule (b', 'units) by mouth eve', 'days']
+  );
+});
+
+test('"It will read" is the field with the answers in place, and marks what was typed', () => {
+  const result = reading();
+  const gaps = findGaps(result.lines!, result.fields, 'instructions');
+  const typed = new Map([[gapKey(gaps[0]), '(50,000'], [gapKey(gaps[1]), 'every 7']]);
+  const pieces = assemble(result.lines!, gaps, typed, fieldLines(result.lines!, result.fields, 'instructions'));
+  assert.equal(pieces.map((piece) => piece.text).join(' '), 'Take 1 capsule (50,000 units) by mouth every 7 days');
+  assert.deepEqual(pieces.filter((piece) => piece.changed).map((piece) => piece.text), ['(50,000', 'every', '7']);
+});
+
+test('the dry run: "(50,000 units)" typed before "units)" is a repetition, named', () => {
+  const result = reading();
+  const gaps = findGaps(result.lines!, result.fields, 'instructions');
+  const lines = fieldLines(result.lines!, result.fields, 'instructions');
+  const found = repetition(assemble(result.lines!, gaps, new Map([[gapKey(gaps[0]), '(50,000 units)']]), lines));
+  assert.equal(found?.gap, gaps[0]);
+  assert.deepEqual(found?.words, ['units)']);
+  assert.equal(found?.where, 'after');
+  // And "every 7 days" where "days" comes next.
+  const again = repetition(assemble(result.lines!, gaps, new Map([[gapKey(gaps[1]), 'every 7 days']]), lines));
+  assert.deepEqual(again?.words, ['days']);
+});
+
+test('a repetition before the box counts, and the right answers are not repetitions', () => {
+  const result = reading();
+  const gaps = findGaps(result.lines!, result.fields, 'instructions');
+  const lines = fieldLines(result.lines!, result.fields, 'instructions');
+  const before = repetition(assemble(result.lines!, gaps, new Map([[gapKey(gaps[0]), 'capsule (50,000']]), lines));
+  assert.deepEqual(before?.words, ['capsule']);
+  assert.equal(before?.where, 'before');
+  const right = new Map([[gapKey(gaps[0]), '(50,000'], [gapKey(gaps[1]), 'every 7']]);
+  assert.equal(repetition(assemble(result.lines!, gaps, right, lines)), null);
+  // Nothing typed, nothing repeated.
+  assert.equal(repetition(assemble(result.lines!, gaps, new Map(), lines)), null);
 });

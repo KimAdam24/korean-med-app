@@ -365,6 +365,43 @@ describe('filling in what could not be read', () => {
     expect(screen.getByDisplayValue('(50,000')).toBeTruthy();
   });
 
+  it('shows the whole directions as one passage, its last line too, and what they will read as typed', async () => {
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+    await screen.findByText(Strings.result.damaged.instructions.title.ko);
+    press(Strings.fillIn.start.ko);
+    await screen.findByText(Strings.fillIn.title.ko);
+
+    // "days" is on a line with no box; it used to be left out. Once in the
+    // passage, once in "It will read".
+    expect(screen.getAllByText('days')).toHaveLength(2);
+    expect(screen.getByText(Strings.fillIn.preview.ko)).toBeTruthy();
+    expect(screen.getByText('Take 1 capsule (b units) by mouth eve days')).toBeTruthy();
+
+    fireEvent.changeText(screen.getByDisplayValue('(b'), '(50,000');
+    fireEvent.changeText(screen.getByDisplayValue('eve'), 'every 7');
+    expect(screen.getByText(TRUTH)).toBeTruthy();
+  });
+
+  it('the dry run: "(50,000 units)" typed before "units)" shows twice as they type, and is refused, named', async () => {
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+    await screen.findByText(Strings.result.damaged.instructions.title.ko);
+    press(Strings.fillIn.start.ko);
+    await screen.findByText(Strings.fillIn.title.ko);
+
+    fireEvent.changeText(screen.getByDisplayValue('(b'), '(50,000 units)');
+    fireEvent.changeText(screen.getByDisplayValue('eve'), 'every 7');
+    // Visible before Check.
+    expect(screen.getByText('Take 1 capsule (50,000 units) units) by mouth every 7 days')).toBeTruthy();
+
+    press(Strings.fillIn.check.ko);
+    expect(screen.getByText(fillTemplate(Strings.fillIn.repeatedAfter, { words: 'units)' }).ko)).toBeTruthy();
+    expect(screen.queryByText(Strings.fillIn.confirmTitle.ko)).toBeNull();
+
+    fireEvent.changeText(screen.getByDisplayValue('(50,000 units)'), '(50,000');
+    press(Strings.fillIn.check.ko);
+    await screen.findByText(Strings.fillIn.confirmTitle.ko);
+  });
+
   it('refuses "7" typed over the cut "eve", says to keep what the camera saw, and takes "every 7"', async () => {
     await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
     await screen.findByText(Strings.result.damaged.instructions.title.ko);

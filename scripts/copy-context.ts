@@ -148,6 +148,21 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     when: 'After pressing Check, if an answer leaves out the start of a word that the camera did see, e.g. "7" typed where the box held "eve" (of "every 7").',
     notes: 'It tells the reader to keep the letters already in the box and add the rest. {read} is shown exactly as the camera read it.',
   },
+  'fillIn.preview': {
+    section: FILL,
+    where: 'The fill-in screen: a small heading in a grey box under the boxes, above the directions as they will read.',
+    when: 'Always, on that screen; the text under it changes as the reader types.',
+  },
+  'fillIn.repeatedAfter': {
+    section: FILL,
+    where: 'The fill-in screen: an amber warning above the Check button.',
+    when: 'After pressing Check, if an answer repeats words that already follow its box, e.g. "(50,000 units)" typed where "units)" comes next.',
+  },
+  'fillIn.repeatedBefore': {
+    section: FILL,
+    where: 'The fill-in screen: an amber warning above the Check button.',
+    when: 'After pressing Check, if an answer repeats words that already come just before its box.',
+  },
   'fillIn.keepEnd': {
     section: FILL,
     where: 'The fill-in screen: an amber warning above the Check button.',

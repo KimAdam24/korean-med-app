@@ -87,6 +87,88 @@ export function findGaps(
   return gaps;
 }
 
+/** The lines that make up one field, in reading order: what the fill-in screen shows of it. */
+export function fieldLines(
+  lines: readonly RecognizedTextLine[],
+  fields: MedicationLabelFields,
+  kind: FieldKind
+): number[] {
+  return lines.flatMap((_, index) => (fieldsOf([index], lines, fields).includes(kind) ? [index] : []));
+}
+
+/** One word of a field as it will read: the label's, or the user's (`gap`, `changed`). */
+export type Piece = { readonly text: string; readonly gap?: Gap; readonly changed: boolean };
+
+/**
+ * The words of the given lines, in order, with each answer in its gap, as
+ * `applyFillIns` would put them: what "It will read" shows, and what the
+ * repetition check reads.
+ */
+export function assemble(
+  lines: readonly RecognizedTextLine[],
+  gaps: readonly Gap[],
+  typed: ReadonlyMap<string, string>,
+  lineIndexes: readonly number[]
+): Piece[] {
+  const pieces: Piece[] = [];
+  const words = (text: string, gap: Gap, changed: boolean) =>
+    tokensOf(text).map((word) => ({ text: word, gap, changed }));
+  for (const index of lineIndexes) {
+    const own = gaps.filter((gap) => gap.line === index);
+    tokensOf(lines[index].text).forEach((token, position) => {
+      const word = own.find((gap) => gap.kind === 'word' && gap.token === position);
+      if (word) {
+        const answer = (typed.get(gapKey(word)) ?? '').trim();
+        const text = answer.length > 0 ? answer : token;
+        pieces.push(...words(text, word, text !== token));
+      } else {
+        pieces.push({ text: token, changed: false });
+      }
+      const insert = own.find((gap) => gap.kind === 'insert' && gap.after === position);
+      const inserted = insert ? (typed.get(gapKey(insert)) ?? '').trim() : '';
+      if (insert && inserted.length > 0) pieces.push(...words(inserted, insert, true));
+    });
+  }
+  return pieces;
+}
+
+/**
+ * An answer that repeats the label's own words beside its box: `(50,000
+ * units)` typed where the box is followed by `units)`, or `every 7 days` where
+ * `days` comes next. Someone reading the bottle sees the phrase whole and
+ * types it whole; the words already there are then there twice. Returns the
+ * first such repetition, and the repeated words.
+ */
+export function repetition(
+  pieces: readonly Piece[]
+): { gap: Gap; words: string[]; where: 'after' | 'before' } | null {
+  const same = (a: string, b: string) =>
+    a.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '').toLowerCase() === b.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '').toLowerCase();
+  for (let start = 0; start < pieces.length; start += 1) {
+    const gap = pieces[start].gap;
+    if (!gap || !pieces[start].changed || (start > 0 && pieces[start - 1].gap === gap)) continue;
+    let end = start;
+    while (end < pieces.length && pieces[end].gap === gap) end += 1;
+    const length = end - start;
+    // The answer's last words, against the label's words right after the box.
+    for (let count = length; count >= 1; count -= 1) {
+      const after = pieces.slice(end, end + count);
+      if (after.length === count && after.every((piece, i) => !piece.gap && same(piece.text, pieces[end - count + i].text))) {
+        return { gap, words: after.map((piece) => piece.text), where: 'after' };
+      }
+    }
+    // Its first words, against the label's words right before it.
+    for (let count = length; count >= 1; count -= 1) {
+      if (start - count < 0) continue;
+      const before = pieces.slice(start - count, start);
+      if (before.every((piece, i) => !piece.gap && same(piece.text, pieces[start + i].text))) {
+        return { gap, words: before.map((piece) => piece.text), where: 'before' };
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * The lines with the user's words put in. A gap left as it was read, or left
  * empty, changes nothing. Geometry is untouched: the words are where they were

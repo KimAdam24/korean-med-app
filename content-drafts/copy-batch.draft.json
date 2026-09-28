@@ -324,6 +324,15 @@
     "fillIn.keepEnd": {
       "ko": "카메라가 읽은 뒷부분: \"{read}\". 이 글자는 그대로 두고, 앞부분을 약병을 보고 입력해 주세요.",
       "note": "Written without a particle after \"{read}\"."
+    },
+    "fillIn.preview": {
+      "why": "Added after the batch was drafted; not drafted, as asked (no new Korean). For her to write."
+    },
+    "fillIn.repeatedAfter": {
+      "why": "Added after the batch was drafted; not drafted, as asked (no new Korean). For her to write."
+    },
+    "fillIn.repeatedBefore": {
+      "why": "Added after the batch was drafted; not drafted, as asked (no new Korean). For her to write."
     }
   }
 }

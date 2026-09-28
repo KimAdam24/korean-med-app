@@ -628,6 +628,15 @@ export const Strings = {
       'The camera saw how this word starts: "{read}". Keep those letters, and type the rest from the bottle.',
       'After Check, when an answer drops the start of a word cut off at the edge, e.g. 7 typed over eve (of every). {read} is the letters the camera saw.'
     ),
+    preview: untranslated('It will read:', 'Above the directions as they stand while the reader types, her words marked.'),
+    repeatedAfter: untranslated(
+      '"{words}" is already there, right after the box. Type only what is missing.',
+      'After Check, when an answer repeats the words that follow its box, e.g. "(50,000 units)" typed where "units)" already follows. {words} is those words.'
+    ),
+    repeatedBefore: untranslated(
+      '"{words}" is already there, just before the box. Type only what is missing.',
+      'The same, for words typed again that already come just before the box.'
+    ),
     keepEnd: untranslated(
       'The camera saw how this word ends: "{read}". Keep those letters, and type the start from the bottle.',
       'The same, for a word cut off at the start of a line. {read} is the letters the camera saw, e.g. ke (of Take).'
