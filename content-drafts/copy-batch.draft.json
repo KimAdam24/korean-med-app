@@ -35,6 +35,22 @@
     "problem.cameraStillUnavailable": {
       "ko": "이번에도 카메라를 켜지 못했어요. 이 화면을 닫고, 나중에 다시 시도하시거나 휴대폰을 껐다가 다시 켜 주세요.",
       "note": "\"껐다가 다시 켜 주세요\" as in her correction to the lock screen message. In the style of her corrections to the first batch."
+    },
+    "privacy.home": {
+      "ko": "사진은 저장하지도, 다른 곳으로 보내지도 않아요. 글씨만 읽어서 쓰고 사진은 남기지 않아요.",
+      "note": "From content-drafts/privacy-copy.draft.md, section 1."
+    },
+    "privacy.pickedPhoto": {
+      "ko": "고르신 사진은 그대로 둬요. 글씨만 읽고, 사진은 지우지 않아요.",
+      "note": "From content-drafts/privacy-copy.draft.md, section 2."
+    },
+    "privacy.cameraPermission": {
+      "ko": "약병의 글씨를 읽기 위해 카메라를 사용합니다. 사진은 저장하거나 보내지 않습니다.",
+      "note": "From content-drafts/privacy-copy.draft.md, section 3."
+    },
+    "privacy.choosePhoto": {
+      "ko": "휴대폰에 있는 사진 고르기",
+      "note": "\"휴대폰에 있는\" rather than 갤러리, which is only what some phones call their photos app."
     }
   }
 }

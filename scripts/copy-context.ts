@@ -12,6 +12,7 @@
  * beside, given so the two can match. It is not a suggested translation.
  */
 export const SECTIONS = [
+  'The privacy promise, and the gallery picker',
   'Reading a label: the result screen',
   'Filling in the missing part',
   'Reading the label while turning the bottle',
@@ -35,6 +36,7 @@ export type CopyContext = {
   readonly notes?: string;
 };
 
+const PRIVACY: Section = 'The privacy promise, and the gallery picker';
 const RESULT: Section = 'Reading a label: the result screen';
 const FILL: Section = 'Filling in the missing part';
 const SWEEP: Section = 'Reading the label while turning the bottle';
@@ -46,6 +48,35 @@ const SPOKEN: Section = 'Heard only with the screen reader';
 const KOREAN: Section = 'Not on screen yet: Korean names and directions';
 
 export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
+  // --- The privacy promise, and the gallery picker ------------------------
+  'privacy.home': {
+    section: PRIVACY,
+    where: 'The home screen: the small line with a lock beside it, at the bottom.',
+    when: 'Always. It replaces the current line once signed off.',
+    notes:
+      'The current line promises photos are deleted after reading: true of the camera, untrue of a photo she already has, which the app must never delete. The promise underneath is the same for both: the photo is never kept and never sent; only the words are used. "Nor sent" is new and deliberate. Two sentences, or one?',
+  },
+  'privacy.pickedPhoto': {
+    section: PRIVACY,
+    where: 'The result screen, at the bottom, under a reading of a photo chosen from her gallery.',
+    when: 'After reading a photo she chose, in place of 사진은 지웠어요 (The photo has been deleted).',
+    notes:
+      'The "not deleted" is the point: someone told the app deletes photos may fear it will delete hers. Does the wording clearly mean "left untouched", and not "left lying around"?',
+  },
+  'privacy.cameraPermission': {
+    section: PRIVACY,
+    where: "On an iPhone: the phone's own question asking to let the app use the camera. Not on Android.",
+    when: 'The first time the app asks for the camera, on an iPhone.',
+    notes:
+      "Written in 합니다체, not the app's 해요체, because it sits among the phone's own formal wording. Is that right, or should it match the app? The current wording is 약병의 글씨를 읽기 위해 카메라를 사용합니다. 사진은 저장하지 않습니다.; only the second sentence changes.",
+  },
+  'privacy.choosePhoto': {
+    section: PRIVACY,
+    where: 'The home screen: a button, below 약 사진 찍기 (Take a photo of your medicine).',
+    when: 'Always, once the gallery picker is in the app.',
+    notes: 'Opens her photos, to read a label from a photo she already took. Her photos are never changed or deleted.',
+  },
+
   // --- Reading a label: the result screen ---------------------------------
   'result.curved.title': {
     section: RESULT,

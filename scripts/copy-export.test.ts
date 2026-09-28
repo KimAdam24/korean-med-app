@@ -67,7 +67,9 @@ test('the export is every pending string once, grouped by section in order', () 
 });
 
 test('the CSV survives quotes, commas and Korean, opens in Excel, and says what she changed', () => {
-  const context = { section: SECTIONS[0], where: 'Here', when: 'Now', notes: '다시 찍기 is beside it' };
+  // A section name without a comma, so the expected rows need no quoting of it.
+  const section = SECTIONS.find((name) => !name.includes(','))!;
+  const context = { section: section, where: 'Here', when: 'Now', notes: '다시 찍기 is beside it' };
   const csv = exportCsv(
     [
       { copy: { key: 'x.y', en: 'Open "Alarms & reminders", then return', note: 'A note' }, context },
@@ -85,9 +87,9 @@ test('the CSV survives quotes, commas and Korean, opens in Excel, and says what 
   assert.equal(header, HEADER.join(','));
   assert.equal(
     drafted,
-    `1,${SECTIONS[0]},Here,Now,"Open ""Alarms & reminders"", then return",A note 다시 찍기 is beside it About the draft: Match the phone.,'알람 및 리마인더' 열기,,,` +
+    `1,${section},Here,Now,"Open ""Alarms & reminders"", then return",A note 다시 찍기 is beside it About the draft: Match the phone.,'알람 및 리마인더' 열기,,,` +
       `"=IF(I2="""","""",IF(G2="""",""written by her"",IF(EXACT(I2,G2),""same as draft"",""CHANGED"")))",x.y`
   );
   // Left blank, with the reason; the formula points at its own row.
-  assert.ok(blank.startsWith(`2,${SECTIONS[0]},Here,Now,Reminders cannot sound,다시 찍기 is beside it,,A safety warning.,,"=IF(I3=`));
+  assert.ok(blank.startsWith(`2,${section},Here,Now,Reminders cannot sound,다시 찍기 is beside it,,A safety warning.,,"=IF(I3=`));
 });

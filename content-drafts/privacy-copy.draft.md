@@ -1,5 +1,12 @@
 # Privacy copy — DRAFT, UNREVIEWED
 
+**Moved into the copy batch (2026-09-28).** Sections 1-3 are now the
+`privacy.*` strings in `src/i18n/strings.ts`, drafted as below and reviewed in
+the batch's follow-up sheet, with the gallery button's label
+(`privacy.choosePhoto`) added. So one pass reviews them, not a separate one.
+Section 4 is developer documentation in English, updated when the gallery
+ships. This file stays as the reasoning behind them.
+
 **Status:** drafted by the implementation, reviewed by nobody. **Not in the
 app.** The gallery entry point is gated behind `__DEV__` until these are signed
 off, precisely so the old, now-inaccurate line cannot ship beside the new
@@ -108,8 +115,10 @@ true, and narrowing it would make it vaguer for no gain.
 
 ## After sign-off
 
-1. Move strings 1–3 into `src/i18n/strings.ts`.
-2. Update the camera permission string in `app.json`.
+1. Wire the approved `privacy.*` strings: `privacy.home` replaces
+   `home.privacy`; `privacy.pickedPhoto` replaces "the photo has been deleted"
+   under a reading of a chosen photo; `privacy.choosePhoto` labels the button.
+2. Copy `privacy.cameraPermission` into the camera permission in `app.json`.
 3. Update the README privacy section.
 4. Remove the `__DEV__` gate on the gallery entry point in `src/app/index.tsx`
    — that gate exists solely because this copy is unreviewed.

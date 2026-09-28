@@ -78,6 +78,32 @@ export const Strings = {
     start: { ko: '시작하기', en: 'Start' },
   },
 
+  /**
+   * The privacy promise, rewritten so it is true of a photo from the user's
+   * own gallery as well as of the camera's, and the gallery picker's label.
+   * Awaiting review; until then the current home line stays, and the gallery
+   * picker stays out of release (see `app/index.tsx`). After sign-off:
+   * `privacy.home` replaces `home.privacy`; `pickedPhoto` replaces "the photo
+   * has been deleted" under a reading of a chosen photo; `cameraPermission`
+   * is copied into app.json's expo-camera `cameraPermission`, since the
+   * iPhone shows it in its own dialog and nothing here renders it.
+   */
+  privacy: {
+    home: untranslated(
+      'Photos are never saved, and never sent anywhere. Only the writing on them is used; the photo is not kept.',
+      'Replaces the home screen line 사진은 저장하지 않아요. 글씨를 읽은 뒤 바로 지워요., which is untrue of a photo she picks from her own gallery.'
+    ),
+    pickedPhoto: untranslated(
+      'The photo you chose is left as it is. Only the writing is read, and your photo is not deleted.',
+      'Under a reading of a photo chosen from the gallery, instead of 사진은 지웠어요 (The photo has been deleted).'
+    ),
+    cameraPermission: untranslated(
+      'The camera is used to read the writing on your medicine bottle. Photos are not saved or sent.',
+      "The iPhone's own camera question. Not shown on Android, which words its camera question itself."
+    ),
+    choosePhoto: untranslated('Choose a photo from your phone', 'Home screen button that opens her photos.'),
+  },
+
   permission: {
     askTitle: { ko: '카메라를 사용해도 될까요?', en: 'May we use the camera?' },
     askBody: {

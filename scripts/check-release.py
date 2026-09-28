@@ -38,7 +38,9 @@ DEV_ONLY = {
     'capture preview switch': ['EXPO_PUBLIC_DEV_CAPTURE_PREVIEW'],
 }
 # Shipped copy. Each must be present, or the search above proves nothing.
-SHIPPED = ['Take a photo of your medicine', '약 사진 찍기', 'Fill in what the bottle says']
+SHIPPED = ['Take a photo of your medicine', '약 사진 찍기', 'Fill in what the bottle says',
+           # Her reviewed Korean (docs/reviews/copy-batch-2026-09-25-reviewed.csv, #41).
+           '앱 사용 중에만 허용']
 # The app's own native classes, by their original names.
 NATIVE = [
     'expo.modules.labelocr.LabelOcrModule',
