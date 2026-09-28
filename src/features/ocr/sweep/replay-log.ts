@@ -1,6 +1,9 @@
 import { redactForLog } from '../log-redaction.ts';
 import type { RecognizedTextLine } from '../types.ts';
 
+/** React Native's; declared here too, for Node, where this module's test runs without it. */
+declare const __DEV__: boolean | undefined;
+
 /**
  * DEVELOPMENT REPLAY ONLY: every frame a replayed sweep read, logged once,
  * when it ends, so a merge problem found on an emulator can become a test.
@@ -16,9 +19,11 @@ import type { RecognizedTextLine } from '../types.ts';
  * which a single entry for the whole sweep would not survive.
  */
 export function logReplayFrames(name: string, frames: readonly (readonly RecognizedTextLine[])[]): void {
-  // Read off the global rather than as the bare `__DEV__`, so this module also
-  // loads under Node, where its test runs; the caller checks `__DEV__` too.
-  if ((globalThis as { __DEV__?: boolean }).__DEV__ !== true) return;
+  // The bare `__DEV__`, which Metro replaces with `false` in a release bundle,
+  // so this body is compiled out rather than refused at run time; behind
+  // `typeof`, so the module still loads under Node, where its test runs and
+  // there is no `__DEV__` at all. The caller checks `__DEV__` too.
+  if (typeof __DEV__ === 'undefined' || !__DEV__) return;
   console.log(`[sweep-replay] BEGIN ${name} ${frames.length} frame(s)`);
   frames.forEach((lines, index) => {
     console.log(`[sweep-replay] FRAME ${index + 1}/${frames.length} ${JSON.stringify(redactForLog(lines).map(compact))}`);
