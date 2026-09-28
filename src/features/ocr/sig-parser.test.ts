@@ -442,6 +442,37 @@ test('joins an all-caps wrapped tail that geometry places directly below', () =>
   );
 });
 
+test('joins the wrapped lines of a label printed centred', () => {
+  // Each line centred under the one before: no shared left margin. They were
+  // taken for other columns' lines, and the directions withheld whole.
+  const centredLine = (text: string, top: number, width: number) => framed(text, 300 - width / 2, top, width);
+  const label = [
+    centredLine('LISINOPRIL 10 MG TAB', 0, 300),
+    centredLine('TAKE 1 TABLET BY MOUTH EVERY 4 HOURS', 30, 420),
+    centredLine('IF NEEDED FOR PAIN', 54, 230),
+  ];
+  assert.equal(
+    parseLabelFields(label).instructions?.text,
+    'TAKE 1 TABLET BY MOUTH EVERY 4 HOURS IF NEEDED FOR PAIN'
+  );
+});
+
+test('a line centred but wider than the directions line, or beside it, is still not joined', () => {
+  // Wider, and centred on it: not a wrapped tail, which is shorter than what
+  // it continues. Nothing else claims the line, so only its width keeps it out.
+  const wider = [
+    framed('TAKE 1 TABLET BY MOUTH', 200, 30, 200),
+    framed('WITH PLENTY OF WATER AND A LIGHT MEAL', 100, 54, 400),
+  ];
+  assert.equal(parseLabelFields(wider).instructions?.text, 'TAKE 1 TABLET BY MOUTH');
+  // Beside it, in another column, even though its own centre is nearby.
+  const beside = [
+    framed('Take 1 capsule by mouth', 0, 100, 280),
+    framed('IF NEEDED FOR PAIN', 310, 124, 200),
+  ];
+  assert.equal(parseLabelFields(beside).instructions?.text, 'Take 1 capsule by mouth');
+});
+
 test("steps over another column's wrapped warning to the direction's own tail", () => {
   // Two columns sharing rows. The lowercase "antacids or iron" finishes the
   // warning on the left; joined to the direction it would invert it.

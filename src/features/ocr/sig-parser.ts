@@ -525,9 +525,10 @@ export function parseLabelFields(lines: readonly RecognizedTextLine[]): Medicati
  * that could not be classified as anything else. Then:
  *
  *   - **With geometry**, position decides. A continuation sits directly below
- *     the line before it, starting under its left edge (see `sitsBelow`). A
- *     line that does not is another column's: it is stepped over, and the
- *     search goes on a line or two further for the one that does.
+ *     the line before it, starting under its left edge, or, on a label printed
+ *     centred, centred under it and no wider (see `sitsBelow`). A line that
+ *     does neither is another column's: it is stepped over, and the search
+ *     goes on a line or two further for the one that does.
  *   - **Without geometry**, text is all there is. A line that begins lowercase
  *     is joined, since a new field on a label almost never does. An all-caps
  *     line that reads like directions — mostly direction words — is exactly
@@ -608,27 +609,42 @@ function collectDirections(classified: readonly { line: RecognizedTextLine; role
  * for another column's, and dropped. Measured against the previous line, not
  * the first, so a left margin that drifts down a curved label is followed too.
  * Frames stand in only where corners are missing.
+ *
+ * A label printed centred has no shared left margin: each wrapped line is
+ * centred under the one before, and was taken for another column's, so its
+ * directions were withheld whole. So a line whose centre sits under the
+ * previous line's centre counts too, if it is also no wider than that line
+ * (within a text height at each end): a wrapped tail is shorter than the
+ * line it continues, and a neighbouring column's line, beside it rather
+ * than under it, is not within it.
  */
 function sitsBelow(
   previous: RecognizedTextLine,
   candidate: RecognizedTextLine
 ): 'below' | 'elsewhere' | 'unknown' {
-  const above = leftEdge(previous);
-  const below = leftEdge(candidate);
+  const above = edges(previous);
+  const below = edges(candidate);
   if (!above || !below) return 'unknown';
 
   const height = Math.min(above.height, below.height);
-  const aligned = Math.abs(below.top.x - above.bottom.x) <= height;
-  const gap = below.top.y - above.bottom.y;
+  const aligned = Math.abs(below.topLeft.x - above.bottomLeft.x) <= height;
+  const centre = (left: { x: number }, right: { x: number }) => (left.x + right.x) / 2;
+  const centred =
+    Math.abs(centre(below.topLeft, below.topRight) - centre(above.bottomLeft, above.bottomRight)) <= height &&
+    below.topLeft.x >= above.bottomLeft.x - height &&
+    below.topRight.x <= above.bottomRight.x + height;
+  const gap = below.topLeft.y - above.bottomLeft.y;
   const directlyBelow = gap > -height / 2 && gap <= height * 1.2;
 
-  return aligned && directlyBelow ? 'below' : 'elsewhere';
+  return (aligned || centred) && directlyBelow ? 'below' : 'elsewhere';
 }
 
-/** A line's left edge — its top-left and bottom-left points — and text height. */
-function leftEdge(
+type Point = { x: number; y: number };
+
+/** A line's four corners and text height, from its corners or, failing those, its frame. */
+function edges(
   line: RecognizedTextLine
-): { top: { x: number; y: number }; bottom: { x: number; y: number }; height: number } | null {
+): { topLeft: Point; topRight: Point; bottomLeft: Point; bottomRight: Point; height: number } | null {
   const corners = line.corners;
   if (
     corners &&
@@ -640,14 +656,18 @@ function leftEdge(
       (Math.hypot(bottomLeft.x - topLeft.x, bottomLeft.y - topLeft.y) +
         Math.hypot(bottomRight.x - topRight.x, bottomRight.y - topRight.y)) /
       2;
-    if (height > 0) return { top: topLeft, bottom: bottomLeft, height };
+    if (height > 0) return { topLeft, topRight, bottomLeft, bottomRight, height };
   }
 
   const frame = line.frame;
   if (frame && frame.height > 0) {
+    const right = frame.left + frame.width;
+    const bottom = frame.top + frame.height;
     return {
-      top: { x: frame.left, y: frame.top },
-      bottom: { x: frame.left, y: frame.top + frame.height },
+      topLeft: { x: frame.left, y: frame.top },
+      topRight: { x: right, y: frame.top },
+      bottomLeft: { x: frame.left, y: bottom },
+      bottomRight: { x: right, y: bottom },
       height: frame.height,
     };
   }
