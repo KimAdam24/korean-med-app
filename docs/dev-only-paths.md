@@ -15,7 +15,6 @@ the minifier removes the code behind it.
 | --- | --- | --- |
 | Raw OCR panel, bottom of the result screen | Every line read, **unredacted**: the patient's name and address | `app/camera.tsx` `RawLinesPanel`, `ocr/dev-line-list.tsx` `DevLineList` |
 | Captured-frame panel | The photo itself as a preview, and its file path (also needs `EXPO_PUBLIC_DEV_CAPTURE_PREVIEW=1`) | `app/camera.tsx`, `capture/dev-capture-probe.ts` |
-| Gallery entry, "Choose a photo (pending copy review)" | **The real, finished gallery picker**, not tooling: held back from release until the `privacy.*` strings (in the copy batch's follow-up sheet; reasoning in `content-drafts/privacy-copy.draft.md`) are signed off: the current privacy line is untrue of the user's own photos, and the button's label is among them | `app/index.tsx` |
 | File probe, bottom of the home screen | Reads a picked file and shows its lines unredacted; "Seed a sample medicine" and "Add this to my medicines" write to the list | `ocr/dev-file-probe.tsx` |
 | Reading log | Each reading's lines to Metro and the device log, **redacted**: anything not evidently label text in shape only (`log-redaction`) | `ocr/dev-line-list.tsx` `logRecognizedLines` |
 | Sweep replay button and picker | Starting a replay from files | `app/camera.tsx` |
@@ -33,7 +32,7 @@ a synthetic label, or do not scroll to the bottom of the result screen.
 | --- | --- | --- |
 | Sweep replay, native (`SweepReplay.kt`, the `replay` prop, `replays()`) | Reads frames from the app's `sweep-replay` folder | Refuses unless the app is debuggable, and the release manifest is not (checked); JavaScript never passes a replay in release |
 | Replay log lines, native (`LabelSweep` tag) | A replay's file name and frame counts, no text | Only on the replay path, which never runs in release |
-| Imported-photo reading (`/camera?imageUri=`) | Reads the named photo, then deletes it | Reachable only by a deep link in release (the gallery entry is compiled out); reads and deletes only a file directly inside the picker's cache folder (`isPickedCopy`, since `d2821c3`: it used to accept `…/ImagePicker/../../<any file>`), and that folder is emptied at every launch |
+| Imported-photo reading (`/camera?imageUri=`) | Reads the named photo, then deletes it | The gallery's own path (in release since 2026-09-28), and reachable by a deep link too; reads and deletes only a file directly inside the picker's cache folder (`isPickedCopy`, since `d2821c3`: it used to accept `…/ImagePicker/../../<any file>`), and that folder is emptied at every launch |
 | `DoseAlarms` error log | The name of the system event after which reminders could not be re-armed, and the exception | No medication data |
 | Development launcher and menu (`expo-dev-client`) | — | Release builds use their `disableInRelease` stubs |
 | `src/features/ocr/eval/report.ts` | Prints the evaluation report | A command-line script; nothing in the app imports it |

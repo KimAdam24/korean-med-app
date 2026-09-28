@@ -76,6 +76,20 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     when: 'Always, once the gallery picker is in the app.',
     notes: 'Opens her photos, to read a label from a photo she already took. Her photos are never changed or deleted.',
   },
+  'privacy.onboardingPhotos': {
+    section: PRIVACY,
+    where: 'Introduction, screen 2 (약 목록은 이 휴대폰에만 있어요): the third statement, beside a camera icon.',
+    when: 'The first time the app is opened. It replaces 사진은 글씨를 읽는 데만 쓰고, 읽은 뒤 바로 지워요.',
+    notes:
+      'The current line says every photo is deleted after reading, which is untrue of a photo the user picks from their own phone: that one is left alone. Should agree with the gallery line (고르신 사진은 그대로 둬요) and with 사진은 지웠어요 after a camera photo.',
+  },
+  'privacy.lookup': {
+    section: PRIVACY,
+    where: 'Introduction, screen 2: the fourth statement, beside a barcode icon.',
+    when: 'The first time the app is opened. It replaces 바코드로 약을 찾을 때는 바코드 번호만 보내요. 약 목록이나 사진은 보내지 않아요.',
+    notes:
+      'What leaves the phone. It used to be only a barcode number; now a medicine read from a photo is looked up by its name, and its FDA label fetched, from the U.S. National Library of Medicine. Still never her list or her photos.',
+  },
 
   // --- Reading a label: the result screen ---------------------------------
   'result.curved.title': {

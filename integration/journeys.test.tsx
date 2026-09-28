@@ -64,6 +64,10 @@ describe('reading a chosen photo', () => {
 
     expect(ocr.state.calls).toEqual([PICKED]);
     expect(disk.files.has(PICKED)).toBe(false);
+    // Only the picker's copy was deleted; her own photo is untouched, and the
+    // screen says so rather than "the photo has been deleted".
+    expect(screen.getByText(Strings.privacy.pickedPhoto.ko)).toBeTruthy();
+    expect(screen.queryByText(Strings.camera.discarded.ko)).toBeNull();
   });
 
   it('saves what was read, leaving out the damaged directions, marked for checking', async () => {
@@ -401,5 +405,14 @@ describe('home', () => {
   it('opens on the capture action', async () => {
     launchApp();
     await home();
+  });
+
+  it('offers the gallery in a release build, beside a privacy line true of it', async () => {
+    launchApp();
+    await home();
+    expect(screen.getByRole('button', { name: Strings.privacy.choosePhoto.ko })).toBeTruthy();
+    expect(screen.getByText(Strings.privacy.home.ko)).toBeTruthy();
+    // Not the old line, which said every photo is deleted after reading.
+    expect(screen.queryByText(Strings.home.privacy.ko)).toBeNull();
   });
 });

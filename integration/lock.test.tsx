@@ -150,7 +150,7 @@ describe('leaving the app', () => {
   });
 
   describe('with the photo picker open', () => {
-    const CHOOSE_PHOTO = '사진 고르기 (검토 대기)';
+    const CHOOSE_PHOTO = Strings.privacy.choosePhoto.ko;
     let restorePlatform: (() => void) | null = null;
 
     function onPlatform(os: 'ios' | 'android'): void {

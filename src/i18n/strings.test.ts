@@ -44,3 +44,15 @@ test('the batch lists placeholders with their notes, and nothing else', () => {
   assert.match(markdown, /^2 string\(s\) awaiting Korean\./);
   assert.match(markdown, /\| `group\.waiting` \| Not now \| Button; keep it short\. \| \|/);
 });
+
+test("the iPhone's camera question in app.json is the privacy string, as it stands", async () => {
+  // Set in app.json, which cannot import it: this keeps the two the same, in
+  // English while the string is pending, and in Korean once it is signed off.
+  const { readFileSync } = await import('node:fs');
+  const app = JSON.parse(readFileSync(new URL('../../app.json', import.meta.url), 'utf8')) as {
+    expo: { plugins: (string | [string, Record<string, unknown>])[] };
+  };
+  const camera = app.expo.plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-camera');
+  assert.ok(Array.isArray(camera), 'expo-camera is configured in app.json');
+  assert.equal(camera[1].cameraPermission, Strings.privacy.cameraPermission.ko);
+});

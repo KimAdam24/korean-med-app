@@ -27,7 +27,6 @@ import zipfile
 DEV_ONLY = {
     'raw OCR panel on the result screen': ['Raw OCR:', '읽은 원문'],
     'captured-frame panel': ['Captured frame (dev only)', '찍힌 사진 (개발용)'],
-    'gallery entry on the home screen': ['Choose a photo (pending copy review)', '사진 고르기 (검토 대기)'],
     'file probe on the home screen, and its seed and add buttons': [
         'Read a label from a file (dev only)', 'Seed a sample medicine (dev only)',
         'Add this to my medicines (dev only)', '가짜 약 하나 넣기 (개발용)',
@@ -42,6 +41,8 @@ DEV_ONLY = {
 }
 # Shipped copy. Each must be present, or the search above proves nothing.
 SHIPPED = ['Take a photo of your medicine', '약 사진 찍기', 'Fill in what the bottle says',
+           # The gallery, in release since 2026-09-28 (its label in English until reviewed).
+           'Choose a photo from your phone',
            # Her reviewed Korean (docs/reviews/copy-batch-2026-09-25-reviewed.csv, #41).
            '앱 사용 중에만 허용']
 # The app's own native classes, by their original names.

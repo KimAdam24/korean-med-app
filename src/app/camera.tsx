@@ -107,6 +107,12 @@ type Phase =
       stalled?: boolean;
       /** The user typed part of it in from the bottle. */
       filled?: boolean;
+      /**
+       * Read from a photo the user chose: their own photo is left as it is,
+       * and only the picker's copy of it was deleted, so "the photo has been
+       * deleted" would be untrue of it.
+       */
+      picked?: boolean;
     }
   /**
    * `photoDiscarded` is carried explicitly rather than assumed: every failure
@@ -122,6 +128,8 @@ type Phase =
       retry?: () => void;
       /** Nothing to try again: Close is the only way on. */
       stuck?: boolean;
+      /** From a photo the user chose (see the result's `picked`). */
+      picked?: boolean;
     };
 
 /**
@@ -145,7 +153,7 @@ type Recognised = Extract<LabelRecognitionResult, { status: 'recognized' }>;
 
 const resultPhase = (
   result: Recognised,
-  how: { swept?: boolean; stalled?: boolean; filled?: boolean } = {}
+  how: { swept?: boolean; stalled?: boolean; filled?: boolean; picked?: boolean } = {}
 ): Extract<Phase, { kind: 'result' }> => ({
   kind: 'result',
   fields: result.fields,
@@ -278,10 +286,10 @@ export default function CameraScreen() {
         const result = interpretLines(lines);
         next =
           result.status === 'recognized'
-            ? resultPhase(result)
-            : { kind: 'problem', message: Strings.problem.unreadable, photoDiscarded: true };
+            ? resultPhase(result, { picked: true })
+            : { kind: 'problem', message: Strings.problem.unreadable, photoDiscarded: true, picked: true };
       } catch {
-        next = { kind: 'problem', message: Strings.problem.captureFailed, photoDiscarded: true };
+        next = { kind: 'problem', message: Strings.problem.captureFailed, photoDiscarded: true, picked: true };
       }
 
       try {
@@ -537,7 +545,9 @@ export default function CameraScreen() {
   /** The same reading with the user's words in it, already judged whole and confirmed. */
   const filledIn = useCallback((reading: Recognised) => {
     setPhase((current) =>
-      current.kind === 'result' ? resultPhase(reading, { swept: current.swept, filled: true }) : current
+      current.kind === 'result'
+        ? resultPhase(reading, { swept: current.swept, picked: current.picked, filled: true })
+        : current
     );
   }, []);
   const close = useCallback(() => goBackOr(router, '/'), [router]);
@@ -667,6 +677,7 @@ export default function CameraScreen() {
         quality={phase.quality}
         truncation={phase.truncation}
         swept={phase.swept}
+        picked={phase.picked}
         stalled={phase.stalled}
         filled={phase.filled}
         devProbe={devProbe}
@@ -691,7 +702,7 @@ export default function CameraScreen() {
           <BilingualText text={phase.message} variant="heading" autoFocus />
         )}
         <CapturedFramePanel probe={devProbe} />
-        {phase.photoDiscarded && <DiscardNotice />}
+        {phase.photoDiscarded && (phase.picked ? <PickedPhotoNotice /> : <DiscardNotice />)}
         {phase.stuck ? null : (
           <BigButton
             label={phase.retry ? Strings.scan.retry : Strings.camera.retake}
@@ -826,6 +837,7 @@ function ReadingResult({
   quality,
   truncation,
   swept = false,
+  picked = false,
   stalled = false,
   filled = false,
   devProbe,
@@ -840,6 +852,7 @@ function ReadingResult({
   quality?: ReadQuality;
   truncation?: EdgeTruncation | null;
   swept?: boolean;
+  picked?: boolean;
   stalled?: boolean;
   filled?: boolean;
   devProbe: CaptureProbe | null;
@@ -966,7 +979,7 @@ function ReadingResult({
   );
 
   // A sweep took no photograph, so there is none to say was deleted.
-  const discardNotice = swept ? <SweepNotice /> : <DiscardNotice />;
+  const discardNotice = swept ? <SweepNotice /> : picked ? <PickedPhotoNotice /> : <DiscardNotice />;
   const filledNotice = filled ? (
     <Notice tone="info" title={Strings.fillIn.filledNote} />
   ) : stalled ? (
@@ -1244,6 +1257,15 @@ function DiscardNotice() {
   return (
     <View style={styles.notice}>
       <BilingualText text={Strings.camera.discarded} variant="label" />
+    </View>
+  );
+}
+
+/** Under a reading of a photo the user chose: theirs is untouched. */
+function PickedPhotoNotice() {
+  return (
+    <View style={styles.notice}>
+      <BilingualText text={Strings.privacy.pickedPhoto} variant="label" />
     </View>
   );
 }

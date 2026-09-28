@@ -41,7 +41,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "약병의 글씨를 읽기 위해 카메라를 사용합니다. 사진은 저장하지 않습니다.",
+          "cameraPermission": "The camera is used to read the writing on your medicine bottle. Photos are not saved or sent.",
           "microphonePermission": false,
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true

@@ -51,6 +51,14 @@
     "privacy.choosePhoto": {
       "ko": "휴대폰에 있는 사진 고르기",
       "note": "\"휴대폰에 있는\" rather than 갤러리, which is only what some phones call their photos app."
+    },
+    "privacy.onboardingPhotos": {
+      "ko": "사진은 글씨를 읽는 데만 써요. 앱에서 찍은 사진은 읽은 뒤 바로 지우고, 휴대폰에서 고르신 사진은 그대로 둬요.",
+      "note": "Keeps her 사진은 글씨를 읽는 데만 쓰고 and the gallery draft's 그대로 둬요."
+    },
+    "privacy.lookup": {
+      "ko": "약을 찾을 때는 바코드 번호나 약병에서 읽은 약 이름만 미국 국립의학도서관에 보내요. 약 목록이나 사진은 보내지 않아요.",
+      "note": "Built on her 바코드로 약을 찾을 때는 바코드 번호만 보내요. 약 목록이나 사진은 보내지 않아요."
     }
   }
 }

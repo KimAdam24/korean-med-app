@@ -1,5 +1,11 @@
 # Privacy copy — DRAFT, UNREVIEWED
 
+**In the app in English (2026-09-28), until signed off.** The gallery ships in
+release, so these strings are wired now with their English standing in, the
+same rule as every other pending string; two more joined them for the
+introduction (`privacy.onboardingPhotos`, `privacy.lookup`). Signing off is now
+only replacing each `untranslated()` call with her Korean.
+
 **Moved into the copy batch (2026-09-28).** Sections 1-3 are now the
 `privacy.*` strings in `src/i18n/strings.ts`, drafted as below and reviewed in
 the batch's follow-up sheet, with the gallery button's label

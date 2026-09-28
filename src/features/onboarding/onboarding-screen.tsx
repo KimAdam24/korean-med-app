@@ -88,9 +88,9 @@ function Storage({ onNext, onBack }: { onNext: () => void; onBack?: () => void }
         <CardDivider />
         <Fact icon="phone" text={Strings.onboarding.storageNoBackup} />
         <CardDivider />
-        <Fact icon="camera" text={Strings.onboarding.storagePhotos} />
+        <Fact icon="camera" text={Strings.privacy.onboardingPhotos} />
         <CardDivider />
-        <Fact icon="barcode" text={Strings.onboarding.storageLookup} />
+        <Fact icon="barcode" text={Strings.privacy.lookup} />
       </Card>
       <BigButton label={Strings.onboarding.next} onPress={onNext} />
       {onBack && <BigButton label={Strings.onboarding.back} tone="secondary" onPress={onBack} />}

@@ -83,29 +83,13 @@ export default function HomeScreen() {
         <CardDivider inset />
 
         {/*
-          The gallery path, gated until the privacy copy is reviewed.
-
-          The feature itself is finished. What is not finished is the copy:
-          the home screen still promises that photos are deleted after
-          reading, which is true of the camera and false of a photo the user
-          already owns. Shipping this beside that sentence would make the app
-          state something untrue about the user's own files, so the gate stays
-          until `content-drafts/privacy-copy.draft.md` is signed off — at which
-          point removing it is the last step of that review.
+          The gallery: how a caregiver adds bottles. Its label and the privacy
+          line below are English until reviewed (`privacy.*`): the old Korean
+          line promised that photos are deleted after reading, which is untrue
+          of a photo the user already owns, and it could not ship beside this.
         */}
-        {__DEV__ ? (
-          <>
-            <ListRow
-              icon="photo"
-              title={{
-                ko: '사진 고르기 (검토 대기)',
-                en: 'Choose a photo (pending copy review)',
-              }}
-              onPress={pickAndRead}
-            />
-            <CardDivider inset />
-          </>
-        ) : null}
+        <ListRow icon="photo" title={Strings.privacy.choosePhoto} onPress={pickAndRead} />
+        <CardDivider inset />
 
         <ListRow
           icon="settings"
@@ -117,7 +101,7 @@ export default function HomeScreen() {
       <View style={styles.privacy}>
         <Icon name="lock" color={theme.textSecondary} />
         <BilingualText
-          text={Strings.home.privacy}
+          text={Strings.privacy.home}
           variant="label"
           color={theme.textSecondary}
           style={styles.privacyText}

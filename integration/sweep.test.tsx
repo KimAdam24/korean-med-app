@@ -197,7 +197,8 @@ describe('reading a curved label while it turns', () => {
 
     await screen.findByText(Strings.result.curved.title.ko);
     expect(sweep.mounted).toBe(false);
-    expect(screen.getByText(Strings.camera.discarded.ko)).toBeTruthy();
+    // The photograph was one she chose: hers is left as it is.
+    expect(screen.getByText(Strings.privacy.pickedPhoto.ko)).toBeTruthy();
   });
 
   it('leaving the app ends it, and what was read goes with it', async () => {
