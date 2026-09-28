@@ -107,7 +107,7 @@ export const Strings = {
       'First-launch introduction, the "your list stays on this phone" step. Replaces 사진은 글씨를 읽는 데만 쓰고, 읽은 뒤 바로 지워요., which is untrue of a photo she picks from her own gallery.'
     ),
     lookup: untranslated(
-      "To identify a medicine, the app sends only its barcode number, or the medicine's name as read from the label, to the U.S. National Library of Medicine. It never sends your list or your photos.",
+      "To identify a medicine and find its FDA label, the app sends the U.S. National Library of Medicine only what names the medicine: its barcode number, or its name as read from the label. It never sends your list or your photos.",
       'First-launch introduction, the same step. Replaces 바코드로 약을 찾을 때는 바코드 번호만 보내요..., which no longer covers everything sent: a medicine read from a photo is now looked up by its name, and its FDA label fetched.'
     ),
   },
