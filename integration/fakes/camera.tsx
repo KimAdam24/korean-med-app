@@ -71,6 +71,12 @@ export const camera = {
     state.permission = UNDECIDED;
     state.answer = willAnswer === 'allow' ? GRANTED : REFUSED;
   },
+  /** The camera itself fails to start, as the preview reports it. */
+  failToStart(): void {
+    const handler = state.props?.onMountError as ((event: { message: string }) => void) | undefined;
+    if (!handler) throw new Error('No preview is mounted.');
+    handler({ message: 'Camera failed to start (injected).' });
+  },
   /** Refused for good: the system will not ask again. */
   refused(): void {
     state.permission = REFUSED;

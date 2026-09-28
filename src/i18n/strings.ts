@@ -711,6 +711,14 @@ export const Strings = {
       ko: '사진을 찍지 못했어요. 다시 해 볼까요?',
       en: 'The photo could not be taken. Shall we try again?',
     },
+    cameraUnavailable: untranslated(
+      'The camera could not start.',
+      'Camera screen, when the camera itself would not open. No photo was taken. Beside it: 다시 시도하기 (Try again).'
+    ),
+    cameraStillUnavailable: untranslated(
+      'The camera still could not start. Please close this, and try again later or restart your phone.',
+      'Camera screen, when the camera failed to open a second time. Only 닫기 (Close) is offered.'
+    ),
     unreadable: {
       ko: '글씨를 읽지 못했어요. 밝은 곳에서 다시 찍어 주세요.',
       en: 'We could not read the writing. Please try again somewhere brighter.',

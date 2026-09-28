@@ -333,6 +333,12 @@
     },
     "fillIn.repeatedBefore": {
       "why": "Added after the batch was drafted; not drafted, as asked (no new Korean). For her to write."
+    },
+    "problem.cameraUnavailable": {
+      "why": "Added after the batch was drafted; not drafted, as asked (no new Korean). For her to write."
+    },
+    "problem.cameraStillUnavailable": {
+      "why": "Added after the batch was drafted; not drafted, as asked (no new Korean). For her to write."
     }
   }
 }

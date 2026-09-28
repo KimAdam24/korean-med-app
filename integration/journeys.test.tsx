@@ -108,6 +108,17 @@ describe('reading a chosen photo', () => {
     expect(profile.status === 'ok' && profile.value.medications[0].instructions).toBeUndefined();
   });
 
+  it('without a medicine name, says it cannot be added, and offers no Add button', async () => {
+    // A strength and directions; no name line at all.
+    await openPickedPhoto(['10 MG TABLET', 'Take 1 tablet by mouth twice daily', 'QTY: 60']);
+    await screen.findByText('Take 1 tablet by mouth twice daily');
+
+    expect(screen.getByText(Strings.failure.nameUnreadable.ko)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: Strings.medications.saveFromLabel.ko })).toBeNull();
+    // Still a way on: another photo.
+    expect(screen.getByRole('button', { name: Strings.camera.retake.ko })).toBeTruthy();
+  });
+
   it('asks for a retake when most of the label could not be read', async () => {
     await openPickedPhoto(['xzq wvt', 'mmm nnn', 'qqq rrr', 'zzz yyy', 'ppp ooo']);
     await screen.findByText(Strings.result.degradedTitle.ko);
@@ -132,6 +143,27 @@ describe('reading a chosen photo', () => {
     await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
     await screen.findByText(Strings.problem.notDiscarded.ko);
     expect(screen.queryByText('1.25 MG (50,000 UNIT)')).toBeNull();
+  });
+});
+
+describe('a camera that will not start', () => {
+  it('says so, claims no photo, offers one more try, and after a second failure only Close', async () => {
+    launchApp('/camera');
+    await screen.findByRole('button', { name: Strings.camera.shutter.ko });
+
+    await act(async () => camera.failToStart());
+    await screen.findByText(Strings.problem.cameraUnavailable.ko);
+    // No photo was taken, so none is said to have been deleted.
+    expect(screen.queryByText(Strings.camera.discarded.ko)).toBeNull();
+    expect(screen.queryByRole('button', { name: Strings.camera.retake.ko })).toBeNull();
+
+    press(Strings.scan.retry.ko);
+    await screen.findByRole('button', { name: Strings.camera.shutter.ko });
+    await act(async () => camera.failToStart());
+    await screen.findByText(Strings.problem.cameraStillUnavailable.ko);
+    expect(screen.queryByRole('button', { name: Strings.scan.retry.ko })).toBeNull();
+    expect(screen.queryByRole('button', { name: Strings.camera.retake.ko })).toBeNull();
+    expect(screen.getByRole('button', { name: Strings.camera.close.ko })).toBeTruthy();
   });
 });
 

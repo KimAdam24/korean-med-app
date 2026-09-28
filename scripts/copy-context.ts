@@ -502,6 +502,16 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   },
 
   // --- Only when something goes wrong -------------------------------------
+  'problem.cameraUnavailable': {
+    section: WRONG,
+    where: 'The camera screen: the message, with a 다시 시도하기 (Try again) button.',
+    when: 'The camera itself would not open. No photo was taken.',
+  },
+  'problem.cameraStillUnavailable': {
+    section: WRONG,
+    where: 'The camera screen: the message, with only a 닫기 (Close) button.',
+    when: 'The camera failed to open a second time in a row.',
+  },
   'failure.lookupUnavailable': {
     section: WRONG,
     where: 'After scanning a barcode: the message on screen, with a 다시 시도하기 (Try again) button.',

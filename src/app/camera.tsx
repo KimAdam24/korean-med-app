@@ -119,6 +119,8 @@ type Phase =
       message: Bilingual;
       photoDiscarded: boolean;
       retry?: () => void;
+      /** Nothing to try again: Close is the only way on. */
+      stuck?: boolean;
     };
 
 /**
@@ -478,12 +480,28 @@ export default function CameraScreen() {
     }
   }, []);
 
+  /**
+   * The camera itself would not start. It used to say the photo could not be
+   * taken and had been deleted, of a photo never attempted, and to offer
+   * "take another photo", which started the same camera and failed the same
+   * way, round and round. Now it says what happened, offers to try once
+   * more (another app may have had the camera), and after a second failure
+   * offers only Close.
+   */
+  const mountFailures = useRef(0);
   const handleMountError = useCallback(() => {
+    mountFailures.current += 1;
+    if (Platform.OS === 'web') {
+      setPhase({ kind: 'problem', message: Strings.problem.noCameraOnWeb, photoDiscarded: false, stuck: true });
+      return;
+    }
+    const again = mountFailures.current < 2;
     setPhase({
       kind: 'problem',
-      message:
-        Platform.OS === 'web' ? Strings.problem.noCameraOnWeb : Strings.problem.captureFailed,
-      photoDiscarded: true,
+      message: again ? Strings.problem.cameraUnavailable : Strings.problem.cameraStillUnavailable,
+      // No photograph was taken, so none is said to have been deleted.
+      photoDiscarded: false,
+      ...(again ? { retry: () => setPhase({ kind: 'preview' }) } : { stuck: true }),
     });
   }, []);
 
@@ -671,11 +689,13 @@ export default function CameraScreen() {
         )}
         <CapturedFramePanel probe={devProbe} />
         {phase.photoDiscarded && <DiscardNotice />}
-        <BigButton
-          label={phase.retry ? Strings.scan.retry : Strings.camera.retake}
-          onPress={phase.retry ?? retake}
-        />
-        <BigButton label={Strings.camera.close} onPress={close} tone="secondary" />
+        {phase.stuck ? null : (
+          <BigButton
+            label={phase.retry ? Strings.scan.retry : Strings.camera.retake}
+            onPress={phase.retry ?? retake}
+          />
+        )}
+        <BigButton label={Strings.camera.close} onPress={close} tone={phase.stuck ? 'primary' : 'secondary'} />
       </Sheet>
     );
   }
