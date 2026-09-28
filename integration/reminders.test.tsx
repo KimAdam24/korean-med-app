@@ -24,7 +24,8 @@ import { doseAlarms, notifications } from './fakes/notifications';
 
 import * as store from '@/features/medications/medication-store';
 import type { ReminderTime } from '@/features/medications/types';
-import { MAX_REMINDER_TIMES } from '@/features/reminders/plan';
+import { MAX_REMINDER_TIMES, formatReminderTime } from '@/features/reminders/plan';
+import { timeWords } from '@/features/reminders/time-picker';
 import { Strings, fillTemplate } from '@/i18n/strings';
 
 beforeAll(loadApp, APP_LOAD_BUDGET_MS);
@@ -32,6 +33,8 @@ beforeEach(forgetAppStateListeners);
 afterEach(() => jest.restoreAllMocks());
 
 const R = Strings.reminders;
+/** A time as the app writes it, in the reviewed words: `at(8, 0)`. */
+const at = (hour: number, minute: number) => formatReminderTime({ hour, minute }, timeWords());
 const on = (time: string) => fillTemplate(R.statusOn, { time }).ko;
 
 async function medicine(reminders?: ReminderTime[]) {
@@ -79,7 +82,7 @@ describe('setting a reminder', () => {
     expect(notifications.state.requests).toBe(0);
     press(R.askContinue.ko);
 
-    await screen.findByText(on('8:00 AM'));
+    await screen.findByText(on(at(8, 0)));
     expect(notifications.state.requests).toBe(1);
     const scheduled = notifications.state.scheduled.get(`dose:${record.id}:0800`);
     expect(scheduled?.trigger).toMatchObject({ type: 'daily', hour: 8, minute: 0, channelId: 'dose-reminders' });
@@ -91,7 +94,7 @@ describe('setting a reminder', () => {
   it('never puts the medicine in the notification, which the lock screen shows', async () => {
     const record = await medicine([{ hour: 8, minute: 0 }]);
     await openMedicine(record.id);
-    await screen.findByText(on('8:00 AM'));
+    await screen.findByText(on(at(8, 0)));
 
     for (const content of notifications.scheduledContents()) {
       expect(JSON.stringify([content.title, content.body])).not.toMatch(/LISINOPRIL|10 MG/);
@@ -109,7 +112,7 @@ describe('setting a reminder', () => {
     press(R.askContinue.ko);
 
     await screen.findByText(R.statusBlocked.ko);
-    expect(screen.queryByText(on('8:00 AM'))).toBeNull();
+    expect(screen.queryByText(on(at(8, 0)))).toBeNull();
     expect(screen.getByRole('button', { name: Strings.permission.openSettings.ko })).toBeTruthy();
   });
 
@@ -117,7 +120,7 @@ describe('setting a reminder', () => {
     const record = await medicine([{ hour: 8, minute: 0 }]);
     await openMedicine(record.id);
     press(R.add.ko);
-    press('8:00 AM');
+    press(at(8, 0));
     press(R.saveTime.ko);
     await screen.findByText(R.duplicate.ko);
   });
@@ -151,7 +154,7 @@ describe('choosing a time', () => {
     fireEvent(screen.getByRole('adjustable', { name: R.minute.ko }), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
     press(R.saveTime.ko);
 
-    await screen.findByText(on('9:05 PM'));
+    await screen.findByText(on(at(21, 5)));
     expect(notifications.state.scheduled.get(`dose:${record.id}:2105`)?.trigger).toMatchObject({ hour: 21, minute: 5 });
   });
 
@@ -193,7 +196,7 @@ describe('putting right what stops a reminder', () => {
     await screen.findByText(R.statusBlocked.ko);
     expect(notifications.state.requests).toBe(0);
     press(R.allow.ko);
-    await screen.findByText(on('8:00 AM'));
+    await screen.findByText(on(at(8, 0)));
     expect(notifications.state.requests).toBe(1);
   });
 
@@ -241,10 +244,10 @@ describe('what the app says about its reminders', () => {
     press(R.saveTime.ko);
 
     await screen.findByText(R.statusUnverified.ko);
-    expect(screen.queryByText(on('8:00 AM'))).toBeNull();
+    expect(screen.queryByText(on(at(8, 0)))).toBeNull();
 
     press(Strings.scan.retry.ko);
-    await screen.findByText(on('8:00 AM'));
+    await screen.findByText(on(at(8, 0)));
   });
 
   it('warns on the home screen when reminders cannot sound', async () => {
@@ -266,7 +269,7 @@ describe('what the app says about its reminders', () => {
   it('checks again on coming back to the app: notifications turned off while away', async () => {
     const record = await medicine([{ hour: 8, minute: 0 }]);
     await openMedicine(record.id);
-    await screen.findByText(on('8:00 AM'));
+    await screen.findByText(on(at(8, 0)));
 
     notifications.turnedOff();
     await sendAppTo('active');
@@ -285,17 +288,17 @@ describe('taking reminders away', () => {
       { hour: 20, minute: 0 },
     ]);
     await openMedicine(record.id);
-    await screen.findByText(on('8:00 AM'));
+    await screen.findByText(on(at(8, 0)));
 
-    press(fillTemplate(R.removeLabel, { time: '8:00 AM' }).ko);
-    await screen.findByText(on('8:00 PM'));
+    press(fillTemplate(R.removeLabel, { time: at(8, 0) }).ko);
+    await screen.findByText(on(at(20, 0)));
     expect([...notifications.state.scheduled.keys()]).toEqual([`dose:${record.id}:2000`]);
   });
 
   it('cancels a removed medicine’s reminders', async () => {
     const record = await medicine([{ hour: 8, minute: 0 }]);
     await openMedicine(record.id);
-    await screen.findByText(on('8:00 AM'));
+    await screen.findByText(on(at(8, 0)));
 
     press(Strings.medications.remove.ko);
     press(Strings.medications.removeConfirmYes.ko);

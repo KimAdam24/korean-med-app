@@ -12,8 +12,11 @@ const HANGUL = /[가-힣]/;
 test('every Korean slot is Korean, unless it is a marked placeholder', () => {
   // English in the Korean slot looks like a finished string on screen. The only
   // sanctioned way to put it there is `untranslated`, which the batch lists.
+  // A pure pattern has no words to be Korean: the reminder time's
+  // "{period} {h}:{mm}", reviewed like the rest, only reordered.
+  const words = (text: string) => text.replace(/\{[^}]+\}/g, '').replace(/[^A-Za-z]/g, '');
   const unmarked = allCopy(Strings)
-    .filter(({ text }) => !text.pendingKo && !HANGUL.test(text.ko))
+    .filter(({ text }) => !text.pendingKo && words(text.en).length > 0 && !HANGUL.test(text.ko))
     .map(({ key }) => key);
   assert.deepEqual(unmarked, []);
 });

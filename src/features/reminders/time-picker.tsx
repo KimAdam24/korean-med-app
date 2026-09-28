@@ -47,7 +47,7 @@ export function TimePicker({ value, onChange }: { value: ReminderTime; onChange:
         style={[styles.display, { color: theme.text }]}
         maxFontSizeMultiplier={TypeMaxScale.heading}
         accessibilityLiveRegion="polite"
-        accessibilityLanguage={Strings.reminders.timeFormat.pendingKo ? 'en-US' : 'ko-KR'}>
+        accessibilityLanguage="ko-KR">
         {shown}
       </Text>
 

@@ -61,8 +61,9 @@ test('the export is every pending string once, grouped by section in order', () 
   assert.equal(new Set(rows.map((row) => row.copy.key)).size, rows.length);
   const sections = rows.map((row) => SECTIONS.indexOf(row.context.section));
   assert.deepEqual(sections, [...sections].sort((a, b) => a - b));
-  // What prompted the batch leads it: the curved-label notice on the result screen.
-  assert.equal(rows[0].copy.key, 'result.curved.title');
+  // Led by the first pending string in the context's own order.
+  const keys = new Set(pending.map(({ key }) => key));
+  assert.equal(rows[0].copy.key, Object.keys(COPY_CONTEXT).find((key) => keys.has(key)));
 });
 
 test('the CSV survives quotes, commas and Korean, opens in Excel, and says what she changed', () => {

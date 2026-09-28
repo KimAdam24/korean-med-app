@@ -27,7 +27,7 @@ import { PinPad } from '@/components/pin-pad';
 import { TypeMaxScale } from '@/constants/theme';
 import * as store from '@/features/medications/medication-store';
 import { setPin } from '@/features/security/pin';
-import { Strings, untranslated } from '@/i18n/strings';
+import { Strings, fillTemplate, untranslated } from '@/i18n/strings';
 
 beforeAll(loadApp, APP_LOAD_BUDGET_MS);
 beforeEach(forgetAppStateListeners);
@@ -100,7 +100,7 @@ describe('the screen reader', () => {
     launchApp();
     await screen.findByText(Strings.pin.enterTitle.ko);
     pressDigits('13');
-    expect(heard()).toContain('2 of 4 digits entered');
+    expect(heard()).toContain(fillTemplate(Strings.a11y.pinProgress, { n: 2, total: 4 }).ko);
     pressDigits('57');
     await screen.findByText(Strings.pin.incorrect.ko);
 

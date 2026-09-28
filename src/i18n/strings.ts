@@ -58,38 +58,24 @@ export const Strings = {
    * All English placeholders for now; see `untranslated`.
    */
   onboarding: {
-    step: untranslated('Step {n} of {total}', 'Small progress label above each screen. {n} and {total} are numbers.'),
-    welcomeTitle: untranslated('Medicine Helper reads your medicine labels', 'Title of the first screen. "Medicine Helper" is the app name, 약 도우미.'),
-    welcomeBody: untranslated(
-      'Take a photo of a medicine label, or scan the barcode on the box. The app reads the name, the strength and the directions, and keeps a list of your medicines.'
-    ),
-    welcomeCheck: untranslated(
-      'It can misread a label. Always compare what it shows with the bottle, and ask your pharmacist if you are unsure.',
-      'A caution, but a calm one: it should not frighten.'
-    ),
-    storageTitle: untranslated('Your list stays on this phone'),
-    storageLocked: untranslated('Your medicines are saved only on this phone, locked so that only you can open them.'),
-    storageNoBackup: untranslated(
-      'They are not backed up anywhere. If you change or reset your phone, you will need to add your medicines again.',
-      'Must be unmistakable: this is the expectation users otherwise discover the hard way.'
-    ),
-    storagePhotos: untranslated('Photos are used only to read the label, and are deleted straight after.'),
-    storageLookup: untranslated(
-      'To look up a barcode, the app sends only the barcode number, never your list or your photos.',
-      'The lookup goes to the US National Library of Medicine; the sentence need not name it.'
-    ),
-    cameraTitle: untranslated('The camera reads your labels'),
-    cameraBody: untranslated(
-      'Next, your phone will ask whether this app may use the camera. Choose Allow, so that you can photograph your medicines.',
-      "'Allow' should match the word on the phone's own permission button in Korean."
-    ),
-    cameraReady: untranslated('The camera is ready.'),
-    cameraOff: untranslated('The camera is off for now. You can turn it on later in your phone settings.'),
-    next: untranslated('Next', 'Button.'),
-    back: untranslated('Back', 'Button.'),
-    askCamera: untranslated('Continue', "Button that opens the phone's camera permission question."),
-    notNow: untranslated('Not now', 'Button: skip the camera question for now.'),
-    start: untranslated('Start', 'Button that ends the introduction.'),
+    step: { ko: '{total}단계 중 {n}단계', en: 'Step {n} of {total}' },
+    welcomeTitle: { ko: '약 도우미가 약에 적힌 글씨를 읽어 드려요', en: 'Medicine Helper reads your medicine labels' },
+    welcomeBody: { ko: '약병의 글씨를 사진으로 찍거나, 약 상자의 바코드를 비춰 주세요. 약 이름과 용량, 복용 방법을 읽어 드리고, 내 약 목록으로 모아 둘게요.', en: 'Take a photo of a medicine label, or scan the barcode on the box. The app reads the name, the strength and the directions, and keeps a list of your medicines.' },
+    welcomeCheck: { ko: '약 도우미가 글씨를 잘못 읽을 수도 있어요. 화면에 나온 내용을 항상 약병과 비교해 보시고, 잘 모르시겠으면 약사에게 물어보세요.', en: 'It can misread a label. Always compare what it shows with the bottle, and ask your pharmacist if you are unsure.' },
+    storageTitle: { ko: '약 목록은 이 휴대폰에만 있어요', en: 'Your list stays on this phone' },
+    storageLocked: { ko: '약 정보는 이 휴대폰에만 저장되고, 본인만 열 수 있게 잠겨 있어요.', en: 'Your medicines are saved only on this phone, locked so that only you can open them.' },
+    storageNoBackup: { ko: '약 정보는 다른 곳에 따로 저장(백업)되지 않아요. 휴대폰을 바꾸거나 초기화하면 약을 다시 등록해야 해요.', en: 'They are not backed up anywhere. If you change or reset your phone, you will need to add your medicines again.' },
+    storagePhotos: { ko: '사진은 글씨를 읽는 데만 쓰고, 읽은 뒤 바로 지워요.', en: 'Photos are used only to read the label, and are deleted straight after.' },
+    storageLookup: { ko: '바코드로 약을 찾을 때는 바코드 번호만 보내요. 약 목록이나 사진은 보내지 않아요.', en: 'To look up a barcode, the app sends only the barcode number, never your list or your photos.' },
+    cameraTitle: { ko: '카메라로 약 글씨를 읽어요', en: 'The camera reads your labels' },
+    cameraBody: { ko: "다음 화면에서 휴대폰이 이 앱의 카메라 사용을 허용할지 물어봐요. 약을 찍으려면 '앱 사용 중에만 허용'을 눌러 주세요.", en: 'Next, your phone will ask whether this app may use the camera. Choose Allow, so that you can photograph your medicines.' },
+    cameraReady: { ko: '카메라를 쓸 준비가 됐어요.', en: 'The camera is ready.' },
+    cameraOff: { ko: '지금은 카메라가 꺼져 있어요. 나중에 휴대폰 설정에서 켤 수 있어요.', en: 'The camera is off for now. You can turn it on later in your phone settings.' },
+    next: { ko: '다음', en: 'Next' },
+    back: { ko: '이전', en: 'Back' },
+    askCamera: { ko: '계속하기', en: 'Continue' },
+    notNow: { ko: '나중에 할게요', en: 'Not now' },
+    start: { ko: '시작하기', en: 'Start' },
   },
 
   permission: {
@@ -283,24 +269,13 @@ export const Strings = {
      * English placeholders; see `untranslated`.
      */
     curved: {
-      title: untranslated('The label curves round the bottle'),
-      right: untranslated(
-        'The ends of some lines are out of sight on the right, round the curve. More light will not help. Turn the bottle slowly so that side faces you, and take another photo.',
-        'Shown when lines are cut at the right edge. "Turn the bottle" means rotate it in the hand.'
-      ),
-      left: untranslated(
-        'The starts of some lines are out of sight on the left, round the curve. More light will not help. Turn the bottle slowly so that side faces you, and take another photo.'
-      ),
-      restWhole: untranslated('The medicine name and strength were read in full.'),
-      fieldNote: untranslated(
-        'The end of this line is out of sight round the curve of the bottle. Please read it on the bottle itself.',
-        'Replaces "the letters are broken" for a line cut at the curve.'
-      ),
+      title: { ko: '약병이 둥글어서 글씨 일부가 가려졌어요', en: 'The label curves round the bottle' },
+      right: { ko: '몇몇 줄의 끝부분이 약병의 곡면을 따라 오른쪽으로 넘어가서 보이지 않아요. 불을 더 밝게 해도 나아지지 않아요. 오른쪽이 보이도록 약병을 천천히 돌린 뒤 다시 찍어 주세요.', en: 'The ends of some lines are out of sight on the right, round the curve. More light will not help. Turn the bottle slowly so that side faces you, and take another photo.' },
+      left: { ko: '몇몇 줄의 앞부분이 약병의 곡면을 따라 왼쪽으로 넘어가서 보이지 않아요. 불을 더 밝게 해도 나아지지 않아요. 왼쪽이 보이도록 약병을 천천히 돌린 뒤 다시 찍어 주세요.', en: 'The starts of some lines are out of sight on the left, round the curve. More light will not help. Turn the bottle slowly so that side faces you, and take another photo.' },
+      restWhole: { ko: '약 이름과 용량은 모두 읽었어요.', en: 'The medicine name and strength were read in full.' },
+      fieldNote: { ko: '이 줄의 끝부분이 약병의 곡면에 가려 보이지 않아요. 이 부분은 약병에서 직접 읽어 주세요.', en: 'The end of this line is out of sight round the curve of the bottle. Please read it on the bottle itself.' },
       /** One line cut at the edge: withheld, but the curve is not called. */
-      edgeNote: untranslated(
-        'The end of this line may be missing. Please read it on the bottle itself.',
-        'For one line that stops at the edge of the photo. Must not mention a curve.'
-      ),
+      edgeNote: { ko: '이 줄의 끝부분이 빠졌을 수 있어요. 이 부분은 약병에서 직접 읽어 주세요.', en: 'The end of this line may be missing. Please read it on the bottle itself.' },
     },
     hideReading: { ko: '읽은 내용 숨기기', en: 'Hide what was read' },
   },
@@ -533,41 +508,25 @@ export const Strings = {
    * placeholders for now; see `untranslated`.
    */
   failure: {
-    eraseIncompleteTitle: untranslated('Erasing did not finish'),
-    eraseIncompleteBody: untranslated(
-      'Some of your information may already be erased. Please try again to finish.',
-      'After a failed erase. Must not suggest the list is safe: part of it may already be gone.'
-    ),
-    pinNotChanged: untranslated('Your PIN was not changed. Your old PIN still works. Please try again.'),
-    pinNotSaved: untranslated('Your PIN could not be saved. Please choose it again.'),
-    pinCheckFailed: untranslated('Your PIN could not be checked just now. Please try again.'),
-    editNotSaved: untranslated('Your changes were not saved. Please try again.'),
-    confirmNotSaved: untranslated('It was not marked as checked. Please try again.'),
-    removeFailed: untranslated('This medicine could not be removed. It is still on your list. Please try again.'),
-    addNotSaved: untranslated('It was not added to your list. Please try again.'),
-    listUnavailableTitle: untranslated('Your medicine list could not be opened just now'),
-    listUnavailableBody: untranslated(
-      'This is usually temporary. Please try again.',
-      'Distinct from the permanent "cannot be opened" message: nothing is lost.'
-    ),
-    listDamagedBody: untranslated(
-      'Your saved medicine list is damaged and cannot be opened. You will need to add your medicines again.',
-      'Saved data on this same phone that cannot be read — not the new-phone case.'
-    ),
-    medicineGone: untranslated('This medicine is no longer on your list.'),
-    lockCheckFailedTitle: untranslated("Your phone's lock could not be checked"),
-    lockCheckFailedBody: untranslated('Please try again. If this keeps happening, restart your phone.'),
-    deviceUnlockFailed: untranslated('Phone unlock did not work. Please try again.'),
-    deviceUnlockOff: untranslated(
-      "Phone unlock is not available right now. Check that your phone still has a screen lock, then try again."
-    ),
-    lookupUnavailable: untranslated(
-      'The medicine information service is not answering right now. Please try again later.',
-      'Shown when the internet works but the US lookup service does not; must not tell the user to check their connection.'
-    ),
-    nameUnreadable: untranslated(
-      'The medicine name could not be read, so it cannot be added. Please take another photo.'
-    ),
+    eraseIncompleteTitle: { ko: '다 지우지 못했어요', en: 'Erasing did not finish' },
+    eraseIncompleteBody: { ko: '일부 정보는 이미 지워졌을 수 있어요. 끝까지 지우려면 다시 시도해 주세요.', en: 'Some of your information may already be erased. Please try again to finish.' },
+    pinNotChanged: { ko: '비밀번호가 바뀌지 않았어요. 예전 비밀번호를 그대로 쓰시면 돼요. 다시 시도해 주세요.', en: 'Your PIN was not changed. Your old PIN still works. Please try again.' },
+    pinNotSaved: { ko: '비밀번호를 저장하지 못했어요. 다시 정해 주세요.', en: 'Your PIN could not be saved. Please choose it again.' },
+    pinCheckFailed: { ko: '지금은 비밀번호를 확인할 수 없어요. 다시 시도해 주세요.', en: 'Your PIN could not be checked just now. Please try again.' },
+    editNotSaved: { ko: '고친 내용이 저장되지 않았어요. 다시 시도해 주세요.', en: 'Your changes were not saved. Please try again.' },
+    confirmNotSaved: { ko: '확인 표시가 저장되지 않았어요. 다시 시도해 주세요.', en: 'It was not marked as checked. Please try again.' },
+    removeFailed: { ko: '이 약을 지우지 못했어요. 아직 목록에 있어요. 다시 시도해 주세요.', en: 'This medicine could not be removed. It is still on your list. Please try again.' },
+    addNotSaved: { ko: '내 약 목록에 추가되지 않았어요. 다시 시도해 주세요.', en: 'It was not added to your list. Please try again.' },
+    listUnavailableTitle: { ko: '지금은 약 목록을 열 수 없어요', en: 'Your medicine list could not be opened just now' },
+    listUnavailableBody: { ko: '대개 잠시 뒤면 괜찮아져요. 다시 시도해 주세요.', en: 'This is usually temporary. Please try again.' },
+    listDamagedBody: { ko: '저장된 약 목록이 손상되어 열 수 없어요. 약을 다시 등록해야 해요.', en: 'Your saved medicine list is damaged and cannot be opened. You will need to add your medicines again.' },
+    medicineGone: { ko: '이 약은 이제 목록에 없어요.', en: 'This medicine is no longer on your list.' },
+    lockCheckFailedTitle: { ko: '휴대폰 잠금을 확인하지 못했어요', en: "Your phone's lock could not be checked" },
+    lockCheckFailedBody: { ko: '다시 시도해 주세요. 계속 이러면 휴대폰을 껐다가 다시 켜 주세요.', en: 'Please try again. If this keeps happening, restart your phone.' },
+    deviceUnlockFailed: { ko: '휴대폰 잠금으로 열지 못했어요. 다시 시도해 주세요.', en: 'Phone unlock did not work. Please try again.' },
+    deviceUnlockOff: { ko: '지금은 휴대폰 잠금을 쓸 수 없어요. 휴대폰에 화면 잠금이 설정되어 있는지 확인한 뒤 다시 시도해 주세요.', en: 'Phone unlock is not available right now. Check that your phone still has a screen lock, then try again.' },
+    lookupUnavailable: { ko: '약 정보 서비스가 지금 응답하지 않아요. 잠시 뒤에 다시 시도해 주세요.', en: 'The medicine information service is not answering right now. Please try again later.' },
+    nameUnreadable: { ko: '약 이름을 읽지 못해서 등록할 수 없어요. 다시 찍어 주세요.', en: 'The medicine name could not be read, so it cannot be added. Please take another photo.' },
   },
 
   /**
@@ -575,55 +534,31 @@ export const Strings = {
    * reading could recover. English placeholders; see `untranslated`.
    */
   sweep: {
-    start: untranslated('Read it while turning the bottle', 'Button under the curved-label message.'),
-    privacy: untranslated(
-      'The camera reads the label as you turn it. It keeps only the words, never a picture.',
-      'Shown the whole time the camera is reading. Must stay true: no picture is kept or taken.'
-    ),
-    instructions: untranslated('Hold the bottle in front of the camera and turn it slowly, all the way round.'),
-    waiting: untranslated('Point the camera at the label.'),
-    progress: untranslated(
-      'Keep turning slowly. {n} line(s) still cut off.',
-      '{n} is a number of printed lines on the label.'
-    ),
-    allRead: untranslated('All read.'),
-    stalled: untranslated(
-      'The camera stopped, because nothing new was read for a while. This is what it read.',
-      'Shown above the reading when the sweep ended by itself.'
-    ),
-    unclear: untranslated(
-      'All of it is in view, but part could not be read clearly. Hold it still for a moment, or stop and use what was read.'
-    ),
-    stop: untranslated('Stop and use what was read', 'Button.'),
-    failed: untranslated('The camera could not start. Please close this and try again.'),
-    compareWithBottle: untranslated(
-      'This was read by the camera as you turned the bottle. Please compare it with the bottle once before saving.',
-      'Replaces "This was read from a photo..." (사진으로 읽은 내용이에요...) above a reading made by turning the bottle, where no photo was taken.'
-    ),
-    nothingTaken: untranslated(
-      'No picture was taken. Only the words were kept.',
-      'Shown under a reading made by turning the bottle, where a photo reading says the photo was deleted.'
-    ),
+    start: { ko: '약병을 돌리면서 읽기', en: 'Read it while turning the bottle' },
+    privacy: { ko: '약병을 돌리는 동안 카메라가 글씨를 읽어요. 글씨만 남기고 사진은 남기지 않아요.', en: 'The camera reads the label as you turn it. It keeps only the words, never a picture.' },
+    instructions: { ko: '약병을 카메라 앞에 들고 천천히 한 바퀴 돌려 주세요.', en: 'Hold the bottle in front of the camera and turn it slowly, all the way round.' },
+    waiting: { ko: '카메라를 약병 글씨 쪽으로 비춰 주세요.', en: 'Point the camera at the label.' },
+    progress: { ko: '천천히 계속 돌려 주세요. 아직 {n}줄이 잘려 있어요.', en: 'Keep turning slowly. {n} line(s) still cut off.' },
+    allRead: { ko: '다 읽었어요.', en: 'All read.' },
+    stalled: { ko: '한동안 새로 읽은 글씨가 없어서 카메라가 멈췄어요. 지금까지 읽은 내용이에요.', en: 'The camera stopped, because nothing new was read for a while. This is what it read.' },
+    unclear: { ko: '글씨는 모두 보이지만 일부를 또렷하게 읽지 못했어요. 잠시 그대로 들고 계시거나, 멈추고 지금까지 읽은 내용을 확인해 주세요.', en: 'All of it is in view, but part could not be read clearly. Hold it still for a moment, or stop and use what was read.' },
+    stop: { ko: '멈추고 읽은 내용 보기', en: 'Stop and use what was read' },
+    failed: { ko: '카메라를 켜지 못했어요. 이 화면을 닫고 다시 시도해 주세요.', en: 'The camera could not start. Please close this and try again.' },
+    compareWithBottle: { ko: '약병을 돌리면서 카메라로 읽은 내용이에요. 저장하기 전에 약병과 한 번 비교해 주세요.', en: 'This was read by the camera as you turned the bottle. Please compare it with the bottle once before saving.' },
+    nothingTaken: { ko: '사진은 찍지 않았어요. 글씨만 남겼어요.', en: 'No picture was taken. Only the words were kept.' },
   },
   fillIn: {
-    start: untranslated('Fill in the missing part', 'Button under a field that could not be read in full.'),
-    title: untranslated('Fill in what the bottle says'),
-    body: untranslated(
-      'Check each box against the bottle in your hand, and type only what is missing or wrong.'
-    ),
-    wordLabel: untranslated(
-      'Line {line}: what the camera read as "{read}"',
-      'Spoken by the screen reader for one box. {read} is the text the camera saw, often broken.'
-    ),
-    insertLabel: untranslated('Line {line}: the missing number', 'Spoken by the screen reader for an empty box.'),
-    check: untranslated('Check', 'Button.'),
-    confirmTitle: untranslated('Is this what the bottle says?'),
-    confirmYes: untranslated('Yes, that is right', 'Button.'),
-    confirmNo: untranslated('Change it', 'Button.'),
-    stillIncomplete: untranslated(
-      'That still does not read in full. Please check each box against the bottle.'
-    ),
-    filledNote: untranslated('You filled in part of this from the bottle.'),
+    start: { ko: '빠진 부분 채우기', en: 'Fill in the missing part' },
+    title: { ko: '약병에 적힌 대로 채워 주세요', en: 'Fill in what the bottle says' },
+    body: { ko: '칸마다 손에 든 약병과 비교해 보시고, 빠졌거나 틀린 부분만 입력해 주세요.', en: 'Check each box against the bottle in your hand, and type only what is missing or wrong.' },
+    wordLabel: { ko: '{line}번째 줄, 카메라가 읽은 글자: "{read}"', en: 'Line {line}: what the camera read as "{read}"' },
+    insertLabel: { ko: '{line}번째 줄, 빠진 숫자', en: 'Line {line}: the missing number' },
+    check: { ko: '맞는지 확인하기', en: 'Check' },
+    confirmTitle: { ko: '약병에 적힌 내용과 같은가요?', en: 'Is this what the bottle says?' },
+    confirmYes: { ko: '네, 맞아요', en: 'Yes, that is right' },
+    confirmNo: { ko: '다시 고치기', en: 'Change it' },
+    stillIncomplete: { ko: '아직 빠진 부분이 있어요. 칸마다 약병과 다시 비교해 주세요.', en: 'That still does not read in full. Please check each box against the bottle.' },
+    filledNote: { ko: '일부는 약병을 보고 직접 입력하신 내용이에요.', en: 'You filled in part of this from the bottle.' },
     keepStart: untranslated(
       'The camera saw how this word starts: "{read}". Keep those letters, and type the rest from the bottle.',
       'After Check, when an answer drops the start of a word cut off at the edge, e.g. 7 typed over eve (of every). {read} is the letters the camera saw.'
@@ -649,61 +584,44 @@ export const Strings = {
    * encrypted vault. English placeholders for now; see `untranslated`.
    */
   reminders: {
-    title: untranslated('Reminders', "Heading of the reminder section on a medicine's page."),
-    none: untranslated('No reminder is set for this medicine.'),
-    add: untranslated('Add a reminder time', 'Button.'),
-    saveTime: untranslated('Save this time', 'Button.'),
-    remove: untranslated('Remove', 'Button beside one reminder time.'),
-    removeLabel: untranslated(
-      'Remove the reminder at {time}',
-      'Spoken by the screen reader for the Remove button. {time} is a time such as 8:00 AM.'
-    ),
-    timeFormat: untranslated(
-      '{h}:{mm} {period}',
-      'How every reminder time is written. {h} is 1-12, {mm} two digits, {period} is am/pm below. Korean usually puts the period first: {period} {h}:{mm}.'
-    ),
-    am: untranslated('AM', 'Morning, as in 8:00 AM (오전).'),
-    pm: untranslated('PM', 'Afternoon and evening, as in 8:00 PM (오후).'),
-    hour: untranslated('Hour'),
-    minute: untranslated('Minute'),
-    earlier: untranslated('{field} earlier', 'Screen reader label for the minus button; {field} is Hour or Minute.'),
-    later: untranslated('{field} later', 'Screen reader label for the plus button; {field} is Hour or Minute.'),
-    presets: untranslated('Common times'),
-    duplicate: untranslated('That time is already set for this medicine.'),
-    tooMany: untranslated('You can set up to {max} reminder times in all.'),
-    saveFailed: untranslated('The reminder was not saved. Please try again.'),
-    askTitle: untranslated('Allow notifications for your reminders'),
-    askBody: untranslated(
-      'Next, your phone will ask whether this app may send notifications. Choose Allow, or reminders cannot sound. They never show the name of your medicine.'
-    ),
-    askContinue: untranslated('Continue', "Button that opens the phone's notification permission question."),
-    statusOn: untranslated('Reminders are on. The next one is at {time}.'),
-    statusOnNoNext: untranslated('Reminders are on.'),
-    statusChecking: untranslated('Checking your reminders'),
-    statusLate: untranslated(
-      'Reminders may arrive late. To make them come on time, allow "Alarms & reminders" for this app.',
-      '"Alarms & reminders" is the name of the Android setting; match the Korean name on the phone.'
-    ),
-    statusBlocked: untranslated('Reminders cannot sound: notifications are turned off for this app.'),
-    statusUnverified: untranslated('Your phone did not confirm your reminders. Please try again.'),
-    allow: untranslated('Allow notifications', 'Button.'),
-    openAlarmSettings: untranslated('Open "Alarms & reminders"', 'Button that opens the Android setting.'),
-    homeWarning: untranslated('Your medicine reminders cannot sound right now.'),
-    notificationTitle: untranslated(
-      'Time for your medicine',
-      'The notification itself, shown on the lock screen. Must not name a medicine.'
-    ),
-    notificationBody: untranslated('Open Medicine Helper to see which one.', 'Notification body. "Medicine Helper" is 약 도우미.'),
-    channelName: untranslated('Medicine reminders', "Shown in the phone's notification settings for this app."),
-    channelDescription: untranslated('Reminders to take your medicines.'),
+    title: { ko: '복용 알림', en: 'Reminders' },
+    none: { ko: '이 약은 알림이 설정되어 있지 않아요.', en: 'No reminder is set for this medicine.' },
+    add: { ko: '알림 시간 추가하기', en: 'Add a reminder time' },
+    saveTime: { ko: '이 시간으로 저장하기', en: 'Save this time' },
+    remove: { ko: '지우기', en: 'Remove' },
+    removeLabel: { ko: '{time} 알림 지우기', en: 'Remove the reminder at {time}' },
+    timeFormat: { ko: '{period} {h}:{mm}', en: '{h}:{mm} {period}' },
+    am: { ko: '오전', en: 'AM' },
+    pm: { ko: '오후', en: 'PM' },
+    hour: { ko: '시', en: 'Hour' },
+    minute: { ko: '분', en: 'Minute' },
+    earlier: { ko: '{field} 줄이기', en: '{field} earlier' },
+    later: { ko: '{field} 늘리기', en: '{field} later' },
+    presets: { ko: '자주 쓰는 시간', en: 'Common times' },
+    duplicate: { ko: '이 약에는 이 시간이 이미 설정되어 있어요.', en: 'That time is already set for this medicine.' },
+    tooMany: { ko: '알림 시간은 모든 약을 합쳐 {max}개까지 정할 수 있어요.', en: 'You can set up to {max} reminder times in all.' },
+    saveFailed: { ko: '알림을 저장하지 못했어요. 다시 시도해 주세요.', en: 'The reminder was not saved. Please try again.' },
+    askTitle: { ko: '알림을 허용해 주세요', en: 'Allow notifications for your reminders' },
+    askBody: { ko: "다음 화면에서 휴대폰이 이 앱의 알림을 허용할지 물어봐요. '허용'을 눌러야 알림이 울려요. 알림에는 약 이름이 나오지 않아요.", en: 'Next, your phone will ask whether this app may send notifications. Choose Allow, or reminders cannot sound. They never show the name of your medicine.' },
+    askContinue: { ko: '계속하기', en: 'Continue' },
+    statusOn: { ko: '알림이 켜져 있어요. 다음 알림 시간: {time}', en: 'Reminders are on. The next one is at {time}.' },
+    statusOnNoNext: { ko: '알림이 켜져 있어요.', en: 'Reminders are on.' },
+    statusChecking: { ko: '알림을 확인하고 있어요', en: 'Checking your reminders' },
+    statusLate: { ko: "복용 알림이 늦게 울릴 수 있어요. 제시간에 울리게 하려면 이 앱의 '알람 및 리마인더'를 허용해 주세요.", en: 'Reminders may arrive late. To make them come on time, allow "Alarms & reminders" for this app.' },
+    statusBlocked: { ko: '복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요.', en: 'Reminders cannot sound: notifications are turned off for this app.' },
+    statusUnverified: { ko: '휴대폰에서 복용 알림이 설정됐는지 확인되지 않았어요. 다시 시도해 주세요.', en: 'Your phone did not confirm your reminders. Please try again.' },
+    allow: { ko: '알림 허용하기', en: 'Allow notifications' },
+    openAlarmSettings: { ko: "'알람 및 리마인더' 열기", en: 'Open "Alarms & reminders"' },
+    homeWarning: { ko: '지금은 복용 알림이 울릴 수 없어요.', en: 'Your medicine reminders cannot sound right now.' },
+    notificationTitle: { ko: '약 드실 시간이에요', en: 'Time for your medicine' },
+    notificationBody: { ko: '약 도우미를 열어서 어떤 약인지 확인해 주세요.', en: 'Open Medicine Helper to see which one.' },
+    channelName: { ko: '복용 알림', en: 'Medicine reminders' },
+    channelDescription: { ko: '약 드실 시간을 알려 드려요.', en: 'Reminders to take your medicines.' },
   },
 
   /** Heard, not seen: labels for screen readers only. */
   a11y: {
-    pinProgress: untranslated(
-      '{n} of {total} digits entered',
-      'Spoken by the screen reader after each PIN digit. Never shown. {n} and {total} are numbers.'
-    ),
+    pinProgress: { ko: '{total}자리 중 {n}자리 입력했어요', en: '{n} of {total} digits entered' },
   },
 
   problem: {
