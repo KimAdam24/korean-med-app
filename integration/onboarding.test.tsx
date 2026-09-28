@@ -2,7 +2,8 @@
  * The first-launch introduction, end to end: what it explains, the camera
  * question it prepares, and when it is — and is not — shown.
  */
-import { screen } from 'expo-router/testing-library';
+import { act, screen } from 'expo-router/testing-library';
+import { BackHandler } from 'react-native';
 
 import {
   alreadySetUp,
@@ -106,6 +107,33 @@ describe('the first launch', () => {
     expect(screen.queryByText(O.askCamera.ko)).toBeNull();
     press(O.start.ko);
     await home();
+  });
+
+  it('steps back with the Android back button too, and leaves the app only from the first step', async () => {
+    const listen = jest.spyOn(BackHandler, 'addEventListener');
+    const back = () => {
+      // The introduction's latest handler: it is registered again at each step.
+      const calls = listen.mock.calls.filter(([event]) => event === 'hardwareBackPress');
+      return (calls[calls.length - 1][1] as () => boolean | null | undefined)();
+    };
+    try {
+      launchApp();
+      await throughToCamera();
+      let handled: boolean | null | undefined;
+      await act(async () => {
+        handled = back();
+      });
+      expect(handled).toBe(true);
+      await screen.findByText(O.storageTitle.ko);
+      await act(async () => {
+        back();
+      });
+      await screen.findByText(O.welcomeTitle.ko);
+      // On the first step it is the system's: back leaves the app.
+      expect(back()).toBe(false);
+    } finally {
+      listen.mockRestore();
+    }
   });
 
   it('steps back', async () => {

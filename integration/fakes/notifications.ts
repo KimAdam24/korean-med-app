@@ -54,10 +54,13 @@ const state = {
   lastResponse: null as Response | null,
   listeners: [] as ((response: Response) => void)[],
   handlerSet: false,
+  /** What the app said to do with a notification that arrives while it is open. */
+  handler: null as null | { handleNotification: () => Promise<Record<string, boolean>> },
 };
 
-export function setNotificationHandler(): void {
+export function setNotificationHandler(handler: unknown): void {
   state.handlerSet = true;
+  state.handler = handler as typeof state.handler;
 }
 
 export async function setNotificationChannelAsync(id: string, channel: Record<string, unknown>) {

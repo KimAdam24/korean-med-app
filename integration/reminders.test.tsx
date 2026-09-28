@@ -6,8 +6,8 @@
  * worse than none. So every test checks what the phone was actually given and
  * what the user is told about it — never only that a button was pressed.
  */
-import { act, screen } from 'expo-router/testing-library';
-import { Platform } from 'react-native';
+import { act, fireEvent, screen } from 'expo-router/testing-library';
+import { Linking, Platform } from 'react-native';
 
 import {
   APP_LOAD_BUDGET_MS,
@@ -47,6 +47,17 @@ async function medicine(reminders?: ReminderTime[]) {
 async function openMedicine(id: string) {
   launchApp(`/medication/${id}`);
   await screen.findByText('LISINOPRIL');
+}
+
+/**
+ * Linking.openSettings, counted from now. React Native's test setup already
+ * makes it a mock, which spyOn returns as it is and restoring leaves alone, so
+ * its calls would otherwise run on from test to test.
+ */
+function settingsOpener() {
+  const opener = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+  opener.mockClear();
+  return opener;
 }
 
 function onAndroid() {
@@ -123,6 +134,101 @@ describe('setting a reminder', () => {
     press(R.add.ko);
     press(R.saveTime.ko);
     await screen.findByText(fillTemplate(R.tooMany, { max: MAX_REMINDER_TIMES }).ko);
+  });
+});
+
+describe('choosing a time', () => {
+  it('afternoon, the hour and the minute, by button or by screen reader, is the time scheduled', async () => {
+    const record = await medicine();
+    await openMedicine(record.id);
+    press(R.add.ko);
+    // 8:00 AM to start; then 8 PM, 9 PM, 9:05, 9:10, and back to 9:05 by
+    // the screen reader's swipe down on the minute.
+    press(R.pm.ko);
+    press(fillTemplate(R.later, { field: R.hour.ko }).ko);
+    press(fillTemplate(R.later, { field: R.minute.ko }).ko);
+    press(fillTemplate(R.later, { field: R.minute.ko }).ko);
+    fireEvent(screen.getByRole('adjustable', { name: R.minute.ko }), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
+    press(R.saveTime.ko);
+
+    await screen.findByText(on('9:05 PM'));
+    expect(notifications.state.scheduled.get(`dose:${record.id}:2105`)?.trigger).toMatchObject({ hour: 21, minute: 5 });
+  });
+
+  it('cancelled, sets nothing', async () => {
+    const record = await medicine();
+    await openMedicine(record.id);
+    press(R.add.ko);
+    press(Strings.medications.cancel.ko);
+
+    await screen.findByRole('button', { name: R.add.ko });
+    expect(notifications.state.scheduled.size).toBe(0);
+    expect(screen.getByText(R.none.ko)).toBeTruthy();
+  });
+
+  it('a time that could not be saved says so, and nothing is scheduled', async () => {
+    const record = await medicine();
+    await openMedicine(record.id);
+    jest.spyOn(store, 'updateMedication').mockRejectedValueOnce(new Error('Disk full (injected).'));
+    press(R.add.ko);
+    press(R.saveTime.ko);
+
+    await screen.findByText(R.saveFailed.ko);
+    expect(notifications.state.scheduled.size).toBe(0);
+    const stored = await store.loadProfile();
+    expect(stored.status === 'ok' && stored.value.medications[0].reminders).toBeUndefined();
+  });
+});
+
+describe('putting right what stops a reminder', () => {
+  it('"Not now" keeps the time, says it cannot sound, and "Allow notifications" then turns it on', async () => {
+    notifications.notYetAsked('allow');
+    const record = await medicine();
+    await openMedicine(record.id);
+    press(R.add.ko);
+    press(R.saveTime.ko);
+    await screen.findByText(R.askTitle.ko);
+    press(Strings.onboarding.notNow.ko);
+
+    await screen.findByText(R.statusBlocked.ko);
+    expect(notifications.state.requests).toBe(0);
+    press(R.allow.ko);
+    await screen.findByText(on('8:00 AM'));
+    expect(notifications.state.requests).toBe(1);
+  });
+
+  it('with notifications turned off for good, opens the phone settings', async () => {
+    const openSettings = settingsOpener();
+    notifications.turnedOff();
+    const record = await medicine([{ hour: 8, minute: 0 }]);
+    await openMedicine(record.id);
+
+    await screen.findByText(R.statusBlocked.ko);
+    press(Strings.permission.openSettings.ko);
+    expect(openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('on Android, when "Alarms & reminders" cannot be opened directly, opens the app settings', async () => {
+    const restore = onAndroid();
+    const openSettings = settingsOpener();
+    try {
+      doseAlarms.exact = false;
+      jest.spyOn(doseAlarms, 'openExactAlarmSettings').mockReturnValue(false);
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(R.statusLate.ko);
+      press(R.openAlarmSettings.ko);
+      expect(openSettings).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it('a reminder that arrives while the app is open is still shown, and sounds', async () => {
+    launchApp();
+    await screen.findByText(Strings.home.capture.ko);
+    const presentation = await notifications.state.handler?.handleNotification();
+    expect(presentation).toMatchObject({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true });
   });
 });
 

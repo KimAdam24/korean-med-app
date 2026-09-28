@@ -177,6 +177,15 @@ describe('reading a curved label while it turns', () => {
     expect(screen.getByRole('button', { name: Strings.fillIn.start.ko })).toBeTruthy();
   });
 
+  it('with every line in view but part still unclear, says so, rather than counting cut lines', async () => {
+    await startSweep();
+    // "every 7" squashed round the curve and read as "ee": no line is cut, and
+    // the directions still do not read whole ("by mouth ee days").
+    await sweep.frame(frame({ 7: 'units) by mouth ee' }));
+    expect(screen.getByText(Strings.sweep.unclear.ko)).toBeTruthy();
+    expect(sweep.reading).toBe(true);
+  });
+
   it('cancelled, goes back to the photograph’s reading as it was', async () => {
     await startSweep();
     await sweep.frame(TURNED);
@@ -420,6 +429,39 @@ describe('filling in what could not be read', () => {
     press(Strings.fillIn.check.ko);
     await screen.findByText(Strings.fillIn.confirmTitle.ko);
     expect(screen.getByText(TRUTH)).toBeTruthy();
+  });
+
+  it('a missing number between two words is an empty box between them, and filled, reads whole', async () => {
+    await openPickedPhoto([
+      { text: 'LISINOPRIL 10 MG TABLET', confidence: 0.9 },
+      { text: 'Take 1 tablet by mouth every days', confidence: 0.9 },
+    ]);
+    await screen.findByText(Strings.result.damaged.instructions.title.ko);
+    press(Strings.fillIn.start.ko);
+    await screen.findByText(Strings.fillIn.title.ko);
+
+    fireEvent.changeText(screen.getByLabelText(fillTemplate(Strings.fillIn.insertLabel, { line: 2 }).ko), '3');
+    expect(screen.getByText('Take 1 tablet by mouth every 3 days')).toBeTruthy();
+    press(Strings.fillIn.check.ko);
+    await screen.findByText(Strings.fillIn.confirmTitle.ko);
+    press(Strings.fillIn.confirmYes.ko);
+    await screen.findByText(Strings.fillIn.filledNote.ko);
+    expect(screen.getByText('Take 1 tablet by mouth every 3 days')).toBeTruthy();
+  });
+
+  it('a box on the very last word is filled like any other, keeping what the camera saw', async () => {
+    await openPickedPhoto([
+      { text: 'LISINOPRIL 10 MG TABLET', confidence: 0.9 },
+      { text: 'Take 1 tablet by mouth twice dai', confidence: 0.9 },
+    ]);
+    await screen.findByText(Strings.result.damaged.instructions.title.ko);
+    press(Strings.fillIn.start.ko);
+    await screen.findByText(Strings.fillIn.title.ko);
+
+    fireEvent.changeText(screen.getByDisplayValue('dai'), 'daily');
+    press(Strings.fillIn.check.ko);
+    await screen.findByText(Strings.fillIn.confirmTitle.ko);
+    expect(screen.getByText('Take 1 tablet by mouth twice daily')).toBeTruthy();
   });
 
   it('"change it" goes back to the boxes, and cancel back to the reading, unchanged', async () => {
