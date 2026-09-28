@@ -28,6 +28,9 @@ import {
   PhotoNotDiscardedError,
   withTransientCapture,
 } from '@/features/capture/transient-capture';
+import { doseFormOf } from '@/features/drugs/approved-uses';
+import { ApprovedUsesCard, type UsesSource } from '@/features/drugs/approved-uses-card';
+import type { NameMatch } from '@/features/drugs/identify-name';
 import { interpretBarcode } from '@/features/drugs/ndc';
 import {
   fetchIngredients,
@@ -40,7 +43,7 @@ import { interpretLines } from '@/features/ocr/interpret-lines';
 import { goBackOr } from '@/features/navigation/go-back';
 import { DevLineList, logRecognizedLines } from '@/features/ocr/dev-line-list';
 import { assessField } from '@/features/ocr/field-integrity';
-import { medicationFromReading } from '@/features/ocr/reading-to-record';
+import { medicationFromReading, readableName } from '@/features/ocr/reading-to-record';
 import { isCutAtEdge, type EdgeTruncation } from '@/features/ocr/truncation';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
 import { FillInPanel } from '@/features/ocr/fill-in-panel';
@@ -424,14 +427,16 @@ export default function CameraScreen() {
    * page under "how to take it".
    */
   const saveFromLabel = useCallback(
-    async (fields: MedicationLabelFields, truncation?: EdgeTruncation | null) => {
+    async (fields: MedicationLabelFields, truncation?: EdgeTruncation | null, match?: NameMatch | null) => {
       const toSave = medicationFromReading(fields, truncation);
       if (!toSave) return;
 
       const reading = lastReading.current;
       setPhase({ kind: 'saving' });
       try {
-        await addMedication(toSave.record);
+        // With what its name was identified as, so its page looks up the same
+        // label without asking RxNorm again.
+        await addMedication(match ? { ...toSave.record, nameMatch: match } : toSave.record);
         setPhase({ kind: 'saved' });
       } catch (error) {
         // Back to the same reading, not the camera: the photo is gone, and
@@ -612,6 +617,7 @@ export default function CameraScreen() {
         <BilingualText text={Strings.scan.foundTitle} variant="heading" autoFocus />
         <DrugCard drug={phase.drug} />
         <BilingualText text={Strings.scan.foundBody} variant="label" />
+        <ApprovedUsesCard source={{ kind: 'product', ndc11: phase.drug.ndc11, rxcui: phase.drug.rxcui }} />
         {phase.saving ? (
           <ActivityIndicator size="large" />
         ) : (
@@ -856,7 +862,7 @@ function ReadingResult({
   stalled?: boolean;
   filled?: boolean;
   devProbe: CaptureProbe | null;
-  onSave: (fields: MedicationLabelFields, truncation?: EdgeTruncation | null) => void;
+  onSave: (fields: MedicationLabelFields, truncation?: EdgeTruncation | null, match?: NameMatch | null) => void;
   onRetake: () => void;
   /** Absent where the sweep is not available: iOS, until its Swift is built. */
   onSweep?: () => void;
@@ -866,6 +872,13 @@ function ReadingResult({
   const theme = useTheme();
   const degraded = quality?.level === 'degraded';
   const toSave = medicationFromReading(fields, truncation);
+  // What the name was identified as, if it was: saved with the medicine.
+  const [match, setMatch] = useState<NameMatch | null>(null);
+  const usesSource: UsesSource = {
+    kind: 'name',
+    name: readableName(fields, truncation),
+    form: doseFormOf(fields.dosage?.text, fields.instructions?.text),
+  };
   // Said to be cut at the edge either way; that it is the curve, only while
   // the curve is talked about (`Scope.curveMessage`).
   const cut = (kind: 'name' | 'dosage' | 'instructions') =>
@@ -975,6 +988,8 @@ function ReadingResult({
       {fillable.length > 0 ? (
         <BigButton label={Strings.fillIn.start} onPress={() => setFilling(true)} tone="secondary" />
       ) : null}
+
+      <ApprovedUsesCard source={usesSource} onIdentified={setMatch} />
     </>
   );
 
@@ -1005,7 +1020,7 @@ function ReadingResult({
       ) : null}
       <BigButton
         label={Strings.medications.saveFromLabel}
-        onPress={() => onSave(fields, truncation)}
+        onPress={() => onSave(fields, truncation, match)}
         tone={degraded ? 'secondary' : 'primary'}
       />
     </View>

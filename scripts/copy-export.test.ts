@@ -8,7 +8,7 @@ import test from 'node:test';
 import { pendingCopy } from '../src/i18n/pending.ts';
 import { Strings } from '../src/i18n/strings.ts';
 import { COPY_CONTEXT, SECTIONS } from './copy-context.ts';
-import { HEADER, exportCsv, exportRows, missingContext, missingDrafts, type CopyDrafts } from './copy-export.ts';
+import { HEADER, exportCsv, exportRows, heldBack, missingContext, missingDrafts, type CopyDrafts } from './copy-export.ts';
 
 const DRAFTS: CopyDrafts = JSON.parse(
   readFileSync(new URL('../content-drafts/copy-batch.draft.json', import.meta.url), 'utf8')
@@ -57,7 +57,8 @@ test('drafts are kept only for strings still awaiting Korean', () => {
 test('the export is every pending string once, grouped by section in order', () => {
   const pending = pendingCopy(Strings);
   const rows = exportRows(pending);
-  assert.equal(rows.length, pending.length);
+  // All but those of a hidden feature.
+  assert.equal(rows.length, pending.length - heldBack(pending).length);
   assert.equal(new Set(rows.map((row) => row.copy.key)).size, rows.length);
   const sections = rows.map((row) => SECTIONS.indexOf(row.context.section));
   assert.deepEqual(sections, [...sections].sort((a, b) => a - b));
@@ -92,4 +93,24 @@ test('the CSV survives quotes, commas and Korean, opens in Excel, and says what 
   );
   // Left blank, with the reason; the formula points at its own row.
   assert.ok(blank.startsWith(`2,${section},Here,Now,Reminders cannot sound,다시 찍기 is beside it,,A safety warning.,,"=IF(I3=`));
+});
+
+test("a hidden feature's strings are held back from the export, and return with it", () => {
+  const pending = pendingCopy(Strings);
+  const hidden = { sweep: false, fillIn: false, curveMessage: false, koreanDrugNames: false };
+  const held = heldBack(pending, hidden);
+  assert.ok(held.includes('fillIn.keepStart'));
+  assert.ok(held.includes('guidance.perMfds'));
+  assert.ok(!exportRows(pending, hidden).some((row) => held.includes(row.copy.key)));
+
+  const shown = { sweep: true, fillIn: true, curveMessage: true, koreanDrugNames: true };
+  assert.deepEqual(heldBack(pending, shown), []);
+  assert.equal(exportRows(pending, shown).length, pending.length);
+});
+
+test('the safety strings go to her undrafted, each with the reason', () => {
+  for (const key of ['uses.title', 'uses.disclaimer']) {
+    assert.equal(DRAFTS.strings[key]?.ko, undefined, key);
+    assert.match(DRAFTS.strings[key]?.why ?? '', /^Safety string/, key);
+  }
 });

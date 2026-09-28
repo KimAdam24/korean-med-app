@@ -79,6 +79,20 @@ export type MedicationRecord = {
    */
   readonly needsReview: boolean;
   /**
+   * What the printed name was identified as, at ingredient level, for a
+   * medicine read from a photo (`features/drugs/identify-name`): the handle
+   * its FDA label is looked up by. Kept apart from `identity`, which says
+   * "exactly this product, from its barcode": a name on a label says which
+   * medicine, not which product. Cleared when the name is edited, since it
+   * was a match for the old one. Absent on older records, on barcode ones,
+   * and where the name identified nothing.
+   */
+  readonly nameMatch?: {
+    readonly rxcui: string;
+    readonly ingredients: readonly string[];
+    readonly matched: string;
+  };
+  /**
    * Daily reminder times, sorted, no two alike. Stored here, in the encrypted
    * vault, and nowhere else: what the phone's scheduler holds is only an
    * identifier and a generic "time for your medicine", never a name — see

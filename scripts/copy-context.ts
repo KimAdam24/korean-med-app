@@ -10,9 +10,16 @@
  *
  * Korean quoted in a note is an existing, reviewed string the new one sits
  * beside, given so the two can match. It is not a suggested translation.
+ *
+ * A string that belongs to a hidden feature (`src/features/scope.ts`) says so
+ * (`hiddenWith`), and is left out of the export until the feature returns:
+ * she should not spend a pass on words no one will see.
  */
+import type { Scope } from '../src/features/scope.ts';
+
 export const SECTIONS = [
   'The privacy promise, and the gallery picker',
+  'What a medicine is approved to treat',
   'Reading a label: the result screen',
   'Filling in the missing part',
   'Reading the label while turning the bottle',
@@ -34,9 +41,12 @@ export type CopyContext = {
   readonly when: string;
   /** Anything else she needs, beyond the note already on the string. */
   readonly notes?: string;
+  /** The hidden feature it belongs to: not exported while that is hidden. */
+  readonly hiddenWith?: keyof typeof Scope;
 };
 
 const PRIVACY: Section = 'The privacy promise, and the gallery picker';
+const USES: Section = 'What a medicine is approved to treat';
 const RESULT: Section = 'Reading a label: the result screen';
 const FILL: Section = 'Filling in the missing part';
 const SWEEP: Section = 'Reading the label while turning the bottle';
@@ -89,6 +99,60 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     when: 'The first time the app is opened. It replaces 바코드로 약을 찾을 때는 바코드 번호만 보내요. 약 목록이나 사진은 보내지 않아요.',
     notes:
       'What leaves the phone. It used to be only a barcode number; now a medicine read from a photo is looked up by its name, and its FDA label fetched, from the U.S. National Library of Medicine. Still never her list or her photos.',
+  },
+
+  // --- What a medicine is approved to treat ---------------------------------
+  'uses.title': {
+    section: USES,
+    where: "The result screen after a photo or barcode, and a medicine's page: the heading of a box below the directions. Under it, in English, the words of the medicine's U.S. FDA label.",
+    when: 'Whenever a medicine is shown, as soon as its label has been found.',
+    notes:
+      'A safety string, so no draft: yours from the start. It must say what the English under it is (what the FDA approved the medicine to treat, from its label) and that it is in English, because that text is not translated.',
+  },
+  'uses.disclaimer': {
+    section: USES,
+    where: 'The same box: a blue note under the English text of the label.',
+    when: "Always, under the label's text.",
+    notes:
+      'A safety string, so no draft. It must not reassure. Two things, both plainly: a medicine may be prescribed for reasons other than those listed; and the text is what the FDA approved, not the reason their doctor prescribed it. Vitamin D2 is the example: its label lists rickets and hypoparathyroidism.',
+  },
+  'uses.identifiedAs': {
+    section: USES,
+    where: 'The same box, above the English text, for a medicine read from a photo (not a barcode).',
+    when: "When the medicine's name on the label was matched to a medicine.",
+    notes: 'Under it, a small 미국 의약품 표준 정보(RxNorm) 기준 (per RxNorm), already reviewed.',
+  },
+  'uses.fromLabel': {
+    section: USES,
+    where: 'The same box, under the English text: which label it came from.',
+    when: "With the label's text.",
+    notes: "Above it, a small 미국 FDA 허가사항 기준 (per the FDA-approved label), already reviewed. {title} is the label's name in English.",
+  },
+  'uses.looking': {
+    section: USES,
+    where: 'The same box, beside a spinning circle, in place of the text.',
+    when: 'For a moment, while the label is fetched.',
+  },
+  'uses.unidentified': {
+    section: USES,
+    where: 'The same box, in place of the text.',
+    when: 'When the name on the label could not be read clearly enough, or matched to a medicine.',
+  },
+  'uses.none': {
+    section: USES,
+    where: 'The same box, in place of the text.',
+    when: 'When the medicine is known but has no current FDA-approved label.',
+  },
+  'uses.unavailable': {
+    section: USES,
+    where: 'The same box, in place of the text, above the button uses.retry.',
+    when: 'When the phone has no connection.',
+  },
+  'uses.retry': {
+    section: USES,
+    where: 'The same box: a button under uses.unavailable.',
+    when: 'With uses.unavailable.',
+    notes: 'Not the same words as 다시 시도하기 (Try again), which the reminders already use on the same page.',
   },
 
   // --- Reading a label: the result screen ---------------------------------
@@ -189,27 +253,32 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   },
   'fillIn.keepStart': {
     section: FILL,
+    hiddenWith: 'fillIn',
     where: 'The fill-in screen: an amber warning above the Check button.',
     when: 'After pressing Check, if an answer leaves out the start of a word that the camera did see, e.g. "7" typed where the box held "eve" (of "every 7").',
     notes: 'It tells the reader to keep the letters already in the box and add the rest. {read} is shown exactly as the camera read it.',
   },
   'fillIn.preview': {
     section: FILL,
+    hiddenWith: 'fillIn',
     where: 'The fill-in screen: a small heading in a grey box under the boxes, above the directions as they will read.',
     when: 'Always, on that screen; the text under it changes as the reader types.',
   },
   'fillIn.repeatedAfter': {
     section: FILL,
+    hiddenWith: 'fillIn',
     where: 'The fill-in screen: an amber warning above the Check button.',
     when: 'After pressing Check, if an answer repeats words that already follow its box, e.g. "(50,000 units)" typed where "units)" comes next.',
   },
   'fillIn.repeatedBefore': {
     section: FILL,
+    hiddenWith: 'fillIn',
     where: 'The fill-in screen: an amber warning above the Check button.',
     when: 'After pressing Check, if an answer repeats words that already come just before its box.',
   },
   'fillIn.keepEnd': {
     section: FILL,
+    hiddenWith: 'fillIn',
     where: 'The fill-in screen: an amber warning above the Check button.',
     when: 'The same, for a word cut off at the start of a line, e.g. an answer that drops the "ke" of "Take".',
   },
@@ -681,6 +750,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   },
   'guidance.perMfds': {
     section: KOREAN,
+    hiddenWith: 'koreanDrugNames',
     where: "A medicine's page: a small line under the medicine's Korean name, which sits under its English name.",
     when: "Once 식약처's Korean ingredient names are imported, for a medicine identified by its barcode. Not yet.",
     notes: 'It names where the Korean name came from. The other sources in the app read, e.g., 미국 FDA 허가사항 기준 (per the FDA-approved label).',

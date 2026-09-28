@@ -80,3 +80,15 @@ export function medicationFromReading(
     flagged,
   };
 }
+
+/**
+ * The name to identify the medicine by: the name as read, but only when it
+ * reads whole. A name withheld as damaged, or as cut off at the label's edge
+ * ("VITAMIN D" of "VITAMIN D2"), would be matched as some other medicine, so
+ * none is given for it.
+ */
+export function readableName(fields: MedicationLabelFields, truncation?: EdgeTruncation | null): string | null {
+  const name = fields.name?.text.trim();
+  if (!name) return null;
+  return assessField('name', name).level === 'damaged' || isCutAtEdge(truncation, 'name') ? null : name;
+}

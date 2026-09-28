@@ -238,8 +238,12 @@ describe('a medicine identified while offline', () => {
         const profile = await loadProfile();
         expect(profile.status === 'ok' && profile.value.medications[0].identity?.ingredients).toEqual(['levothyroxine']);
       });
-      // The product's own code, as at the scan, and nothing else.
-      expect(lookups).toEqual([expect.stringContaining('/rxcui/966222/related.json?tty=IN')]);
+      // RxNav is asked about the product's own code, as at the scan, and
+      // nothing else. (DailyMed is asked for its label too, by the page's
+      // approved uses.)
+      expect(lookups.filter((url) => url.includes('rxnav'))).toEqual([
+        expect.stringContaining('/rxcui/966222/related.json?tty=IN'),
+      ]);
     } finally {
       global.fetch = original;
     }

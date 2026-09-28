@@ -59,6 +59,34 @@
     "privacy.lookup": {
       "ko": "약을 찾을 때는 바코드 번호나 약병에서 읽은 약 이름만 미국 국립의학도서관에 보내요. 약 목록이나 사진은 보내지 않아요.",
       "note": "Built on her 바코드로 약을 찾을 때는 바코드 번호만 보내요. 약 목록이나 사진은 보내지 않아요."
+    },
+    "uses.title": {
+      "why": "Safety string: left for her to write, and shown in English until she has."
+    },
+    "uses.disclaimer": {
+      "why": "Safety string: left for her to write, and shown in English until she has."
+    },
+    "uses.identifiedAs": {
+      "ko": "약병 글씨로 찾은 약: {name}"
+    },
+    "uses.fromLabel": {
+      "ko": "미국 국립의학도서관 DailyMed에 있는 이 허가사항에서 가져왔어요: {title}",
+      "note": "Ends like her 미국 FDA 허가사항에서 가져온 내용이에요 idea in dailymed-sections.draft.md, which she has not reviewed."
+    },
+    "uses.looking": {
+      "ko": "FDA 허가사항을 찾고 있어요…"
+    },
+    "uses.unidentified": {
+      "ko": "약병에서 읽은 글씨로는 어떤 약인지 알 수 없어서, 허가받은 효능을 보여 드리지 못해요."
+    },
+    "uses.none": {
+      "ko": "이 약의 FDA 허가사항을 찾지 못해서, 허가받은 효능을 보여 드리지 못해요."
+    },
+    "uses.unavailable": {
+      "ko": "FDA 허가사항을 불러오지 못했어요. 인터넷 연결을 확인한 뒤 다시 시도해 주세요."
+    },
+    "uses.retry": {
+      "ko": "FDA 허가사항 다시 찾기"
     }
   }
 }

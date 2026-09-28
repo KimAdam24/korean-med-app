@@ -22,7 +22,7 @@ import { resolve } from 'node:path';
 import { pendingCopy, pendingCopyTable } from '../src/i18n/pending.ts';
 import { Strings } from '../src/i18n/strings.ts';
 import { SECTIONS } from './copy-context.ts';
-import { exportCsv, exportRows, missingContext, missingDrafts, type CopyDrafts } from './copy-export.ts';
+import { exportCsv, exportRows, heldBack, missingContext, missingDrafts, type CopyDrafts } from './copy-export.ts';
 import { parseSigDraft, phrasesCsv } from './sig-phrases-export.ts';
 
 const args = process.argv.slice(2);
@@ -59,5 +59,9 @@ if (phrasesAt !== -1) {
   for (const section of SECTIONS) {
     const count = rows.filter((row) => row.context.section === section).length;
     if (count > 0) console.log(`  ${String(count).padStart(3)}  ${section}`);
+  }
+  const held = heldBack(pending);
+  if (held.length > 0) {
+    console.log(`Held back, their features hidden (src/features/scope.ts): ${held.join(', ')}`);
   }
 }

@@ -55,6 +55,7 @@ function isMedicationRecord(value: unknown): value is MedicationRecord {
     (record.dosage === undefined || typeof record.dosage === 'string') &&
     (record.instructions === undefined || typeof record.instructions === 'string') &&
     isIdentity(record.identity) &&
+    isNameMatch(record.nameMatch) &&
     isReminderTimes(record.reminders)
   );
 }
@@ -89,6 +90,19 @@ function isReminderTimes(value: unknown): boolean {
  * package it came from. Either both are present and well-formed, or the record
  * is treated as having no identity at all.
  */
+function isNameMatch(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const match = value as Record<string, unknown>;
+  return (
+    typeof match.rxcui === 'string' &&
+    typeof match.matched === 'string' &&
+    Array.isArray(match.ingredients) &&
+    match.ingredients.length > 0 &&
+    match.ingredients.every((name) => typeof name === 'string')
+  );
+}
+
 function isIdentity(value: unknown): boolean {
   if (value === undefined) return true;
   if (typeof value !== 'object' || value === null) return false;

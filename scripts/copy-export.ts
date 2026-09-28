@@ -1,3 +1,4 @@
+import { Scope } from '../src/features/scope.ts';
 import type { PendingCopy } from '../src/i18n/pending.ts';
 import { COPY_CONTEXT, SECTIONS, type CopyContext } from './copy-context.ts';
 
@@ -52,12 +53,15 @@ export function missingDrafts(pending: readonly PendingCopy[], drafts: CopyDraft
     .map(({ key }) => key);
 }
 
-/** The rows, in export order. Context for strings no longer pending is ignored. */
-export function exportRows(pending: readonly PendingCopy[]): ExportRow[] {
+/**
+ * The rows, in export order. Context for strings no longer pending is ignored,
+ * and so are strings of a hidden feature (`heldBack`).
+ */
+export function exportRows(pending: readonly PendingCopy[], scope: typeof Scope = Scope): ExportRow[] {
   const byKey = new Map(pending.map((copy) => [copy.key, copy]));
   const order = Object.keys(COPY_CONTEXT);
   return Object.entries(COPY_CONTEXT)
-    .filter(([key]) => byKey.has(key))
+    .filter(([key, context]) => byKey.has(key) && !(context.hiddenWith && !scope[context.hiddenWith]))
     .map(([key, context]) => ({ copy: byKey.get(key)!, context }))
     .sort(
       (a, b) =>
@@ -67,6 +71,16 @@ export function exportRows(pending: readonly PendingCopy[]): ExportRow[] {
 }
 
 /** One CSV cell: quoted when it holds a quote, a comma or a line break. */
+/** Pending strings left out of the export because their feature is hidden. */
+export function heldBack(pending: readonly PendingCopy[], scope: typeof Scope = Scope): string[] {
+  return pending
+    .filter(({ key }) => {
+      const feature = COPY_CONTEXT[key]?.hiddenWith;
+      return feature !== undefined && !scope[feature];
+    })
+    .map(({ key }) => key);
+}
+
 export const cell = (text: string) => (/[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
 
 /**

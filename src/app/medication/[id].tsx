@@ -15,6 +15,8 @@ import {
   updateMedication,
 } from '@/features/medications/medication-store';
 import { koreanDirections } from '@/features/directions/korean-directions';
+import { doseFormOf } from '@/features/drugs/approved-uses';
+import { ApprovedUsesCard, type UsesSource } from '@/features/drugs/approved-uses-card';
 import { koreanIngredientNames } from '@/features/drugs/korean-names';
 import { fetchIngredients } from '@/features/drugs/rxnorm';
 import { ProfileProblem } from '@/features/medications/profile-problem';
@@ -123,6 +125,8 @@ export default function MedicationScreen() {
     try {
       await updateMedication(record.id, {
         name,
+        // A match for the old name is not one for the new: its page asks again.
+        ...(name !== record.name ? { nameMatch: undefined } : {}),
         // Cleared fields become absent rather than empty strings, so
         // `needsConfirmation` keeps treating them as unfilled.
         dosage: editing.dosage.trim() || undefined,
@@ -275,6 +279,18 @@ export default function MedicationScreen() {
     : null;
   const koreanHow = record.instructions ? koreanDirections(record.instructions) : null;
 
+  // A barcode's product exactly; otherwise the medicine its name names, by
+  // the match made when it was saved, or made now for an older record. A
+  // name that reads as damaged is not matched at all.
+  const usesSource: UsesSource = record.identity
+    ? { kind: 'product', ndc11: record.identity.ndc11, rxcui: record.identity.rxcui }
+    : {
+        kind: 'name',
+        name: assessField('name', record.name).level === 'damaged' ? null : record.name,
+        form: doseFormOf(record.dosage, record.instructions),
+        ...(record.nameMatch ? { known: record.nameMatch } : {}),
+      };
+
   return (
     <Screen>
       {mode.kind === 'viewing' && mode.notice ? <Notice tone="warn" title={mode.notice} live /> : null}
@@ -305,6 +321,8 @@ export default function MedicationScreen() {
           korean={koreanHow ? { text: koreanHow.ko, source: Strings.guidance.perReviewedPhrases } : undefined}
         />
       </Card>
+
+      <ApprovedUsesCard source={usesSource} />
 
       <ReminderSection record={record} profile={state.profile} onChanged={reload} />
 

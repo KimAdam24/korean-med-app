@@ -510,6 +510,48 @@ export const Strings = {
     },
   },
 
+  /**
+   * What a medicine's FDA label says it is approved to treat, shown verbatim in
+   * the label's English (`features/drugs/approved-uses`). `title` and
+   * `disclaimer` are safety copy: they are not drafted in Korean, and show in
+   * English until the reviewer writes and signs off her own.
+   */
+  uses: {
+    title: untranslated(
+      'What it is approved to treat, from its U.S. FDA label (in English)',
+      'SAFETY STRING: not drafted. The heading above the English text of a medicine\'s FDA label, saying what the text is and that it is in English. Under it, in English, the label\'s own words.'
+    ),
+    disclaimer: untranslated(
+      "A medicine may be prescribed for reasons other than those listed here. This is the indication the FDA approved, not your doctor's reason for prescribing it to you.",
+      'SAFETY STRING: not drafted. Always shown under the label\'s text. It must not be softened into reassurance: their own medicine may be prescribed for something not listed (a vitamin D2 label lists rickets and hypoparathyroidism, not low vitamin D).'
+    ),
+    identifiedAs: untranslated(
+      'Identified from its label as: {name}',
+      'Above the label\'s text, for a medicine read from a photo. {name} is the medicine RxNorm matched, in English, e.g. ergocalciferol.'
+    ),
+    fromLabel: untranslated(
+      'From this label on DailyMed (U.S. National Library of Medicine): {title}',
+      'Under the label\'s text: which label it came from. {title} is the label\'s name, in English, e.g. ERGOCALCIFEROL CAPSULE [TORRENT PHARMACEUTICALS LIMITED].'
+    ),
+    looking: untranslated('Looking up its FDA label…', 'While the label is fetched: a moment, usually.'),
+    unidentified: untranslated(
+      'This medicine could not be identified from what was read on its label, so what it is approved to treat is not shown.',
+      'In place of the label\'s text, when the medicine\'s name was not read clearly enough to be sure which medicine it is.'
+    ),
+    none: untranslated(
+      'No FDA-approved label was found for this medicine, so what it is approved to treat is not shown.',
+      'In place of the label\'s text, when the medicine is known but has no current FDA-approved label, as with some vitamins sold without approval.'
+    ),
+    unavailable: untranslated(
+      'Its FDA label could not be reached. Check the connection, then try again.',
+      'In place of the label\'s text, when there is no connection. Under it, the button uses.retry.'
+    ),
+    retry: untranslated(
+      'Look up the FDA label again',
+      "Button under uses.unavailable. Not 다시 시도하기 (Try again): the medicine's page has that button for reminders already, and two buttons alike would not say which is which."
+    ),
+  },
+
   guidance: {
     perFdaLabel: { ko: '미국 FDA 허가사항 기준', en: 'per the FDA-approved label' },
     perRxNorm: { ko: '미국 의약품 표준 정보(RxNorm) 기준', en: 'per RxNorm' },
