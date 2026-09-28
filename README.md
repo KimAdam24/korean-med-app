@@ -68,8 +68,9 @@ src/i18n/strings.ts       all user-facing copy, Korean-first
 | OCR label reading (§3.1 fallback)       | Custom native module — not yet verified on device  |
 | App lock, biometric + PIN (§3.3)        | Built                                             |
 | Encrypted medication storage (§3.3)     | Built                                             |
-| Korean translation (§3.2)               | Plumbing built; shows nothing until 식약처's names are imported and the dosing phrases are approved |
-| Interaction guidance (§3.4)             | Not started, by choice — needs authoritative data |
+| Korean translation (§3.2)               | App copy reviewed in batches; dosing phrases await review; Korean medicine names **parked**, blocked on data access (`docs/blocked-on-data.md`) |
+| Interaction guidance (§3.4)             | Engine built, rule table empty; **parked**, blocked on licensing and counsel (`docs/blocked-on-data.md`) |
+| What a medicine is for                  | Not started; **parked**, blocked on source availability (`docs/blocked-on-data.md`) |
 | First-launch introduction               | Built — copy awaiting translation                 |
 | Dose reminders                          | Built — not yet rung on a device; see `docs/reminders.md` |
 | Reading aloud (TTS)                     | Not started — constraints in `docs/tts-feasibility.md` |

@@ -8,6 +8,9 @@
  * Korean and English ingredient names (defaults in `mfds-import.ts`,
  * `DEFAULT_FIELDS`); `--dry-run` reports without writing.
  *
+ * PARKED 2026-09-28: the key cannot be obtained; see `docs/blocked-on-data.md`,
+ * which also notes that the service has moved on to version 08.
+ *
  * NOT YET RUN AGAINST REAL DATA. The endpoint and field names below are
  * assumed from 식약처's product-approval service; confirm both against a real
  * response when the key arrives, and check the report before committing the
