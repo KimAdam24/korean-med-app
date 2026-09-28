@@ -114,6 +114,19 @@ describe('reading a chosen photo', () => {
     expect(screen.getByRole('button', { name: Strings.camera.retake.ko })).toBeTruthy();
   });
 
+  it('a link naming a file outside the picker folder reads nothing and deletes nothing', async () => {
+    // The address is a route parameter, so any link can set one.
+    const vault = 'file:///document/secure/vault.v1.bin';
+    disk.write(vault, 'ciphertext');
+    ocr.willRead(VITAMIN_D2_VIAL_LINES);
+    launchApp(`/camera?imageUri=${encodeURIComponent('file:///cache/ImagePicker/../../document/secure/vault.v1.bin')}`);
+
+    // It opens as the camera, and nothing was read.
+    await screen.findByRole('button', { name: Strings.camera.shutter.ko });
+    expect(ocr.state.calls).toEqual([]);
+    expect(disk.files.has(vault)).toBe(true);
+  });
+
   it('reports a copy it could not delete instead of the reading', async () => {
     disk.failDeletes('file:///cache/ImagePicker/');
     await openPickedPhoto(VITAMIN_D2_VIAL_LINES);

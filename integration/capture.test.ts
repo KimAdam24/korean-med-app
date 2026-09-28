@@ -6,7 +6,7 @@ import type { CameraView } from 'expo-camera';
 
 import { disk } from './fakes/file-system';
 
-import { discardPickedCopy, sweepPhotoCaches } from '@/features/capture/photo-caches';
+import { discardPickedCopy, isPickedCopy, sweepPhotoCaches } from '@/features/capture/photo-caches';
 import {
   CaptureFailedError,
   PhotoNotDiscardedError,
@@ -76,6 +76,19 @@ describe("the picker's copy of a chosen photo", () => {
     disk.write(elsewhere);
     discardPickedCopy(elsewhere);
     expect(disk.files.has(elsewhere)).toBe(true);
+  });
+
+  it('is told apart from an address that only mentions the folder, or steps out of it', () => {
+    expect(isPickedCopy('file:///cache/ImagePicker/label.jpg')).toBe(true);
+    // Out of the folder, plainly or encoded.
+    expect(isPickedCopy('file:///cache/ImagePicker/../../document/secure/vault.v1.bin')).toBe(false);
+    expect(isPickedCopy('file:///cache/ImagePicker/%2E%2E/%2E%2E/document/secure/vault.v1.bin')).toBe(false);
+    // The folder's name somewhere other than the start of the path.
+    expect(isPickedCopy('file:///document/secure/vault.v1.bin#/cache/ImagePicker/x.jpg')).toBe(false);
+    expect(isPickedCopy('file:///document/secure/vault.v1.bin?/cache/ImagePicker/x.jpg')).toBe(false);
+    // The folder itself, or something inside a folder within it.
+    expect(isPickedCopy('file:///cache/ImagePicker/')).toBe(false);
+    expect(isPickedCopy('file:///cache/ImagePicker/nested/x.jpg')).toBe(false);
   });
 
   it('is reported when it cannot be deleted', () => {

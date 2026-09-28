@@ -20,19 +20,47 @@ import { PhotoNotDiscardedError } from './transient-capture';
 const PHOTO_CACHES = ['Camera', 'ImagePicker'] as const;
 
 /**
+ * Whether `uri` is a copy the picker made: a file directly inside the
+ * picker's cache folder, and nothing else.
+ *
+ * The one check for both reading an imported photo and deleting it, because
+ * the address arrives as a route parameter, and a deep link can set one. It
+ * used to be "starts with the folder, or mentions `/cache/ImagePicker/`
+ * anywhere", which `…/ImagePicker/../../files/<the vault>` passes: a crafted
+ * link could have had a file outside the folder read, then deleted. So no
+ * `.` or `..` segment (encoded or not), no query or fragment, and a file
+ * directly in the folder. The folder is emptied at every launch
+ * (`sweepPhotoCaches`), so there is nothing else there to point at.
+ */
+export function isPickedCopy(uri: string): boolean {
+  if (Platform.OS === 'web') return false;
+  let path: string;
+  try {
+    path = decodeURIComponent(uri);
+  } catch {
+    return false;
+  }
+  if (/[?#\\]/.test(path) || path.split('/').some((segment) => segment === '.' || segment === '..')) return false;
+
+  const folder = new Directory(Paths.cache, 'ImagePicker').uri.replace(/\/*$/, '/');
+  const name = path.startsWith(folder)
+    ? path.slice(folder.length)
+    : // The picker's own idea of the cache folder can differ in its prefix
+      // (iOS resolves /var through /private/var): the folder by name, anchored.
+      (/^file:\/\/\/(?:[^/]+\/)+(?:cache|Caches)\/ImagePicker\/([^/]+)$/.exec(path)?.[1] ?? '');
+  return name.length > 0 && !name.includes('/');
+}
+
+/**
  * Deletes the picker's copy of a chosen photograph once it has been read.
  *
- * Only a file in the picker's cache folder is touched: anything else is not
- * a copy this app made, and the user's own photographs are never deleted.
+ * Only a copy the picker made is touched (`isPickedCopy`): anything else is
+ * not this app's to delete, and the user's own photographs never are.
  *
  * @throws PhotoNotDiscardedError if the copy is still there afterwards.
  */
 export function discardPickedCopy(uri: string): void {
-  if (Platform.OS === 'web') return;
-
-  const folder = new Directory(Paths.cache, 'ImagePicker');
-  const ours = uri.startsWith(folder.uri) || /\/(cache|Caches)\/ImagePicker\//.test(uri);
-  if (!ours) return;
+  if (!isPickedCopy(uri)) return;
 
   const file = new File(uri);
   try {

@@ -23,7 +23,7 @@ import { Icon, type IconName } from '@/components/icon';
 import { ReadingField } from '@/components/reading-field';
 import { CameraChrome, Fonts, Radius, Spacing } from '@/constants/theme';
 import { probeCapture, type CaptureProbe } from '@/features/capture/dev-capture-probe';
-import { discardPickedCopy } from '@/features/capture/photo-caches';
+import { discardPickedCopy, isPickedCopy } from '@/features/capture/photo-caches';
 import {
   PhotoNotDiscardedError,
   withTransientCapture,
@@ -259,6 +259,10 @@ export default function CameraScreen() {
   useEffect(() => {
     if (!imageUri || readImported.current) return;
     readImported.current = true;
+    // Only the picker's own copy is read, and deleted. The address is a route
+    // parameter, so a deep link can set it: anything else is ignored, and the
+    // screen opens as the camera. See `isPickedCopy`.
+    if (!isPickedCopy(imageUri)) return;
 
     (async () => {
       setPhase({ kind: 'reading' });
