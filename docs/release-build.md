@@ -77,11 +77,11 @@ Then, in order:
 3. **Home has no gallery picker and no file probe.** The file probe at the
    bottom is development tooling. "Choose a photo (pending copy review)" is
    not: it is the real gallery picker, finished, and held back from release
-   on purpose until `content-drafts/privacy-copy.draft.md` is signed off,
-   because the home screen's current privacy line ("deleted right after the
-   text is read") is untrue of a photo from the user's own gallery. Its
-   button also needs a reviewed label; the one shown in development builds
-   is a placeholder.
+   on purpose until the `privacy.*` strings in the copy batch's follow-up
+   sheet are signed off, because the home screen's current privacy line
+   ("deleted right after the text is read") is untrue of a photo from the
+   user's own gallery. Its button's label is among them; the one shown in
+   development builds is a placeholder.
 4. **The camera opens**, with no yellow "DEV: replay a sweep" button. Press the
    shutter: the emulator's synthetic frame goes through the OCR module. "We
    could not read the writing", or a reading, both mean the module loaded and

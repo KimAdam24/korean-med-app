@@ -68,12 +68,14 @@ export default function MedicationScreen() {
    * removed, or everything erased, cannot put it back.
    */
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Set here as well as initially: Fast Refresh runs the cleanup and then
+    // this again, and the screen is still open.
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    []
-  );
+    };
+  }, []);
   const askedIngredients = useRef<string | null>(null);
   useEffect(() => {
     const identity = record?.identity;

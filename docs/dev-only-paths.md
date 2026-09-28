@@ -15,7 +15,7 @@ the minifier removes the code behind it.
 | --- | --- | --- |
 | Raw OCR panel, bottom of the result screen | Every line read, **unredacted**: the patient's name and address | `app/camera.tsx` `RawLinesPanel`, `ocr/dev-line-list.tsx` `DevLineList` |
 | Captured-frame panel | The photo itself as a preview, and its file path (also needs `EXPO_PUBLIC_DEV_CAPTURE_PREVIEW=1`) | `app/camera.tsx`, `capture/dev-capture-probe.ts` |
-| Gallery entry, "Choose a photo (pending copy review)" | **The real, finished gallery picker**, not tooling: held back from release until `content-drafts/privacy-copy.draft.md` is signed off (the current privacy line is untrue of the user's own photos), and it needs a reviewed button label too | `app/index.tsx` |
+| Gallery entry, "Choose a photo (pending copy review)" | **The real, finished gallery picker**, not tooling: held back from release until the `privacy.*` strings (in the copy batch's follow-up sheet; reasoning in `content-drafts/privacy-copy.draft.md`) are signed off: the current privacy line is untrue of the user's own photos, and the button's label is among them | `app/index.tsx` |
 | File probe, bottom of the home screen | Reads a picked file and shows its lines unredacted; "Seed a sample medicine" and "Add this to my medicines" write to the list | `ocr/dev-file-probe.tsx` |
 | Reading log | Each reading's lines to Metro and the device log, **redacted**: anything not evidently label text in shape only (`log-redaction`) | `ocr/dev-line-list.tsx` `logRecognizedLines` |
 | Sweep replay button and picker | Starting a replay from files | `app/camera.tsx` |

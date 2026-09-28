@@ -7,7 +7,7 @@
  * No real sweep has been recorded yet, so the frames here are hand-built to
  * the shape of the vitamin D2 vial turning in a hand, as in `merge.test.ts`.
  */
-import { fireEvent, screen } from 'expo-router/testing-library';
+import { act, fireEvent, screen } from 'expo-router/testing-library';
 
 import {
   APP_LOAD_BUDGET_MS,
@@ -167,7 +167,8 @@ describe('reading a curved label while it turns', () => {
     await jest.advanceTimersByTimeAsync(15_000);
     // Progress restarted the clock.
     expect(sweep.reading).toBe(true);
-    await jest.advanceTimersByTimeAsync(6_000);
+    // Inside act: this is the tick that ends the sweep and changes the screen.
+    await act(() => jest.advanceTimersByTimeAsync(6_000));
 
     // The camera is not left running; what was read is shown, cut line withheld.
     await screen.findByText(Strings.sweep.stalled.ko);

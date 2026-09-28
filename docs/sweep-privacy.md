@@ -159,8 +159,9 @@ reading only, never a frame.
 
 - "Photos are not saved" (`camera.privacyBanner`) stays true — more literally
   than today, since the sweep takes no photograph at all.
-- The home screen's "deleted right after the text is read" is under rewrite in
-  `content-drafts/privacy-copy.draft.md`, whose guarantee — *the image is never
+- The home screen's "deleted right after the text is read" is being rewritten
+  as `privacy.home`, in the copy batch's follow-up sheet (reasoning in
+  `content-drafts/privacy-copy.draft.md`). Its guarantee — *the image is never
   kept and never sent; only the words on it are used* — describes the sweep
   exactly.
 - The sweep needs its own instructions, progress, a stall message, and one

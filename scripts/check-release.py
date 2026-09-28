@@ -35,7 +35,10 @@ DEV_ONLY = {
     'sweep replay button and picker': ['DEV: replay a sweep', 'Development: replay a sweep'],
     'reading log (dev-line-list)': ['[label-ocr] BEGIN', '[label-ocr] END'],
     'replay frame log (replay-log)': ['[sweep-replay] BEGIN', '[sweep-replay] FRAME'],
-    'capture preview switch': ['EXPO_PUBLIC_DEV_CAPTURE_PREVIEW'],
+    # Not the capture preview's switch, EXPO_PUBLIC_DEV_CAPTURE_PREVIEW: a
+    # production bundle has every EXPO_PUBLIC_ variable replaced by its value,
+    # so the name is absent whether or not the code behind it shipped. The
+    # panel's own strings, above, are what show it compiled out.
 }
 # Shipped copy. Each must be present, or the search above proves nothing.
 SHIPPED = ['Take a photo of your medicine', '약 사진 찍기', 'Fill in what the bottle says',
