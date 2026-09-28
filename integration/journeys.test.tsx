@@ -14,6 +14,7 @@ import {
   loadApp,
   press,
   pressDigits,
+  withFullScope,
 } from './app-harness';
 import { camera } from './fakes/camera';
 import { ocr } from './fakes/devices';
@@ -86,26 +87,47 @@ describe('reading a chosen photo', () => {
     expect(profile.status === 'ok' && profile.value.medications[0].instructions).toBeUndefined();
   });
 
-  it('says the label curves round the bottle, instead of blaming the light, and withholds what the curve cut', async () => {
-    // The retaken vial: upright and unobstructed, and still cut on the right.
+  describe('with the curve message, hidden for now (Scope)', () => {
+    withFullScope();
+
+    it('says the label curves round the bottle, instead of blaming the light, and withholds what the curve cut', async () => {
+      // The retaken vial: upright and unobstructed, and still cut on the right.
+      await openPickedPhoto(VITAMIN_D2_VIAL_RETAKE_LINES);
+      await screen.findByText(Strings.result.curved.title.ko);
+
+      expect(screen.getByText(Strings.result.curved.right.ko)).toBeTruthy();
+      // Name and strength were not at the edge, and it says so.
+      expect(screen.getByText(Strings.result.curved.restWhole.ko)).toBeTruthy();
+      expect(screen.getByText('VITAMIN D2')).toBeTruthy();
+      expect(screen.getByText('1.25 MG (50,000 UNIT)')).toBeTruthy();
+      // Not the advice for a dark or distant photo: more light will not help.
+      expect(screen.queryByText(Strings.result.degradedBody.ko)).toBeNull();
+      // The directions never reached a field here; their slot says why.
+      expect(screen.getByText(Strings.result.curved.fieldNote.ko)).toBeTruthy();
+      expect(screen.queryByText(Strings.result.missing.ko)).toBeNull();
+
+      press(Strings.medications.saveFromLabel.ko);
+      await screen.findByText(Strings.scan.saved.ko);
+      const profile = await loadProfile();
+      expect(profile.status === 'ok' && profile.value.medications[0].instructions).toBeUndefined();
+    });
+  });
+
+  it('a curved label: withholds what the curve cut and says so, with no advice about light, and no curve message', async () => {
     await openPickedPhoto(VITAMIN_D2_VIAL_RETAKE_LINES);
-    await screen.findByText(Strings.result.curved.title.ko);
+    await screen.findByText('VITAMIN D2');
 
-    expect(screen.getByText(Strings.result.curved.right.ko)).toBeTruthy();
-    // Name and strength were not at the edge, and it says so.
-    expect(screen.getByText(Strings.result.curved.restWhole.ko)).toBeTruthy();
-    expect(screen.getByText('VITAMIN D2')).toBeTruthy();
     expect(screen.getByText('1.25 MG (50,000 UNIT)')).toBeTruthy();
-    // Not the advice for a dark or distant photo: more light will not help.
-    expect(screen.queryByText(Strings.result.degradedBody.ko)).toBeNull();
-    // The directions never reached a field here; their slot says why.
-    expect(screen.getByText(Strings.result.curved.fieldNote.ko)).toBeTruthy();
+    // The directions never reached a field; their slot says they may be cut.
+    expect(screen.getByText(Strings.result.curved.edgeNote.ko)).toBeTruthy();
     expect(screen.queryByText(Strings.result.missing.ko)).toBeNull();
-
-    press(Strings.medications.saveFromLabel.ko);
-    await screen.findByText(Strings.scan.saved.ko);
-    const profile = await loadProfile();
-    expect(profile.status === 'ok' && profile.value.medications[0].instructions).toBeUndefined();
+    // Hidden: the curve, its remedy, turning the bottle, and filling in.
+    expect(screen.queryByText(Strings.result.curved.title.ko)).toBeNull();
+    expect(screen.queryByText(Strings.result.curved.fieldNote.ko)).toBeNull();
+    expect(screen.queryByRole('button', { name: Strings.sweep.start.ko })).toBeNull();
+    expect(screen.queryByRole('button', { name: Strings.fillIn.start.ko })).toBeNull();
+    // And not the advice for a dark photo either.
+    expect(screen.queryByText(Strings.result.degradedBody.ko)).toBeNull();
   });
 
   it('without a medicine name, says it cannot be added, and offers no Add button', async () => {
@@ -184,6 +206,9 @@ describe('reading a label with the camera', () => {
 });
 
 describe('a medicine identified while offline', () => {
+  // Its ingredients feed only hidden features (`Scope`).
+  withFullScope();
+
   const offlineRecord = {
     name: 'levothyroxine sodium 0.2 MG Injection',
     source: 'label-scan' as const,
@@ -237,6 +262,10 @@ describe('a medicine identified while offline', () => {
 });
 
 describe('scanning a barcode', () => {
+  // As it was, ingredient lookup included (`Scope`); the scan as it is now is
+  // tested with the approved uses.
+  withFullScope();
+
   it('identifies the package through RxNav and saves it as confirmed', async () => {
     global.fetch = jest.fn(async (url: string) => {
       const answer = url.includes('ndcstatus')

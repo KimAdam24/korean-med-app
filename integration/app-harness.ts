@@ -3,6 +3,8 @@ import { act, fireEvent, getMockContext, renderRouter, screen } from 'expo-route
 
 import { disk } from './fakes/file-system';
 
+import { Scope } from '@/features/scope';
+
 /**
  * Drives the real app — `src/app`, its layout, the lock in front of it — the
  * way a person would: by what is on screen and what they press.
@@ -100,4 +102,24 @@ export function visibleText(): string[] {
   };
   walk(screen.toJSON());
   return texts;
+}
+
+/**
+ * Turns every hidden feature back on for the tests that follow (`Scope`), and
+ * off again after each: `describe(..., () => { withFullScope(); ... })`.
+ *
+ * So the hidden features keep their tests, and restoring one is a flag, not a
+ * rewrite. The app reads `Scope` as it renders, so this takes effect on the
+ * next screen drawn.
+ */
+export function withFullScope(): void {
+  const flags = Scope as { -readonly [K in keyof typeof Scope]: boolean };
+  let saved: typeof Scope;
+  beforeEach(() => {
+    saved = { ...Scope };
+    for (const key of Object.keys(flags) as (keyof typeof Scope)[]) flags[key] = true;
+  });
+  afterEach(() => {
+    Object.assign(flags, saved);
+  });
 }

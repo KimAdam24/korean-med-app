@@ -55,6 +55,7 @@ import {
   type RecognizedTextLine,
 } from '@/features/ocr/types';
 import { listReplays, sweepAvailable } from '../../modules/label-sweep';
+import { Scope } from '@/features/scope';
 import { useAppLock } from '@/features/security/app-lock-context';
 import { VaultUnreadableError } from '@/features/security/secure-vault';
 import { useTheme } from '@/hooks/use-theme';
@@ -373,7 +374,9 @@ export default function CameraScreen() {
        * list, which `checkInteractions` reports as unchecked rather than
        * treating as safe.
        */
-      const ingredients = await fetchIngredients(drug.rxcui);
+      // Only while a feature that uses them is offered (see `Scope`): the
+      // lookup tells NLM about the medicine a second time, for nothing.
+      const ingredients = Scope.koreanDrugNames ? await fetchIngredients(drug.rxcui) : [];
       if (!open.current) return;
 
       await addMedication({
@@ -669,7 +672,7 @@ export default function CameraScreen() {
         devProbe={devProbe}
         onSave={saveFromLabel}
         onRetake={retake}
-        onSweep={sweepAvailable ? startSweep : undefined}
+        onSweep={Scope.sweep && sweepAvailable ? startSweep : undefined}
         onFilled={filledIn}
         onClose={close}
       />
@@ -741,7 +744,7 @@ export default function CameraScreen() {
             onDark
             maxScale={OVERLAY_MAX_SCALE}
           />
-          {__DEV__ && replays.length > 0 && phase.kind === 'preview' ? (
+          {__DEV__ && Scope.sweep && replays.length > 0 && phase.kind === 'preview' ? (
             <DevButton
               label="DEV: replay a sweep"
               onPress={() => setPhase({ kind: 'replay-picker', names: listReplays() })}
@@ -850,8 +853,10 @@ function ReadingResult({
   const theme = useTheme();
   const degraded = quality?.level === 'degraded';
   const toSave = medicationFromReading(fields, truncation);
+  // Said to be cut at the edge either way; that it is the curve, only while
+  // the curve is talked about (`Scope.curveMessage`).
   const cut = (kind: 'name' | 'dosage' | 'instructions') =>
-    isCutAtEdge(truncation, kind) ? (truncation?.diagnosed ? 'curve' : 'edge') : undefined;
+    isCutAtEdge(truncation, kind) ? (Scope.curveMessage && truncation?.diagnosed ? 'curve' : 'edge') : undefined;
 
   /**
    * The withheld fields with something specific to fill in.
@@ -862,7 +867,7 @@ function ReadingResult({
    * is identifiably missing, and an empty "type the directions" box would be
    * free text with nothing to check it by.
    */
-  const fillable = lines
+  const fillable = Scope.fillIn && lines
     ? FIELD_KINDS.filter((kind) => {
         const text = fields[kind]?.text;
         if (!text) return false;
@@ -880,7 +885,7 @@ function ReadingResult({
    * read's "try somewhere brighter" rather than adding to it: that advice is
    * wrong here, and a user who follows it retakes the same failure.
    */
-  const curvedNotice = truncation?.diagnosed ? (
+  const curvedNotice = Scope.curveMessage && truncation?.diagnosed ? (
     <Notice
       tone="warn"
       title={Strings.result.curved.title}
@@ -1005,7 +1010,13 @@ function ReadingResult({
               style={styles.headingText}
             />
           </View>
-          {curvedNotice ?? <BilingualText text={Strings.result.degradedBody} hideEnglish />}
+          {/*
+            Not "try somewhere brighter" for a label known to curve: more light
+            does not bring round what is out of sight. With the curve not
+            talked about (`Scope.curveMessage`), nothing is said instead.
+          */}
+          {curvedNotice ??
+            (truncation?.diagnosed ? null : <BilingualText text={Strings.result.degradedBody} hideEnglish />)}
           {sweepButton}
           <BigButton
             label={Strings.camera.retake}

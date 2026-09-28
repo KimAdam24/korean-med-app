@@ -8,7 +8,9 @@
  */
 import { screen } from 'expo-router/testing-library';
 
-import { APP_LOAD_BUDGET_MS, forgetAppStateListeners, launchApp, loadApp } from './app-harness';
+import { APP_LOAD_BUDGET_MS, forgetAppStateListeners, launchApp, loadApp,
+  withFullScope,
+} from './app-harness';
 import { disk } from './fakes/file-system';
 import { ocr } from './fakes/devices';
 
@@ -74,6 +76,9 @@ const lisinopril = {
 };
 
 describe("a medicine's page", () => {
+  // The Korean ingredient name is hidden for now (`Scope`).
+  withFullScope();
+
   it('shows the Korean name and directions under the English, each saying where it came from', async () => {
     approve();
     const saved = await addMedication(lisinopril);

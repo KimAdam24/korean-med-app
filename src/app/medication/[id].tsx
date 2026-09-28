@@ -20,6 +20,7 @@ import { fetchIngredients } from '@/features/drugs/rxnorm';
 import { ProfileProblem } from '@/features/medications/profile-problem';
 import { useProfile } from '@/features/medications/use-profile';
 import { ReminderSection } from '@/features/reminders/reminder-section';
+import { Scope } from '@/features/scope';
 import { useReminders } from '@/features/reminders/reminders-context';
 import { goBackOr } from '@/features/navigation/go-back';
 import { assessField } from '@/features/ocr/field-integrity';
@@ -78,6 +79,8 @@ export default function MedicationScreen() {
   }, []);
   const askedIngredients = useRef<string | null>(null);
   useEffect(() => {
+    // Only while a feature that uses the ingredients is offered (`Scope`).
+    if (!Scope.koreanDrugNames) return;
     const identity = record?.identity;
     if (!record || !identity || (identity.ingredients?.length ?? 0) > 0) return;
     if (askedIngredients.current === record.id) return;
@@ -267,7 +270,9 @@ export default function MedicationScreen() {
   // §3.2: Korean only from approved sources, and null until they arrive: the
   // ingredients in 식약처's names (a barcode record's, all or none), and the
   // directions built from reviewed phrases (all of them, or none).
-  const koreanName = koreanIngredientNames(record.identity?.ingredients)?.join(' + ') ?? null;
+  const koreanName = Scope.koreanDrugNames
+    ? (koreanIngredientNames(record.identity?.ingredients)?.join(' + ') ?? null)
+    : null;
   const koreanHow = record.instructions ? koreanDirections(record.instructions) : null;
 
   return (

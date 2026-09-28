@@ -16,6 +16,7 @@ import {
   loadApp,
   press,
   sendAppTo,
+  withFullScope,
 } from './app-harness';
 import { camera } from './fakes/camera';
 import { ocr } from './fakes/devices';
@@ -29,6 +30,8 @@ import { Strings, fillTemplate } from '@/i18n/strings';
 
 beforeAll(loadApp, APP_LOAD_BUDGET_MS);
 beforeEach(forgetAppStateListeners);
+// All of it hidden for now (`Scope`), and kept working for when it returns.
+withFullScope();
 
 const runtime = globalThis as unknown as { __DEV__: boolean };
 let wasDev: boolean;
