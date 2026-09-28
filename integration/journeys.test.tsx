@@ -183,6 +183,59 @@ describe('reading a label with the camera', () => {
   });
 });
 
+describe('a medicine identified while offline', () => {
+  const offlineRecord = {
+    name: 'levothyroxine sodium 0.2 MG Injection',
+    source: 'label-scan' as const,
+    needsReview: false,
+    // Identified by its barcode, but the ingredient lookup failed.
+    identity: { rxcui: '966222', ndc11: '63323024710' },
+  };
+
+  it('gets its ingredients once it is opened with a connection', async () => {
+    const original = global.fetch;
+    const lookups: string[] = [];
+    global.fetch = jest.fn(async (url: string) => {
+      lookups.push(url);
+      const answer = { relatedGroup: { conceptGroup: [{ tty: 'IN', conceptProperties: [{ name: 'levothyroxine' }] }] } };
+      return { ok: true, status: 200, json: async () => answer } as Response;
+    }) as unknown as typeof fetch;
+    try {
+      const saved = await addMedication(offlineRecord);
+      launchApp(`/medication/${saved.id}`);
+      await screen.findByText(offlineRecord.name);
+
+      await waitFor(async () => {
+        const profile = await loadProfile();
+        expect(profile.status === 'ok' && profile.value.medications[0].identity?.ingredients).toEqual(['levothyroxine']);
+      });
+      // The product's own code, as at the scan, and nothing else.
+      expect(lookups).toEqual([expect.stringContaining('/rxcui/966222/related.json?tty=IN')]);
+    } finally {
+      global.fetch = original;
+    }
+  });
+
+  it('still offline, is left as it was, and the page is unaffected', async () => {
+    const original = global.fetch;
+    global.fetch = jest.fn(async () => {
+      throw new Error('Offline (injected).');
+    }) as unknown as typeof fetch;
+    try {
+      const saved = await addMedication(offlineRecord);
+      launchApp(`/medication/${saved.id}`);
+      await screen.findByText(offlineRecord.name);
+      await act(async () => undefined);
+
+      const profile = await loadProfile();
+      expect(profile.status === 'ok' && profile.value.medications[0].identity?.ingredients).toBeUndefined();
+      expect(screen.getByText(offlineRecord.name)).toBeTruthy();
+    } finally {
+      global.fetch = original;
+    }
+  });
+});
+
 describe('scanning a barcode', () => {
   it('identifies the package through RxNav and saves it as confirmed', async () => {
     global.fetch = jest.fn(async (url: string) => {

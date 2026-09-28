@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
@@ -16,6 +16,7 @@ import {
 } from '@/features/medications/medication-store';
 import { koreanDirections } from '@/features/directions/korean-directions';
 import { koreanIngredientNames } from '@/features/drugs/korean-names';
+import { fetchIngredients } from '@/features/drugs/rxnorm';
 import { ProfileProblem } from '@/features/medications/profile-problem';
 import { useProfile } from '@/features/medications/use-profile';
 import { ReminderSection } from '@/features/reminders/reminder-section';
@@ -56,6 +57,40 @@ export default function MedicationScreen() {
         : undefined,
     [state, id]
   );
+
+  /**
+   * A medicine identified by its barcode while offline was saved without its
+   * ingredients: the lookup failed, and nothing asked again, so it never got
+   * its Korean name (§3.2), nor what an interaction check needs. Asked once
+   * per visit, quietly, for the same product code RxNav was sent when the
+   * barcode was scanned; if it fails again, nothing changes. Written only
+   * while this screen is open, so an answer arriving after the medicine was
+   * removed, or everything erased, cannot put it back.
+   */
+  const mounted = useRef(true);
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    []
+  );
+  const askedIngredients = useRef<string | null>(null);
+  useEffect(() => {
+    const identity = record?.identity;
+    if (!record || !identity || (identity.ingredients?.length ?? 0) > 0) return;
+    if (askedIngredients.current === record.id) return;
+    askedIngredients.current = record.id;
+    void (async () => {
+      const ingredients = await fetchIngredients(identity.rxcui);
+      if (!mounted.current || ingredients.length === 0) return;
+      try {
+        await updateMedication(record.id, { identity: { ...identity, ingredients } });
+        if (mounted.current) await reload();
+      } catch {
+        // As it was; asked again on the next visit.
+      }
+    })();
+  }, [record, reload]);
 
   const startEditing = useCallback(() => {
     if (!record) return;
