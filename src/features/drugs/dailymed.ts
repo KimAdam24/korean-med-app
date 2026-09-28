@@ -35,10 +35,10 @@
 import { attribute, type AttributedGuidance } from '../guidance/attribution.ts';
 import { Strings } from '../../i18n/strings.ts';
 
-const DAILYMED_BASE = 'https://dailymed.nlm.nih.gov/dailymed/services/v2';
+export const DAILYMED_BASE = 'https://dailymed.nlm.nih.gov/dailymed/services/v2';
 
 /** Matches the other network calls; a slow lookup should not hang a scan. */
-const REQUEST_TIMEOUT_MS = 8000;
+export const REQUEST_TIMEOUT_MS = 8000;
 
 /**
  * LOINC codes for the sections worth considering.
@@ -192,7 +192,7 @@ export function extractSectionText(xml: string, loincCode: string): string | nul
   if (end === -1) return null;
 
   const body = xml.slice(textAt + '<text>'.length, end);
-  return toPlainText(body);
+  return labelMarkupToText(body);
 }
 
 /**
@@ -200,21 +200,41 @@ export function extractSectionText(xml: string, loincCode: string): string | nul
  *
  * List items become lines rather than being run together: a warning that reads
  * as one long sentence when it was written as four separate risks has been
- * changed in meaning, not just in formatting.
+ * changed in meaning, not just in formatting. A subsection's title is a line
+ * of its own too.
+ *
+ * XML defines five named entities; everything else arrives as a number. `&amp;`
+ * is decoded last, so a label that spells out "&amp;lt;" still shows "&lt;".
  */
-function toPlainText(markup: string): string | null {
+export function labelMarkupToText(markup: string): string | null {
   const text = markup
+    // Line breaks in the markup are its indentation, not the label's: only
+    // paragraphs, items, titles and breaks start a line.
+    .replace(/\s+/g, ' ')
+    // An item may carry its own marker as a caption ("•", "a."): that is its
+    // marker, not text to add after one.
+    .replace(/<item[^>]*>\s*<caption[^>]*>([\s\S]*?)<\/caption>/gi, (_, caption: string) => {
+      const marker = caption.replace(/<[^>]+>/g, '').trim();
+      // A lone symbol is a bullet, whichever one the label used.
+      return `\n${marker.length === 0 || /^[^\p{L}\p{N}]$/u.test(marker) ? '•' : marker} `;
+    })
     .replace(/<paragraph[^>]*>/gi, '\n')
+    .replace(/<\/?title[^>]*>/gi, '\n')
     .replace(/<item[^>]*>/gi, '\n• ')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#x2019;|&rsquo;/g, '’')
+    .replace(/&apos;/g, "'")
+    .replace(/&rsquo;/g, '’')
     .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&amp;/g, '&')
+    .replace(/ /g, ' ')
     .replace(/[ \t]+/g, ' ')
+    .replace(/ *\n */g, '\n')
     .replace(/\n\s*\n\s*/g, '\n')
     .trim();
 

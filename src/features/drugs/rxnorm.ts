@@ -10,8 +10,11 @@
  *
  * ## The disclosure this makes, which is not nothing
  *
- * This is the only outbound request the app makes, and it necessarily tells the
- * National Library of Medicine that somebody looked up a particular medication.
+ * It necessarily tells the National Library of Medicine that somebody looked
+ * up a particular medication. (So, since 2026-09-28, do the app's other two
+ * requests, both to NLM and both about the medicine alone: its name as read
+ * from a photo, to identify it (`identify-name`), and its FDA label, from
+ * DailyMed (`approved-uses`).)
  * Spec §4 says the user's data is theirs alone, so it is worth being precise
  * about what does and does not leave the device:
  *
