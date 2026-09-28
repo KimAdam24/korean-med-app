@@ -142,6 +142,17 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     when: 'On that confirmation step.',
     notes: 'Goes back to the boxes to change what was typed.',
   },
+  'fillIn.keepStart': {
+    section: FILL,
+    where: 'The fill-in screen: an amber warning above the Check button.',
+    when: 'After pressing Check, if an answer leaves out the start of a word that the camera did see, e.g. "7" typed where the box held "eve" (of "every 7").',
+    notes: 'It tells the reader to keep the letters already in the box and add the rest. {read} is shown exactly as the camera read it.',
+  },
+  'fillIn.keepEnd': {
+    section: FILL,
+    where: 'The fill-in screen: an amber warning above the Check button.',
+    when: 'The same, for a word cut off at the start of a line, e.g. an answer that drops the "ke" of "Take".',
+  },
   'fillIn.filledNote': {
     section: FILL,
     where: 'Result screen: a small blue notice near the top.',

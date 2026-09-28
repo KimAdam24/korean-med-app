@@ -624,6 +624,14 @@ export const Strings = {
       'That still does not read in full. Please check each box against the bottle.'
     ),
     filledNote: untranslated('You filled in part of this from the bottle.'),
+    keepStart: untranslated(
+      'The camera saw how this word starts: "{read}". Keep those letters, and type the rest from the bottle.',
+      'After Check, when an answer drops the start of a word cut off at the edge, e.g. 7 typed over eve (of every). {read} is the letters the camera saw.'
+    ),
+    keepEnd: untranslated(
+      'The camera saw how this word ends: "{read}". Keep those letters, and type the start from the bottle.',
+      'The same, for a word cut off at the start of a line. {read} is the letters the camera saw, e.g. ke (of Take).'
+    ),
   },
 
   /**

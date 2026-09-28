@@ -10,7 +10,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Strings, fillTemplate } from '@/i18n/strings';
 
 import { assessField, type FieldKind } from './field-integrity';
-import { applyFillIns, expectsNumber, findGaps, gapKey, type Gap } from './fill-in';
+import { answerProblems, applyFillIns, expectsNumber, findGaps, gapKey, type Gap } from './fill-in';
 import { interpretLines } from './interpret-lines';
 import { isCutAtEdge } from './truncation';
 import type { LabelRecognitionResult, MedicationLabelFields, RecognizedTextLine } from './types';
@@ -57,8 +57,14 @@ export function FillInPanel({
   );
   const [confirming, setConfirming] = useState<Recognised | null>(null);
   const [incomplete, setIncomplete] = useState(false);
+  const [dropped, setDropped] = useState<ReturnType<typeof answerProblems>[number] | null>(null);
 
   const check = () => {
+    // First: nothing the camera saw of a cut word may be typed away.
+    const [problem] = answerProblems(gaps, typed);
+    setDropped(problem ?? null);
+    if (problem) return setIncomplete(false);
+
     const result = interpretLines(applyFillIns(lines, gaps, typed));
     if (result.status !== 'recognized') return setIncomplete(true);
     const whole = kinds.every((kind) => {
@@ -107,6 +113,15 @@ export function FillInPanel({
           onType={(gap, value) => setTyped((current) => new Map(current).set(gapKey(gap), value))}
         />
       ))}
+      {dropped ? (
+        <Notice
+          tone="warn"
+          title={fillTemplate(dropped.keep === 'prefix' ? Strings.fillIn.keepStart : Strings.fillIn.keepEnd, {
+            read: dropped.gap.read,
+          })}
+          live
+        />
+      ) : null}
       {incomplete ? <Notice tone="warn" title={Strings.fillIn.stillIncomplete} live /> : null}
       <BigButton label={Strings.fillIn.check} onPress={check} />
       <BigButton label={Strings.medications.cancel} tone="secondary" onPress={onCancel} />

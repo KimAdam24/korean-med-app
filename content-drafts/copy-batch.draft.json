@@ -316,6 +316,14 @@
     },
     "guidance.perReviewedPhrases": {
       "ko": "검토를 거친 문구로 옮긴 한국어예요. 위의 영어가 약국에서 인쇄한 원문이에요."
+    },
+    "fillIn.keepStart": {
+      "ko": "카메라가 읽은 앞부분: \"{read}\". 이 글자는 그대로 두고, 나머지를 약병을 보고 입력해 주세요.",
+      "note": "Written without a particle after \"{read}\", which is whatever letters the camera saw."
+    },
+    "fillIn.keepEnd": {
+      "ko": "카메라가 읽은 뒷부분: \"{read}\". 이 글자는 그대로 두고, 앞부분을 약병을 보고 입력해 주세요.",
+      "note": "Written without a particle after \"{read}\"."
     }
   }
 }

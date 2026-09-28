@@ -22,9 +22,22 @@ import type { MedicationLabelFields, RecognizedTextLine } from './types.ts';
  * user's words in them, which then go through the whole pipeline again —
  * damage detection and the edge check included — and are shown back for the
  * user to confirm. A field that still does not read whole is still withheld.
+ *
+ * One thing is checked before that: an answer must keep what the camera saw
+ * of a word cut at the edge (`answerProblems`). Typing `7` over the `eve` of
+ * `every 7` gives "by mouth 7 days", which reads as whole and is wrong; the
+ * reader comparing it with the bottle should not be the only thing that
+ * catches it.
  */
 export type Gap =
-  | { readonly kind: 'word'; readonly line: number; readonly token: number; readonly read: string; readonly cut: boolean }
+  | {
+      readonly kind: 'word';
+      readonly line: number;
+      readonly token: number;
+      readonly read: string;
+      /** Cut at the line's end (the camera saw its start) or start (it saw its end), or not cut. */
+      readonly cut: 'end' | 'start' | null;
+    }
   | { readonly kind: 'insert'; readonly line: number; readonly after: number };
 
 export const gapKey = (gap: Gap) =>
@@ -57,7 +70,13 @@ export function findGaps(
       // shown as read, to be corrected ("every 7").
       const misreadCount = countMissing && !everyOrFor;
       if (atCutEnd || atCutStart || misreadCount || wordDamage(token, 'instructions') !== null) {
-        gaps.push({ kind: 'word', line: index, token: position, read: token, cut: atCutEnd || atCutStart });
+        gaps.push({
+          kind: 'word',
+          line: index,
+          token: position,
+          read: token,
+          cut: atCutEnd ? 'end' : atCutStart ? 'start' : null,
+        });
       }
       // "every days": the number between them is what is missing.
       if (countMissing && everyOrFor) {
@@ -96,6 +115,53 @@ export function applyFillIns(
 
     const text = rebuilt.join(' ');
     return text === line.text ? line : { ...line, text };
+  });
+}
+
+/**
+ * What an answer must keep of the word the camera saw: its start (`prefix`),
+ * for a word cut at the end of a line; its end (`suffix`), for one cut at the
+ * start; or nothing.
+ *
+ * Only when what was seen can really be a piece of the word: a piece of a
+ * known word (`eve`, `ke`), a whole one (`every`), or a piece of a number
+ * (`(50,0`, `000`). Not a single character, and not something judged a
+ * misread (`Takc`): the `(b` of the vial is what the camera made of `(50,000`,
+ * not its start, and requiring it would refuse the right answer. Those boxes
+ * are checked as before: by reading the result again, and by the reader.
+ */
+export function mustKeep(gap: Gap): 'prefix' | 'suffix' | null {
+  if (gap.kind !== 'word' || gap.cut === null) return null;
+  const core = gap.read.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '');
+  if (core.length < 2) return null;
+  const damage = wordDamage(gap.read, 'instructions');
+  if (damage !== null && damage !== 'truncated' && damage !== 'missing-number') return null;
+  return gap.cut === 'end' ? 'prefix' : 'suffix';
+}
+
+/**
+ * The boxes whose answer drops what the camera saw: `7` typed over `eve`.
+ * Case and a leading or trailing bracket do not matter; commas do, or
+ * `5,000` would pass for a completion of `(50,0`. An answer left as read, or
+ * left empty, is not a problem here: it changes nothing, and the result is
+ * judged incomplete as it was.
+ */
+export function answerProblems(
+  gaps: readonly Gap[],
+  typed: ReadonlyMap<string, string>
+): { gap: Extract<Gap, { kind: 'word' }>; keep: 'prefix' | 'suffix' }[] {
+  const leading = (text: string) => text.trim().replace(/^[^a-z0-9]+/i, '').toLowerCase();
+  const trailing = (text: string) => text.trim().replace(/[^a-z0-9]+$/i, '').toLowerCase();
+  return gaps.flatMap((gap) => {
+    const keep = mustKeep(gap);
+    if (!keep || gap.kind !== 'word') return [];
+    const answer = (typed.get(gapKey(gap)) ?? '').trim();
+    if (answer.length === 0 || answer === gap.read) return [];
+    const kept =
+      keep === 'prefix'
+        ? leading(answer).startsWith(leading(gap.read))
+        : trailing(answer).endsWith(trailing(gap.read));
+    return kept ? [] : [{ gap, keep }];
   });
 }
 
