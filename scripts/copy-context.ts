@@ -58,7 +58,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   },
   'privacy.pickedPhoto': {
     section: PRIVACY,
-    where: 'The result screen, at the bottom, under a reading of a photo chosen from her gallery.',
+    where: "The result screen, under a reading of a photo chosen from her gallery: a small line below the medicine's details, above the 내 약으로 등록하기 (Add to my medicines) button.",
     when: 'After reading a photo she chose, in place of 사진은 지웠어요 (The photo has been deleted).',
     notes:
       'The "not deleted" is the point: someone told the app deletes photos may fear it will delete hers. Does the wording clearly mean "left untouched", and not "left lying around"?',
@@ -72,7 +72,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   },
   'privacy.choosePhoto': {
     section: PRIVACY,
-    where: 'The home screen: a button, below 약 사진 찍기 (Take a photo of your medicine).',
+    where: 'The home screen: a row in the list under the 약 사진 찍기 (Take a photo of your medicine) button, between 내 약 보기 (See my medicines) and 설정 (Settings).',
     when: 'Always, once the gallery picker is in the app.',
     notes: 'Opens her photos, to read a label from a photo she already took. Her photos are never changed or deleted.',
   },
