@@ -10,7 +10,7 @@ missing is permission to use the data or access to it.
 | Feature | Code state | Blocked on | Parked |
 | --- | --- | --- | --- |
 | Interaction guidance (§3.4) | Engine built and tested; rule table empty | Licensing, **and** regulatory counsel | 2026-09-22 |
-| "What this medicine is for" | Not started | Source availability: the only patient-language text is licensed | 2026-09-28 |
+| "What this medicine is for", in plain words | Built instead in the label's own words (below) | Source availability: the only patient-language text is licensed | 2026-09-28 |
 | Korean medicine names | Importer and display built; name table empty | Data access: a data.go.kr key the owner cannot obtain | 2026-09-28 |
 
 The rule behind all three is the same: medical facts only from an authoritative
@@ -55,8 +55,14 @@ here changes.
 **What it would do:** one plain line per medicine, such as "for blood
 pressure".
 
-**What is built:** nothing. The research was done before building, as asked.
-The raw material is in the gitignored `android/release-check/indications/`.
+**What is built instead (2026-09-28):** the label's own words. The app shows
+the Indications and Usage section of the medicine's FDA label from DailyMed,
+verbatim and attributed, under a heading saying what it is and a note that it
+is the approved indication, not the doctor's reason
+(`features/drugs/approved-uses.ts`; see `docs/scope.md`). Accepted as
+prescriber's English, and as wrong about why a user takes their vitamin D2. The
+plain line, "for blood pressure", is what stays blocked, for the reasons
+below. The research is in the gitignored `android/release-check/indications/`.
 
 **Why it is blocked:**
 

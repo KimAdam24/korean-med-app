@@ -70,7 +70,9 @@ src/i18n/strings.ts       all user-facing copy, Korean-first
 | Encrypted medication storage (§3.3)     | Built                                             |
 | Korean translation (§3.2)               | App copy reviewed in batches; dosing phrases await review; Korean medicine names **parked**, blocked on data access (`docs/blocked-on-data.md`) |
 | Interaction guidance (§3.4)             | Engine built, rule table empty; **parked**, blocked on licensing and counsel (`docs/blocked-on-data.md`) |
-| What a medicine is for                  | Not started; **parked**, blocked on source availability (`docs/blocked-on-data.md`) |
+| What a medicine is approved to treat    | Built: its FDA label's Indications section from DailyMed, verbatim, with a disclaimer (`docs/scope.md`); a plain-language line stays blocked (`docs/blocked-on-data.md`) |
+| Gallery photos                          | Built, in release since 2026-09-28                |
+| Sweep, fill-in, curve message           | **Hidden** (`src/features/scope.ts`, `docs/scope.md`); the full app is on `archive/full-app-2026-09-28` |
 | First-launch introduction               | Built — copy awaiting translation                 |
 | Dose reminders                          | Built — not yet rung on a device; see `docs/reminders.md` |
 | Reading aloud (TTS)                     | Not started — constraints in `docs/tts-feasibility.md` |
@@ -104,6 +106,10 @@ Resolving an NDC means asking RxNav (National Library of Medicine) over the
 network. One NDC goes out per scan, over HTTPS, with no user or device
 identifier, no account, no cookie, and nothing from the medication profile — but
 NLM can still see that some IP address looked up a particular drug.
+
+Since 2026-09-28 two more requests go the same way, about the medicine alone: a
+medicine read from a photo is identified by its name as read (RxNav), and every
+medicine shown has its FDA label fetched (DailyMed, also NLM).
 
 This was the cheaper of the two disclosures available. Cloud OCR would have sent
 the photograph itself; barcode-first sends eleven digits. If even that is

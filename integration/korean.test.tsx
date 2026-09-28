@@ -75,6 +75,20 @@ const lisinopril = {
   identity: { rxcui: '314076', ndc11: '00000000000', ingredients: ['lisinopril'] },
 };
 
+describe("a medicine's page, as the app is now", () => {
+  it('shows the Korean directions, but not the Korean ingredient name, which is hidden (Scope)', async () => {
+    approve();
+    const saved = await addMedication(lisinopril);
+    launchApp(`/medication/${saved.id}`);
+
+    await screen.findByText('lisinopril 10 MG Oral Tablet');
+    expect(screen.getByText('[F2], [Q1].')).toBeTruthy();
+    expect(screen.getByText(Strings.guidance.perReviewedPhrases.ko)).toBeTruthy();
+    expect(screen.queryByText('성분가')).toBeNull();
+    expect(screen.queryByText(Strings.guidance.perMfds.ko)).toBeNull();
+  });
+});
+
 describe("a medicine's page", () => {
   // The Korean ingredient name is hidden for now (`Scope`).
   withFullScope();
