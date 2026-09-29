@@ -231,3 +231,9 @@ test('no label of the form read: "none"', async () => {
     status: 'none',
   });
 });
+
+test("an approval without a named code is not read as the next named code in the document", () => {
+  const xml = `<subjectOf><approval><id extension="X"/></approval></subjectOf>
+    <component><section><code code="34067-9" displayName="NDA"/><text><paragraph>Uses.</paragraph></text></section></component>`;
+  assert.deepEqual(readIndications(xml).approvals, ['']);
+});

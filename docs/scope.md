@@ -91,6 +91,10 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
 - **It is looked up, not stored.** The label may be revised; the medicine's
   page fetches the current one each time. What the name was identified as is
   saved with the medicine (`nameMatch`) and cleared if the name is edited.
+- **A name its reading withheld stays unidentified**, on the medicine's page as
+  on the reading (`nameIncomplete`), until the user confirms or edits it: a
+  name cut off at the edge ("LISINOPRIL" of "LISINOPRIL AND
+  HYDROCHLOROTHIAZIDE") would otherwise be identified as another medicine.
 
 ## What leaves the phone
 

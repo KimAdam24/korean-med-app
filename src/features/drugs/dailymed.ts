@@ -216,7 +216,7 @@ export function labelMarkupToText(markup: string): string | null {
     .replace(/<item[^>]*>\s*<caption[^>]*>([\s\S]*?)<\/caption>/gi, (_, caption: string) => {
       const marker = caption.replace(/<[^>]+>/g, '').trim();
       // A lone symbol is a bullet, whichever one the label used.
-      return `\n${marker.length === 0 || /^[^\p{L}\p{N}]$/u.test(marker) ? '•' : marker} `;
+      return `\n${marker.length === 0 || /^[^A-Za-z0-9]$/.test(marker) ? '•' : marker} `;
     })
     .replace(/<paragraph[^>]*>/gi, '\n')
     .replace(/<\/?title[^>]*>/gi, '\n')

@@ -93,6 +93,14 @@ export type MedicationRecord = {
     readonly matched: string;
   };
   /**
+   * Set when the name was saved as read but its reading withheld it: damaged,
+   * or cut off at the label's edge ("LISINOPRIL" of "LISINOPRIL AND
+   * HYDROCHLOROTHIAZIDE"). Such a name is not identified, on its page either,
+   * until the user takes it over by confirming or editing it: identified as
+   * read, it would be some other medicine. Cleared when the name is edited.
+   */
+  readonly nameIncomplete?: true;
+  /**
    * Daily reminder times, sorted, no two alike. Stored here, in the encrypted
    * vault, and nowhere else: what the phone's scheduler holds is only an
    * identifier and a generic "time for your medicine", never a name — see

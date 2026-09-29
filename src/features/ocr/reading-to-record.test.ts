@@ -49,6 +49,8 @@ test('keeps a clipped name but drops damaged directions', () => {
   assert.deepEqual(result.dropped, ['instructions']);
   // Reported, so the screen can warn before saving a name the user has not seen.
   assert.deepEqual(result.flagged, ['name']);
+  // And remembered, so the medicine's page does not identify it either.
+  assert.equal(result.record.nameIncomplete, true);
 });
 
 test('saves a clean reading whole', () => {
@@ -60,6 +62,7 @@ test('saves a clean reading whole', () => {
   assert.equal(result.record.instructions, 'TAKE 1 TABLET BY MOUTH UP TO 3 TIMES DAILY AS NEEDED.');
   assert.deepEqual(result.dropped, []);
   assert.deepEqual(result.flagged, []);
+  assert.equal(result.record.nameIncomplete, undefined);
 });
 
 test('drops a malformed dose', () => {

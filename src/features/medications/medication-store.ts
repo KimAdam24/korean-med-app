@@ -56,6 +56,7 @@ function isMedicationRecord(value: unknown): value is MedicationRecord {
     (record.instructions === undefined || typeof record.instructions === 'string') &&
     isIdentity(record.identity) &&
     isNameMatch(record.nameMatch) &&
+    (record.nameIncomplete === undefined || record.nameIncomplete === true) &&
     isReminderTimes(record.reminders)
   );
 }
@@ -85,10 +86,8 @@ function isReminderTimes(value: unknown): boolean {
 }
 
 /**
- * A partial identity is worse than none: a record carrying an `rxcui` but no
- * `ndc11` would look authoritative to §3.4 while being untraceable back to the
- * package it came from. Either both are present and well-formed, or the record
- * is treated as having no identity at all.
+ * Held to the same standard: a match that is present but malformed would look
+ * up some other medicine's label under this one's name.
  */
 function isNameMatch(value: unknown): boolean {
   if (value === undefined) return true;
@@ -103,6 +102,12 @@ function isNameMatch(value: unknown): boolean {
   );
 }
 
+/**
+ * A partial identity is worse than none: a record carrying an `rxcui` but no
+ * `ndc11` would look authoritative to §3.4 while being untraceable back to the
+ * package it came from. Either both are present and well-formed, or the record
+ * is treated as having no identity at all.
+ */
 function isIdentity(value: unknown): boolean {
   if (value === undefined) return true;
   if (typeof value !== 'object' || value === null) return false;

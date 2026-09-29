@@ -145,8 +145,11 @@ export function sectionMarkup(xml: string, code: string): string | null {
 
 /** Reads what this needs from one SPL document. Pure, for tests. */
 export function readIndications(xml: string): LabelIndications {
-  const approvals = [...xml.matchAll(/<approval>[\s\S]*?<code\b[^>]*displayName="([^"]+)"/g)].map((match) =>
-    match[1].trim()
+  // Each approval's own code, looked for only inside it: one without a named
+  // code counts as unnamed (and so not approved), never as whatever named code
+  // comes next in the document.
+  const approvals = [...xml.matchAll(/<approval\b[^>]*>([\s\S]*?)<\/approval>/g)].map(
+    ([, body]) => /<code\b[^>]*displayName="([^"]+)"/.exec(body)?.[1].trim() ?? ''
   );
 
   const active = new Set<string>();

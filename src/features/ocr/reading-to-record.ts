@@ -75,6 +75,9 @@ export function medicationFromReading(
        * reading of a photograph, and the user has the box in their hand.
        */
       needsReview: true,
+      // Remembered, so the medicine's page does not identify a name its
+      // reading withheld (see `readableName`) until the user takes it over.
+      ...(flagged.includes('name') ? { nameIncomplete: true as const } : {}),
     },
     dropped,
     flagged,

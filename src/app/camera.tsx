@@ -872,13 +872,17 @@ function ReadingResult({
   const theme = useTheme();
   const degraded = quality?.level === 'degraded';
   const toSave = medicationFromReading(fields, truncation);
-  // What the name was identified as, if it was: saved with the medicine.
-  const [match, setMatch] = useState<NameMatch | null>(null);
   const usesSource: UsesSource = {
     kind: 'name',
     name: readableName(fields, truncation),
     form: doseFormOf(fields.dosage?.text, fields.instructions?.text),
   };
+  // What the name was identified as, if it was: saved with the medicine. Held
+  // with the reading it was made for, so a reading that changes in place is
+  // never saved with the last one's match.
+  const usesKey = JSON.stringify(usesSource);
+  const [identified, setIdentified] = useState<{ key: string; match: NameMatch | null } | null>(null);
+  const match = identified?.key === usesKey ? identified.match : null;
   // Said to be cut at the edge either way; that it is the curve, only while
   // the curve is talked about (`Scope.curveMessage`).
   const cut = (kind: 'name' | 'dosage' | 'instructions') =>
@@ -989,7 +993,7 @@ function ReadingResult({
         <BigButton label={Strings.fillIn.start} onPress={() => setFilling(true)} tone="secondary" />
       ) : null}
 
-      <ApprovedUsesCard source={usesSource} onIdentified={setMatch} />
+      <ApprovedUsesCard source={usesSource} onIdentified={(found) => setIdentified({ key: usesKey, match: found })} />
     </>
   );
 

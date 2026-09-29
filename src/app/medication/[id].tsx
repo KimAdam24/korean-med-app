@@ -125,8 +125,9 @@ export default function MedicationScreen() {
     try {
       await updateMedication(record.id, {
         name,
-        // A match for the old name is not one for the new: its page asks again.
-        ...(name !== record.name ? { nameMatch: undefined } : {}),
+        // A match for the old name is not one for the new: its page asks
+        // again. And the name is now the user's, not a withheld reading.
+        ...(name !== record.name ? { nameMatch: undefined, nameIncomplete: undefined } : {}),
         // Cleared fields become absent rather than empty strings, so
         // `needsConfirmation` keeps treating them as unfilled.
         dosage: editing.dosage.trim() || undefined,
@@ -281,12 +282,15 @@ export default function MedicationScreen() {
 
   // A barcode's product exactly; otherwise the medicine its name names, by
   // the match made when it was saved, or made now for an older record. A
-  // name that reads as damaged is not matched at all.
+  // name that reads as damaged is not matched at all, nor one its reading
+  // withheld as cut off, until the user has confirmed or edited it.
+  const nameWithheld =
+    assessField('name', record.name).level === 'damaged' || (record.nameIncomplete === true && record.needsReview);
   const usesSource: UsesSource = record.identity
     ? { kind: 'product', ndc11: record.identity.ndc11, rxcui: record.identity.rxcui }
     : {
         kind: 'name',
-        name: assessField('name', record.name).level === 'damaged' ? null : record.name,
+        name: nameWithheld ? null : record.name,
         form: doseFormOf(record.dosage, record.instructions),
         ...(record.nameMatch ? { known: record.nameMatch } : {}),
       };

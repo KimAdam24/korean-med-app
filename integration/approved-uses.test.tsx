@@ -189,11 +189,32 @@ describe('what a medicine is approved to treat', () => {
     expect(screen.queryByText(INDICATION)).toBeNull();
   });
 
+  it('a name its reading withheld is not identified on its page either, until the user confirms it', async () => {
+    const asked = nlm();
+    // Saved from a reading that found the name cut off at the label's edge.
+    const saved = await addMedication({ name: 'VITAMIN D2', source: 'label-scan', needsReview: true, nameIncomplete: true });
+    launchApp(`/medication/${saved.id}`);
+
+    await screen.findByText(Strings.uses.unidentified.ko);
+    expect(asked).toEqual([]);
+
+    // "Yes, I checked it against the bottle": the name is the user's now.
+    press(Strings.medications.confirm.ko);
+    await screen.findByText(INDICATION);
+  });
+
   it("editing a medicine's name forgets what the old name was identified as", async () => {
     nlm();
-    const saved = await addMedication({ name: 'VITAMIN D2', source: 'label-scan', needsReview: true, nameMatch: MATCH });
+    const saved = await addMedication({
+      name: 'VITAMIN D2',
+      source: 'label-scan',
+      needsReview: true,
+      nameMatch: MATCH,
+      nameIncomplete: true,
+    });
     launchApp(`/medication/${saved.id}`);
-    await screen.findByText(INDICATION);
+    // Withheld as it was read, whatever it was once matched as.
+    await screen.findByText(Strings.uses.unidentified.ko);
 
     press(Strings.medications.edit.ko);
     fireEvent.changeText(screen.getByDisplayValue('VITAMIN D2'), 'VITAMIN D3');
@@ -205,5 +226,6 @@ describe('what a medicine is approved to treat', () => {
     });
     const profile = await loadProfile();
     expect(profile.status === 'ok' && profile.value.medications[0].nameMatch).toBeUndefined();
+    expect(profile.status === 'ok' && profile.value.medications[0].nameIncomplete).toBeUndefined();
   });
 });
