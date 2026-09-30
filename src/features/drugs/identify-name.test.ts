@@ -15,6 +15,16 @@ test('the words that name the medicine: not its salt, form, strength or bare num
   assert.deepEqual(medicineWords('LEVOTHYROXINE SODIUM 0.1 MG TAB'), ['levothyroxine']);
   assert.deepEqual(medicineWords('VITAMIN B12 1000 MCG'), ['vitamin', 'b12']);
   assert.deepEqual(medicineWords('CALCIUM CITRATE'), []);
+  assert.deepEqual(medicineWords('POTASSIUM CHLORIDE ER 10 MEQ'), ['chloride']);
+});
+
+test('a letter and its short number are one word, however they were printed or read', () => {
+  // "VITAMIN D-2" used to lose its "2" as a bare number, and be plain vitamin D.
+  assert.deepEqual(medicineWords('VITAMIN D-2'), ['vitamin', 'd2']);
+  assert.deepEqual(medicineWords('VITAMIN D 2'), ['vitamin', 'd2']);
+  assert.deepEqual(medicineWords('VITAMIN B-12 1000 MCG'), ['vitamin', 'b12']);
+  // A long number after a letter is a strength, not part of the name.
+  assert.deepEqual(medicineWords('VITAMIN D 50000 UNIT'), ['vitamin', 'd']);
 });
 
 const realFetch = globalThis.fetch;
@@ -66,6 +76,26 @@ test('the vial: "VITAMIN D2" is ergocalciferol, and only the medicine words are 
   });
   // One ingredient: the combinations containing it are not what was named.
   assert.equal(asked.length, 2);
+});
+
+test('only the words that name the medicine are sent, not its salt, form or strength', async () => {
+  const asked = rxNav({
+    'approximateTerm.json?term=metformin&': approximate(['6809', 'metformin', '1']),
+    'rxcui/6809/related.json': related([['6809', 'metformin']]),
+  });
+  const found = await identifyByName('METFORMIN HCL ER 500MG TAB');
+  assert.equal(found.status === 'identified' && found.match.rxcui, '6809');
+  assert.ok(asked[0].startsWith('approximateTerm.json?term=metformin&'), asked[0]);
+});
+
+test("RxNorm's own spacing of a letter and number matches the printed name's", async () => {
+  // RxNorm writes "vitamin B 12"; the label, "VITAMIN B-12".
+  rxNav({
+    'approximateTerm.json?term=vitamin b12&': approximate(['11248', 'vitamin B 12', '1']),
+    'rxcui/11248/related.json': related([['11248', 'vitamin B 12']]),
+  });
+  const found = await identifyByName('VITAMIN B-12');
+  assert.equal(found.status === 'identified' && found.match.rxcui, '11248');
 });
 
 test('a brand name is its ingredient', async () => {

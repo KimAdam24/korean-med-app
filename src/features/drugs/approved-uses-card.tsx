@@ -105,7 +105,7 @@ export function ApprovedUsesCard({
           match = identified.match;
         }
         told.current?.(match);
-        target = { kind: 'ingredients', rxcui: match.rxcui, count: match.ingredients.length, form: current.form };
+        target = { kind: 'ingredients', rxcui: match.rxcui, ingredients: match.ingredients, form: current.form };
       }
 
       const found = await findApprovedUses(target);

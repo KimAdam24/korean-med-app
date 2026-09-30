@@ -13,10 +13,9 @@ the batch's follow-up sheet, with the gallery button's label
 Section 4 is developer documentation in English, updated when the gallery
 ships. This file stays as the reasoning behind them.
 
-**Status:** drafted by the implementation, reviewed by nobody. **Not in the
-app.** The gallery entry point is gated behind `__DEV__` until these are signed
-off, precisely so the old, now-inaccurate line cannot ship beside the new
-feature.
+**Status:** drafted by the implementation, reviewed by nobody. **In the app in
+English** since 2026-09-28, beside the gallery, which ships in release; the old,
+inaccurate line no longer shows.
 
 **Reviewer:** Korean reader. Unlike the sig phrases, no clinical knowledge is
 needed — the question here is whether each sentence is *true* and whether an
@@ -121,10 +120,12 @@ true, and narrowing it would make it vaguer for no gain.
 
 ## After sign-off
 
-1. Wire the approved `privacy.*` strings: `privacy.home` replaces
-   `home.privacy`; `privacy.pickedPhoto` replaces "the photo has been deleted"
-   under a reading of a chosen photo; `privacy.choosePhoto` labels the button.
-2. Copy `privacy.cameraPermission` into the camera permission in `app.json`.
+The strings are already wired, in English (2026-09-28): `privacy.home` in place
+of `home.privacy`, `privacy.pickedPhoto` in place of "the photo has been
+deleted" under a reading of a chosen photo, `privacy.choosePhoto` on the
+button, and the gallery out of its `__DEV__` gate. What is left:
+
+1. Replace each `untranslated()` call in `src/i18n/strings.ts` with her Korean.
+2. Copy `privacy.cameraPermission`'s Korean into the camera permission in
+   `app.json` (a test fails until the two match).
 3. Update the README privacy section.
-4. Remove the `__DEV__` gate on the gallery entry point in `src/app/index.tsx`
-   — that gate exists solely because this copy is unreviewed.

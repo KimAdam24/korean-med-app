@@ -24,7 +24,7 @@ export const SECTIONS = [
   'Filling in the missing part',
   'Reading the label while turning the bottle',
   'The first time the app is opened',
-  "A medicine's page: reminders",
+  "A medicine's page, and its reminders",
   "On the lock screen, and in the phone's settings",
   'Only when something goes wrong',
   'Heard only with the screen reader',
@@ -51,7 +51,7 @@ const RESULT: Section = 'Reading a label: the result screen';
 const FILL: Section = 'Filling in the missing part';
 const SWEEP: Section = 'Reading the label while turning the bottle';
 const FIRST: Section = 'The first time the app is opened';
-const REMIND: Section = "A medicine's page: reminders";
+const REMIND: Section = "A medicine's page, and its reminders";
 const OUTSIDE: Section = "On the lock screen, and in the phone's settings";
 const WRONG: Section = 'Only when something goes wrong';
 const SPOKEN: Section = 'Heard only with the screen reader';
@@ -105,7 +105,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   'uses.title': {
     section: USES,
     where: "The result screen after a photo or barcode, and a medicine's page: the heading of a box below the directions. Under it, in English, the words of the medicine's U.S. FDA label.",
-    when: 'Whenever a medicine is shown, as soon as its label has been found.',
+    when: "Whenever a medicine is shown, in every state of its box: above the label's text once it is found, and above the message shown while it is looked up or when it cannot be (uses.looking, uses.unidentified, uses.none, uses.unavailable).",
     notes:
       'A safety string, so no draft: yours from the start. It must say what the English under it is (what the FDA approved the medicine to treat, from its label) and that it is in English, because that text is not translated.',
   },
@@ -146,7 +146,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   'uses.unavailable': {
     section: USES,
     where: 'The same box, in place of the text, above the button uses.retry.',
-    when: 'When the phone has no connection.',
+    when: 'When the phone has no connection, or the service does not answer, whether identifying the medicine or fetching its label.',
   },
   'uses.retry': {
     section: USES,
@@ -450,7 +450,12 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     when: 'The camera is already allowed or already refused. It ends the introduction and opens the app.',
   },
 
-  // --- A medicine's page: reminders ---------------------------------------
+  // --- A medicine's page, and its reminders --------------------------------
+  'medications.sourcePhoto': {
+    section: REMIND,
+    where: "A medicine's page, near the bottom: the line under 등록 방법 (How it was added).",
+    when: 'For a medicine that was read from a photo of its label.',
+  },
   'reminders.title': {
     section: REMIND,
     where: "Each medicine's page: the heading of the reminders box.",

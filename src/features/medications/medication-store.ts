@@ -38,8 +38,24 @@ function parseProfile(value: unknown): MedicationProfile | null {
   const doc = value as Partial<MedicationProfile>;
   if (doc.version !== 1 || !Array.isArray(doc.medications)) return null;
 
-  const medications = doc.medications.filter(isMedicationRecord);
+  const medications = doc.medications.filter(isMedicationRecord).map(withSoundExtras);
   return { version: 1, medications };
+}
+
+/**
+ * The two optional fields about the name are not reasons to hide a medicine,
+ * and with it its reminders, which a resync would then cancel: a malformed
+ * match is dropped, so the page identifies the name afresh; a malformed
+ * "incomplete" is read as set, so a name that may be cut stays withheld until
+ * the user saves it from the edit form. Either way the record is kept.
+ */
+function withSoundExtras(record: MedicationRecord): MedicationRecord {
+  const { nameMatch, nameIncomplete, ...rest } = record;
+  return {
+    ...rest,
+    ...(nameMatch !== undefined && isNameMatch(nameMatch) ? { nameMatch } : {}),
+    ...(nameIncomplete !== undefined ? { nameIncomplete: true as const } : {}),
+  };
 }
 
 function isMedicationRecord(value: unknown): value is MedicationRecord {
@@ -55,8 +71,6 @@ function isMedicationRecord(value: unknown): value is MedicationRecord {
     (record.dosage === undefined || typeof record.dosage === 'string') &&
     (record.instructions === undefined || typeof record.instructions === 'string') &&
     isIdentity(record.identity) &&
-    isNameMatch(record.nameMatch) &&
-    (record.nameIncomplete === undefined || record.nameIncomplete === true) &&
     isReminderTimes(record.reminders)
   );
 }
@@ -86,11 +100,10 @@ function isReminderTimes(value: unknown): boolean {
 }
 
 /**
- * Held to the same standard: a match that is present but malformed would look
- * up some other medicine's label under this one's name.
+ * A match that is whole: one that is not would look up some other medicine's
+ * label under this one's name, so it is dropped (see `withSoundExtras`).
  */
 function isNameMatch(value: unknown): boolean {
-  if (value === undefined) return true;
   if (typeof value !== 'object' || value === null) return false;
   const match = value as Record<string, unknown>;
   return (
@@ -98,7 +111,8 @@ function isNameMatch(value: unknown): boolean {
     typeof match.matched === 'string' &&
     Array.isArray(match.ingredients) &&
     match.ingredients.length > 0 &&
-    match.ingredients.every((name) => typeof name === 'string')
+    match.ingredients.every((name) => typeof name === 'string') &&
+    (match.form === undefined || match.form === null || match.form === 'TABLET' || match.form === 'CAPSULE')
   );
 }
 

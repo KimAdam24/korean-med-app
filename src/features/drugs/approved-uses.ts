@@ -16,17 +16,24 @@
  * OTC monograph, has uses too, but they are not approved ones, and saying they
  * were would be false. For those the answer is "none".
  *
- * ## Which label
+ * ## Which label: every one must prove it is this medicine's
  *
- * - A barcode names the exact product, so its own label is used: looked up by
- *   the product's NDC, and failing that (a discontinued package, say) by its
- *   RxNorm product.
- * - A name read from a photo names only the ingredient (`identify-name`), and
- *   DailyMed's list for an ingredient is every product containing it:
- *   combinations, injections, extended-release forms. So the label is one
- *   with the same number of active ingredients as the medicine identified,
- *   and of the form the label's own words give (capsule or tablet), newest
- *   first. The one chosen is named on screen, so which it was can be seen.
+ * DailyMed's lookups are loose, so nothing it lists is taken on trust:
+ *
+ * - Its NDC lookup matches by prefix. "70518-317" returns RemedyRepack's
+ *   ibuprofen as readily as the terazosin a barcode meant ("70518-0317-0").
+ *   So a barcode is looked up by its full package code, in each printed
+ *   shape the 11-digit code could have (`dailyMedPackageCodes`), and a label
+ *   is taken only if it lists that product's code itself.
+ * - Its list for an RxNorm concept holds labels that are not that medicine at
+ *   all: ascorbic acid's lists an omeprazole tablet, potassium chloride's a
+ *   lung-cancer drug. So a label found that way is taken only if its active
+ *   ingredients are exactly the medicine's, by name (`sameIngredients`), and
+ *   of the form the reading names (capsule or tablet) where it names one.
+ *
+ * A barcode whose package DailyMed does not list (discontinued, say) falls
+ * back to its RxNorm product's list, held to the ingredient check like a name.
+ * The label chosen is named on screen, so which it was can be seen.
  *
  * This is not the reason the user was prescribed it. A label lists what the
  * medicine is approved for; a doctor may prescribe it for something else, and
@@ -43,15 +50,25 @@ export const INDICATIONS_SECTION = '34067-9';
 /** Marketing categories under which the FDA approved the label's indications. */
 const APPROVED = /^(NDA|ANDA|BLA|NDA AUTHORIZED GENERIC)$/i;
 
+/** The code system of an NDC in SPL. */
+const NDC_SYSTEM = '2.16.840.1.113883.6.69';
+
 /** How many labels are opened before giving up: each is a download. */
 const LABELS_TRIED = 4;
 
+const RXNAV_BASE = 'https://rxnav.nlm.nih.gov/REST';
+
+/** One active ingredient of a label: its substance, and the moiety it counts as. */
+export type ActiveIngredient = { readonly substance: string; readonly moiety: string | null };
+
 /** What one label document says, as far as this needs. */
 export type LabelIndications = {
-  /** The marketing category of each product on the label, e.g. "ANDA". */
+  /** The marketing category of each product on the label, e.g. "ANDA"; '' where unnamed. */
   readonly approvals: readonly string[];
-  /** Its active ingredients, by active moiety, distinct, upper case. */
-  readonly activeIngredients: readonly string[];
+  /** Its active ingredients, one per moiety (or substance, where none is given). */
+  readonly actives: readonly ActiveIngredient[];
+  /** The products it covers, as 9-digit labeler-and-product codes. */
+  readonly products: readonly string[];
   /** The Highlights summary of the Indications section, where it has one. */
   readonly summary: string | null;
   /** The whole Indications section, as text, without its heading. */
@@ -69,19 +86,19 @@ export type ApprovedUses = {
 
 export type ApprovedUsesLookup =
   | { readonly status: 'found'; readonly uses: AttributedGuidance<ApprovedUses> }
-  /** No current FDA-approved label with an Indications section was found. */
+  /** No current FDA-approved label for this medicine, with an Indications section, was found. */
   | { readonly status: 'none' }
-  /** DailyMed could not be reached, or answered with an error: trying again may work. */
+  /** DailyMed or RxNav could not be reached, or answered with an error: trying again may work. */
   | { readonly status: 'unavailable' };
 
 export type UsesTarget =
   /** A barcode's product: its 11-digit CMS code, and its RxNorm product. */
   | { readonly kind: 'product'; readonly ndc11: string; readonly rxcui: string }
-  /** A name read from a label: its RxNorm ingredient, or a combination's. */
+  /** A name read from a label: its RxNorm ingredient (or a combination's), with the ingredients' names. */
   | {
       readonly kind: 'ingredients';
       readonly rxcui: string;
-      readonly count: number;
+      readonly ingredients: readonly string[];
       /** The dose form the label's own words give, if they give one. */
       readonly form: DoseForm | null;
     };
@@ -100,21 +117,28 @@ export function doseFormOf(...texts: readonly (string | undefined)[]): DoseForm 
 }
 
 /**
- * The forms of a product code DailyMed might store an 11-digit CMS code as.
+ * The full package codes an 11-digit CMS code could have been printed as.
  *
  * DailyMed looks an NDC up only as printed, in its original 10-digit shape
  * (4-4-2, 5-3-2 or 5-4-1), and the CMS form hides which that was behind a
- * padding zero. Each place the zero could have been padded in gives one
- * labeler-product code; only the real one is on file, since a labeler's
- * codes all share one shape.
+ * padding zero: each place the zero could have been padded in gives one
+ * shape. Whole package codes, never a labeler-product prefix, which DailyMed
+ * would match against other products of the same labeler.
  */
-export function dailyMedProductCodes(ndc11: string): string[] {
+export function dailyMedPackageCodes(ndc11: string): string[] {
   if (!/^\d{11}$/.test(ndc11)) return [];
   const codes: string[] = [];
-  if (ndc11[0] === '0') codes.push(`${ndc11.slice(1, 5)}-${ndc11.slice(5, 9)}`);
-  if (ndc11[5] === '0') codes.push(`${ndc11.slice(0, 5)}-${ndc11.slice(6, 9)}`);
-  if (ndc11[9] === '0') codes.push(`${ndc11.slice(0, 5)}-${ndc11.slice(5, 9)}`);
+  if (ndc11[0] === '0') codes.push(`${ndc11.slice(1, 5)}-${ndc11.slice(5, 9)}-${ndc11.slice(9)}`);
+  if (ndc11[5] === '0') codes.push(`${ndc11.slice(0, 5)}-${ndc11.slice(6, 9)}-${ndc11.slice(9)}`);
+  if (ndc11[9] === '0') codes.push(`${ndc11.slice(0, 5)}-${ndc11.slice(5, 9)}-${ndc11.slice(10)}`);
   return [...new Set(codes)];
+}
+
+/** A printed NDC's labeler and product, padded to the 5 and 4 digits of the CMS form. */
+export function productKey(ndc: string): string | null {
+  const [labeler, product] = ndc.split('-');
+  if (!labeler || !product || !/^\d{4,5}$/.test(labeler) || !/^\d{3,4}$/.test(product)) return null;
+  return labeler.padStart(5, '0') + product.padStart(4, '0');
 }
 
 /**
@@ -152,13 +176,22 @@ export function readIndications(xml: string): LabelIndications {
     ([, body]) => /<code\b[^>]*displayName="([^"]+)"/.exec(body)?.[1].trim() ?? ''
   );
 
-  const active = new Set<string>();
+  const actives = new Map<string, ActiveIngredient>();
   for (const [, body] of xml.matchAll(/<ingredient\s+classCode="ACTI[BMR]"[^>]*>([\s\S]*?)<\/ingredient>/g)) {
+    const substance = /<name>([^<]+)<\/name>/.exec(body)?.[1].trim().toUpperCase();
+    if (!substance) continue;
     // The moiety, so a salt ("METFORMIN HYDROCHLORIDE") counts as its drug;
     // an ingredient given as its moiety has no separate one.
-    const moiety = /<activeMoiety>\s*<activeMoiety>[\s\S]*?<name>([^<]+)<\/name>/.exec(body)?.[1];
-    const name = moiety ?? /<name>([^<]+)<\/name>/.exec(body)?.[1];
-    if (name) active.add(name.trim().toUpperCase());
+    const moiety = /<activeMoiety>\s*<activeMoiety>[\s\S]*?<name>([^<]+)<\/name>/.exec(body)?.[1].trim().toUpperCase() ?? null;
+    const key = moiety ?? substance;
+    if (!actives.has(key)) actives.set(key, { substance, moiety });
+  }
+
+  const products = new Set<string>();
+  for (const [tag] of xml.matchAll(/<code\b[^>]*>/g)) {
+    if (!tag.includes(`codeSystem="${NDC_SYSTEM}"`)) continue;
+    const key = productKey(/\bcode="([^"]+)"/.exec(tag)?.[1] ?? '');
+    if (key) products.add(key);
   }
 
   const section = sectionMarkup(xml, INDICATIONS_SECTION);
@@ -172,10 +205,34 @@ export function readIndications(xml: string): LabelIndications {
 
   return {
     approvals,
-    activeIngredients: [...active],
+    actives: [...actives.values()],
+    products: [...products],
     summary,
     section: body ? labelMarkupToText(body) : null,
   };
+}
+
+const nameWords = (name: string) => name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+
+/**
+ * Whether a label's active ingredients are exactly these, by name: as many of
+ * them, and each named in one of them, as its substance ("METFORMIN
+ * HYDROCHLORIDE") or its moiety ("METFORMIN"). A name RxNorm and the label
+ * spell differently ("vitamin B 12", "CYANOCOBALAMIN") does not match, and
+ * its label is not shown: no answer rather than someone else's.
+ */
+export function sameIngredients(actives: readonly ActiveIngredient[], ingredients: readonly string[]): boolean {
+  if (ingredients.length === 0 || actives.length !== ingredients.length) return false;
+  return ingredients.every((ingredient) => {
+    const wanted = nameWords(ingredient);
+    return actives.some((active) =>
+      [active.substance, active.moiety].some((name) => {
+        if (!name) return false;
+        const has = new Set(nameWords(name));
+        return wanted.every((word) => has.has(word));
+      })
+    );
+  });
 }
 
 type Fetched<T> = { readonly ok: true; readonly value: T } | { readonly ok: false };
@@ -211,39 +268,88 @@ async function labelsAt(query: string): Promise<Fetched<LabelDocument[]>> {
   };
 }
 
-/** The labels to try, best first; `unavailable` if DailyMed could not say. */
-async function candidates(target: UsesTarget): Promise<Fetched<LabelDocument[]>> {
-  if (target.kind === 'product') {
-    for (const code of dailyMedProductCodes(target.ndc11)) {
-      const byNdc = await labelsAt(`ndc=${encodeURIComponent(code)}`);
-      if (!byNdc.ok) return byNdc;
-      if (byNdc.value.length > 0) return byNdc;
-    }
-    return labelsAt(`rxcui=${encodeURIComponent(target.rxcui)}`);
-  }
+type Related = { relatedGroup?: { conceptGroup?: { tty?: string; conceptProperties?: { name?: string }[] }[] } };
 
-  const listed = await labelsAt(`rxcui=${encodeURIComponent(target.rxcui)}&pagesize=100`);
-  if (!listed.ok) return listed;
-  // Titles give the dose form ("ERGOCALCIFEROL CAPSULE [...]"): the one the
-  // label names, or else a tablet or capsule, never an injection. A single
-  // ingredient's list also holds its combinations, which name two ("... AND
-  // ..."); the label's own ingredients are checked as well, below.
-  const form = target.form ? new RegExp(`\\b${target.form}`, 'i') : /\b(TABLET|CAPSULE)/i;
+/** An RxNorm concept's ingredients' names; `unavailable` if RxNav could not say. */
+async function ingredientsOf(rxcui: string): Promise<Fetched<string[]>> {
+  const related = await get(`${RXNAV_BASE}/rxcui/${encodeURIComponent(rxcui)}/related.json?tty=IN`, (response) =>
+    response.json() as Promise<Related>
+  );
+  if (!related.ok) return related;
   return {
     ok: true,
-    value: listed.value.filter(
-      (label) => form.test(label.title) && (target.count > 1 || !/\bAND\b/.test(label.title.replace(/\[.*$/, '')))
-    ),
+    value: (related.value.relatedGroup?.conceptGroup ?? [])
+      .filter((group) => group.tty === 'IN')
+      .flatMap((group) => group.conceptProperties ?? [])
+      .map((concept) => concept.name)
+      .filter((name): name is string => typeof name === 'string' && name.length > 0),
   };
+}
+
+/** What a label must be, besides approved, to be shown for this lookup. */
+type Proof = { readonly kind: 'product'; readonly key: string } | { readonly kind: 'ingredients'; readonly names: readonly string[] };
+
+/**
+ * The labels to try, best first, with what each must prove; `unavailable` if
+ * DailyMed or RxNav could not say.
+ */
+async function candidates(target: UsesTarget): Promise<Fetched<{ labels: LabelDocument[]; proof: Proof }>> {
+  let names: readonly string[];
+  let listed: LabelDocument[];
+  let form: DoseForm | null = null;
+
+  if (target.kind === 'product') {
+    for (const code of dailyMedPackageCodes(target.ndc11)) {
+      const byNdc = await labelsAt(`ndc=${encodeURIComponent(code)}`);
+      if (!byNdc.ok) return byNdc;
+      if (byNdc.value.length > 0) {
+        return { ok: true, value: { labels: byNdc.value, proof: { kind: 'product', key: target.ndc11.slice(0, 9) } } };
+      }
+    }
+    // Not listed by its package: its RxNorm product's labels, which must then
+    // prove they are this medicine by their ingredients.
+    const ingredients = await ingredientsOf(target.rxcui);
+    if (!ingredients.ok) return ingredients;
+    const byProduct = await labelsAt(`rxcui=${encodeURIComponent(target.rxcui)}`);
+    if (!byProduct.ok) return byProduct;
+    names = ingredients.value;
+    listed = byProduct.value;
+  } else {
+    const byIngredient = await labelsAt(`rxcui=${encodeURIComponent(target.rxcui)}&pagesize=100`);
+    if (!byIngredient.ok) return byIngredient;
+    names = target.ingredients;
+    listed = byIngredient.value;
+    form = target.form;
+  }
+
+  // Titles name the medicine and its form ("GLUMETZA (METFORMIN
+  // HYDROCHLORIDE) TABLET [...]"): first the labels whose titles could be
+  // this one, of the form read (or else a tablet or capsule, never an
+  // injection), so the few downloads go on likely ones. Each is still held to
+  // its own ingredient list, below; a title is only a way to choose.
+  const formWord = form ? new RegExp(`\\b${form}`, 'i') : /\b(TABLET|CAPSULE)/i;
+  const labels = listed.filter((label) => {
+    const title = label.title.replace(/\[.*$/, '');
+    const words = new Set(nameWords(title));
+    return (
+      formWord.test(title) &&
+      names.every((name) => nameWords(name).every((word) => words.has(word))) &&
+      // One ingredient's list also holds its combinations ("PIOGLITAZONE AND
+      // METFORMIN ..."), which would only fail the count after a download.
+      (names.length > 1 || !words.has('and'))
+    );
+  });
+  return { ok: true, value: { labels, proof: { kind: 'ingredients', names } } };
 }
 
 /** What the target's label says it is approved to treat. Never throws. */
 export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUsesLookup> {
-  const labels = await candidates(target);
-  if (!labels.ok) return { status: 'unavailable' };
+  const found = await candidates(target);
+  if (!found.ok) return { status: 'unavailable' };
+  const { labels, proof } = found.value;
 
   let failed = false;
-  for (const label of labels.value.slice(0, LABELS_TRIED)) {
+  for (const label of labels.slice(0, LABELS_TRIED)) {
     const xml = await get(`${DAILYMED_BASE}/spls/${encodeURIComponent(label.setId)}.xml`, (response) =>
       response.text()
     );
@@ -254,9 +360,10 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
 
     const read = readIndications(xml.value);
     const approved = read.approvals.length > 0 && read.approvals.every((category) => APPROVED.test(category));
-    const sameMedicine = target.kind === 'product' || read.activeIngredients.length === target.count;
+    const thisMedicine =
+      proof.kind === 'product' ? read.products.includes(proof.key) : sameIngredients(read.actives, proof.names);
     const text = read.summary ?? read.section;
-    if (!approved || !sameMedicine || !text) continue;
+    if (!approved || !thisMedicine || !text) continue;
 
     return {
       status: 'found',

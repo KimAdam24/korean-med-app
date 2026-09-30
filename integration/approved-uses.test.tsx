@@ -35,6 +35,9 @@ const TORRENT = 'ERGOCALCIFEROL CAPSULE [TORRENT PHARMACEUTICALS LIMITED]';
 const label = (category = 'NDA') => `<document>
   <subjectOf><approval><id extension="NDA003444"/><code code="C73594" displayName="${category}"/></approval></subjectOf>
   <ingredient classCode="ACTIB"><ingredientSubstance><name>ERGOCALCIFEROL</name></ingredientSubstance></ingredient>
+  <manufacturedProduct><code code="13668-757" codeSystem="2.16.840.1.113883.6.69"/>
+    <containerPackagedProduct><code code="13668-757-01" codeSystem="2.16.840.1.113883.6.69"/></containerPackagedProduct>
+  </manufacturedProduct>
   <component><section><code code="34067-9"/><title>INDICATIONS AND USAGE</title>
     <text><paragraph>${INDICATION}</paragraph></text>
   </section></component>
@@ -70,7 +73,7 @@ function nlm({ online = true, category = 'NDA' } = {}): string[] {
           : { ndcStatus: { status: 'UNKNOWN' } }
       );
     }
-    if (url.includes('spls.json?rxcui=4018') || url.includes('spls.json?ndc=13668-757')) {
+    if (url.includes('spls.json?rxcui=4018') || url.includes('spls.json?ndc=13668-757-01')) {
       return reply({ data: [{ setid: 'torrent', title: TORRENT, spl_version: 3 }] });
     }
     if (url.includes('spls.json')) return reply({ data: [] });
@@ -118,7 +121,10 @@ describe('what a medicine is approved to treat', () => {
     press(Strings.medications.saveFromLabel.ko);
     await screen.findByText(Strings.scan.saved.ko);
     const profile = await loadProfile();
-    expect(profile.status === 'ok' && profile.value.medications[0].nameMatch).toEqual(MATCH);
+    // With the form that chose the capsule label, which the saved fields no
+    // longer name (the damaged directions were not saved).
+    expect(profile.status === 'ok' && profile.value.medications[0].nameMatch).toEqual({ ...MATCH, form: 'CAPSULE' });
+    expect(profile.status === 'ok' && profile.value.medications[0].instructions).toBeUndefined();
   });
 
   it("a saved medicine's page: the same label, by the match it was saved with, without asking RxNav again", async () => {
@@ -151,7 +157,8 @@ describe('what a medicine is approved to treat', () => {
     expectTheFrame();
     // A barcode names the product, not a name to identify.
     expect(screen.queryByText(fillTemplate(Strings.uses.identifiedAs, { name: 'ergocalciferol' }).ko)).toBeNull();
-    expect(asked).toContainEqual(expect.stringContaining('spls.json?ndc=13668-757'));
+    // By its full package code, not a prefix DailyMed would match to other products.
+    expect(asked).toContainEqual(expect.stringContaining('spls.json?ndc=13668-757-01'));
 
     press(Strings.scan.save.ko);
     await screen.findByText(Strings.scan.saved.ko);
@@ -189,7 +196,7 @@ describe('what a medicine is approved to treat', () => {
     expect(screen.queryByText(INDICATION)).toBeNull();
   });
 
-  it('a name its reading withheld is not identified on its page either, until the user confirms it', async () => {
+  it('a name its reading withheld: shown as possibly cut, not confirmable, not identified, until saved from the edit form', async () => {
     const asked = nlm();
     // Saved from a reading that found the name cut off at the label's edge.
     const saved = await addMedication({ name: 'VITAMIN D2', source: 'label-scan', needsReview: true, nameIncomplete: true });
@@ -197,9 +204,38 @@ describe('what a medicine is approved to treat', () => {
 
     await screen.findByText(Strings.uses.unidentified.ko);
     expect(asked).toEqual([]);
+    // Not shown as whole: the damaged-name warning, and that its end may be missing.
+    expect(screen.getByText(Strings.result.damaged.name.title.ko)).toBeTruthy();
+    expect(screen.getByText(Strings.result.curved.edgeNote.ko)).toBeTruthy();
+    // And "yes, I checked it" is not offered for it: editing is the way on.
+    expect(screen.queryByRole('button', { name: Strings.medications.confirm.ko })).toBeNull();
 
-    // "Yes, I checked it against the bottle": the name is the user's now.
-    press(Strings.medications.confirm.ko);
+    // In the form, the same warning sits under the name; saving it, even
+    // unchanged, is the user's word for it.
+    press(Strings.medications.edit.ko);
+    expect(screen.getByText(Strings.result.curved.edgeNote.ko)).toBeTruthy();
+    press(Strings.medications.save.ko);
+    await screen.findByText(INDICATION);
+    const profile = await loadProfile();
+    expect(profile.status === 'ok' && profile.value.medications[0].nameIncomplete).toBeUndefined();
+  });
+
+  it('a medicine and its reminders are kept when a saved match is malformed: the match is dropped', async () => {
+    nlm();
+    const saved = await addMedication({
+      name: 'VITAMIN D2',
+      source: 'label-scan',
+      needsReview: false,
+      // As a newer or older build might have written it.
+      nameMatch: { rxcui: '4018', ingredients: [], matched: 'vitamin D2' },
+      reminders: [{ hour: 8, minute: 0 }],
+    });
+    const profile = await loadProfile();
+    expect(profile.status === 'ok' && profile.value.medications.map((m) => [m.id, m.nameMatch, m.reminders])).toEqual([
+      [saved.id, undefined, [{ hour: 8, minute: 0 }]],
+    ]);
+    // Its page identifies the name afresh.
+    launchApp(`/medication/${saved.id}`);
     await screen.findByText(INDICATION);
   });
 

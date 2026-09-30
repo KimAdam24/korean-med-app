@@ -81,9 +81,19 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
   that "FDA-approved indication" is true. A product sold without approval, or
   under an OTC monograph, shows "no FDA-approved label", not its uses.
 - **From a photo, a label of the same ingredient, not the same product.** The
-  newest approved label of the form the reading names (capsule or tablet) and
-  the same number of active ingredients; which label is named under the text.
-  A barcode gets the product's own label.
+  newest approved label of the form the reading names (capsule or tablet)
+  whose active ingredients are exactly the medicine's, by name; which label it
+  was is named under the text. A barcode gets the product's own label.
+- **Every label proves it is this medicine's.** DailyMed's lookups are loose:
+  its NDC search matches by prefix ("70518-317" returned an ibuprofen for a
+  terazosin), and its list for an ingredient holds unrelated labels (ascorbic
+  acid's held an omeprazole). So a barcode is looked up by its full package
+  code and its label must list that product's code; a name's label must have
+  exactly the medicine's active ingredients. A label that cannot prove it is
+  not shown, and where none can, the card says no FDA-approved label was found.
+- **Verbatim includes its typography.** A superscript stays raised ("10⁹/L",
+  never "109/L"), a subscript lowered ("B₁₂"), and a nested list nested; where
+  a character has no raised form it is marked ("Grade 1^b").
 - **Some names identify nothing.** A misread, an abbreviation RxNorm would have
   to guess at ("HYDROCODONE/APAP", "LISINOPRIL-HCTZ"), or a name where the best
   matches disagree, says it could not be identified rather than guessing.
@@ -92,14 +102,29 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
   page fetches the current one each time. What the name was identified as is
   saved with the medicine (`nameMatch`) and cleared if the name is edited.
 - **A name its reading withheld stays unidentified**, on the medicine's page as
-  on the reading (`nameIncomplete`), until the user confirms or edits it: a
-  name cut off at the edge ("LISINOPRIL" of "LISINOPRIL AND
-  HYDROCHLOROTHIAZIDE") would otherwise be identified as another medicine.
+  on the reading (`nameIncomplete`): a name cut off at the edge ("LISINOPRIL"
+  of "LISINOPRIL AND HYDROCHLOROTHIAZIDE") would otherwise be identified as
+  another medicine. The page shows it as possibly cut, does not offer "yes, I
+  checked it", and identifies it only once the user has saved the name from
+  the edit form, where the same warning sits under it.
 
 ## What leaves the phone
 
-Before, one thing: a barcode's NDC, to RxNav. Now also, for a photo, the
-medicine's name as read, to RxNav, and for every medicine shown, a request to
-DailyMed for its label. All to NLM, over HTTPS, about the medicine alone: never
-the list, a photo, or anything identifying the user. The introduction says so
-(`privacy.lookup`, English until reviewed).
+Before, one thing: a barcode's NDC, to RxNav. Now also: for a photo, the
+medicine's name as read, to RxNav, as soon as the reading is shown and before
+the user has checked it against the bottle; for a medicine whose name the user
+typed or edited, that name; for a barcode, its RxNorm code once more, to check
+a label's ingredients against; and for every medicine shown, requests to
+DailyMed for its label. All to NLM, over HTTPS, with no identifier, and never
+the list or a photo. The introduction says so (`privacy.lookup`, English until
+reviewed).
+
+One gap remains, and the copy does not promise past it: the name sent is
+whatever the reading took for the medicine's name. The parser can, rarely, take
+another name-shaped line for it: when the name's own line was lost and a line
+such as the patient's name sat directly beside the strength and a "Generic
+for" line (see `nameFromNeighbours` in `sig-parser.ts`). That name would then be
+sent. Guarding against it by the ingredient lexicon is not possible yet (it
+knows 35 medicines, and the vial's own "VITAMIN D2" arrives by this very path);
+looking a name up only after the user confirms it would close the gap, at the
+cost of the uses appearing only after that step.

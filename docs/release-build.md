@@ -93,7 +93,10 @@ Then, in order:
    should print nothing: no reading is logged in release, and Expo found its
    modules.
 
-Not checkable on the emulator in release, because they need a real camera:
-barcode scanning, a reading of a real label, and so the curve notice, fill-in
-and the sweep. The sweep's native view is confirmed present in the APK (above)
-but has not run in a release build. These need the release APK on a phone.
+A real label can be read on the emulator in release now, from a photo in its
+gallery (push one with `adb push`, then "Choose a photo from your phone"), and
+its approved uses need only the emulator's network. What still needs a real
+camera, and so the release APK on a phone: barcode scanning, and the camera's
+own capture of a label. The curve notice, fill-in and the sweep are hidden in
+this version (`docs/scope.md`); the sweep's native view is still in the APK
+(above) but is never mounted.

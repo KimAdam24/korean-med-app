@@ -49,6 +49,13 @@ describe('the first launch', () => {
     await screen.findByText(O.storageTitle.ko);
     // The expectation users otherwise learn from an empty list on a new phone.
     expect(screen.getByText(O.storageNoBackup.ko)).toBeTruthy();
+    // What happens to photos, true of a gallery photo too, and what is sent;
+    // not the old lines, which said every photo is deleted and only a barcode
+    // number is sent.
+    expect(screen.getByText(Strings.privacy.onboardingPhotos.ko)).toBeTruthy();
+    expect(screen.getByText(Strings.privacy.lookup.ko)).toBeTruthy();
+    expect(screen.queryByText(O.storagePhotos.ko)).toBeNull();
+    expect(screen.queryByText(O.storageLookup.ko)).toBeNull();
     press(O.next.ko);
 
     await screen.findByText(O.cameraBody.ko);

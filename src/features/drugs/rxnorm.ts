@@ -11,10 +11,10 @@
  * ## The disclosure this makes, which is not nothing
  *
  * It necessarily tells the National Library of Medicine that somebody looked
- * up a particular medication. (So, since 2026-09-28, do the app's other two
- * requests, both to NLM and both about the medicine alone: its name as read
- * from a photo, to identify it (`identify-name`), and its FDA label, from
- * DailyMed (`approved-uses`).)
+ * up a particular medication. (So, since 2026-09-28, do the app's other
+ * requests, all to NLM and all about the medicine: its name, as read from a
+ * photo or typed, to identify it (`identify-name`), and its FDA label, from
+ * DailyMed (`approved-uses`); see `docs/scope.md`, "What leaves the phone".)
  * Spec §4 says the user's data is theirs alone, so it is worth being precise
  * about what does and does not leave the device:
  *

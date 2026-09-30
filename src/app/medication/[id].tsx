@@ -125,9 +125,11 @@ export default function MedicationScreen() {
     try {
       await updateMedication(record.id, {
         name,
-        // A match for the old name is not one for the new: its page asks
-        // again. And the name is now the user's, not a withheld reading.
-        ...(name !== record.name ? { nameMatch: undefined, nameIncomplete: undefined } : {}),
+        // A match for the old name is not one for the new: its page asks again.
+        ...(name !== record.name ? { nameMatch: undefined } : {}),
+        // Saved from this form, with the cut-off warning under it, the name is
+        // the user's word, changed or not, and no longer a withheld reading.
+        nameIncomplete: undefined,
         // Cleared fields become absent rather than empty strings, so
         // `needsConfirmation` keeps treating them as unfilled.
         dosage: editing.dosage.trim() || undefined,
@@ -230,6 +232,12 @@ export default function MedicationScreen() {
           placeholder={Strings.medications.fieldNamePlaceholder.ko}
           onChange={(name) => setMode({ ...mode, name, error: undefined })}
         />
+        {/*
+          Said here too, beside the name itself: saving this form is taken as
+          the user's word for the name (see `save`), so they should see that
+          the camera may have missed part of it before they give it.
+        */}
+        {record?.nameIncomplete ? <Notice tone="warn" title={Strings.result.curved.edgeNote} /> : null}
         <Field
           label={Strings.medications.fieldDosage}
           value={mode.dosage}
@@ -264,13 +272,18 @@ export default function MedicationScreen() {
    * that would otherwise present them as instructions.
    */
   const assess = record.needsReview;
-  const damaged = (
-    [
-      ['name', record.name],
-      ['dosage', record.dosage],
-      ['instructions', record.instructions],
-    ] as const
-  ).some(([kind, text]) => assess && text && assessField(kind, text).level === 'damaged');
+  // A name its reading found cut off at the label's edge counts as damaged
+  // however whole it reads: the rest of it is on the bottle, not here.
+  const nameCut = record.nameIncomplete === true;
+  const damaged =
+    nameCut ||
+    (
+      [
+        ['name', record.name],
+        ['dosage', record.dosage],
+        ['instructions', record.instructions],
+      ] as const
+    ).some(([kind, text]) => assess && text && assessField(kind, text).level === 'damaged');
 
   // §3.2: Korean only from approved sources, and null until they arrive: the
   // ingredients in 식약처's names (a barcode record's, all or none), and the
@@ -283,15 +296,15 @@ export default function MedicationScreen() {
   // A barcode's product exactly; otherwise the medicine its name names, by
   // the match made when it was saved, or made now for an older record. A
   // name that reads as damaged is not matched at all, nor one its reading
-  // withheld as cut off, until the user has confirmed or edited it.
-  const nameWithheld =
-    assessField('name', record.name).level === 'damaged' || (record.nameIncomplete === true && record.needsReview);
+  // withheld as cut off, until the user has saved it from the edit form.
+  const nameWithheld = nameCut || assessField('name', record.name).level === 'damaged';
   const usesSource: UsesSource = record.identity
     ? { kind: 'product', ndc11: record.identity.ndc11, rxcui: record.identity.rxcui }
     : {
         kind: 'name',
         name: nameWithheld ? null : record.name,
-        form: doseFormOf(record.dosage, record.instructions),
+        // The form that chose the reading's label, where it was saved with it.
+        form: record.nameMatch ? (record.nameMatch.form ?? null) : doseFormOf(record.dosage, record.instructions),
         ...(record.nameMatch ? { known: record.nameMatch } : {}),
       };
 
@@ -304,6 +317,7 @@ export default function MedicationScreen() {
           kind="name"
           text={record.name}
           assess={assess}
+          cutAtEdge={nameCut ? 'edge' : undefined}
           prominent
           korean={koreanName ? { text: koreanName, source: Strings.guidance.perMfds } : undefined}
         />
@@ -334,9 +348,12 @@ export default function MedicationScreen() {
         <BilingualText text={Strings.medications.source} variant="label" />
         <BilingualText
           text={
-            record.source === 'label-scan'
+            // A barcode identifies the product; a photo's reading does not.
+            record.identity
               ? Strings.medications.sourceScan
-              : Strings.medications.sourceManual
+              : record.source === 'label-scan'
+                ? Strings.medications.sourcePhoto
+                : Strings.medications.sourceManual
           }
         />
       </View>

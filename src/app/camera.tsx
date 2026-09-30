@@ -170,7 +170,12 @@ export default function CameraScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView | null>(null);
-  const [phase, setPhase] = useState<Phase>({ kind: 'preview' });
+  const { imageUri } = useLocalSearchParams<{ imageUri?: string }>();
+  // A photo chosen from the gallery starts as a reading, not as the camera: it
+  // needs no camera, and asking for one in front of it hid the reading.
+  const [phase, setPhase] = useState<Phase>(() =>
+    imageUri && isPickedCopy(imageUri) ? { kind: 'reading' } : { kind: 'preview' }
+  );
   const [torchOn, setTorchOn] = useState(false);
   /**
    * The frame the camera actually returned, for development diagnosis. Always
@@ -258,7 +263,6 @@ export default function CameraScreen() {
    * If the copy cannot be deleted, that is reported instead of the reading,
    * as it is for the camera.
    */
-  const { imageUri } = useLocalSearchParams<{ imageUri?: string }>();
   const readImported = useRef(false);
 
   /**
@@ -436,7 +440,10 @@ export default function CameraScreen() {
       try {
         // With what its name was identified as, so its page looks up the same
         // label without asking RxNorm again.
-        await addMedication(match ? { ...toSave.record, nameMatch: match } : toSave.record);
+        // And with the form that chose its label, which the saved fields may not
+        // name any more (withheld directions are not saved).
+        const form = doseFormOf(fields.dosage?.text, fields.instructions?.text);
+        await addMedication(match ? { ...toSave.record, nameMatch: { ...match, form } } : toSave.record);
         setPhase({ kind: 'saved' });
       } catch (error) {
         // Back to the same reading, not the camera: the photo is gone, and
@@ -557,8 +564,18 @@ export default function CameraScreen() {
   }, []);
   const close = useCallback(() => goBackOr(router, '/'), [router]);
 
+  /**
+   * The camera's permission is asked about only where the camera is used: the
+   * preview and a capture, and the sweep. Not in front of a gallery photo's
+   * reading, its result, or a problem with it: a caregiver who said no to the
+   * camera can still add bottles from photos, and a reading already under way
+   * is not hidden behind a question about something else (and lost behind
+   * "Close", its picked copy already deleted).
+   */
+  const needsCamera = phase.kind === 'preview' || phase.kind === 'capturing' || phase.kind === 'sweeping';
+
   // `permission` is null only while the initial status check is in flight.
-  if (!permission) {
+  if (needsCamera && !permission) {
     return (
       <Sheet>
         <ActivityIndicator size="large" />
@@ -572,7 +589,7 @@ export default function CameraScreen() {
     );
   }
 
-  if (!permission.granted) {
+  if (needsCamera && permission && !permission.granted) {
     return permission.canAskAgain ? (
       <Sheet>
         <BilingualText text={Strings.permission.askTitle} variant="heading" align="center" />

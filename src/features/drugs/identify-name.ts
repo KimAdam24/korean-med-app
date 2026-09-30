@@ -62,10 +62,27 @@ const NOT_THE_MEDICINE = new Set([
   'magnesium', 'besylate', 'maleate', 'succinate', 'tartrate', 'bitartrate', 'mesylate', 'fumarate', 'sulfate',
   'phosphate', 'acetate', 'citrate', 'er', 'xr', 'xl', 'sr', 'dr', 'cr', 'la', 'ec', 'odt', 'tab', 'tabs',
   'tablet', 'tablets', 'cap', 'caps', 'capsule', 'capsules', 'oral', 'solution', 'susp', 'suspension', 'mg',
-  'mcg', 'g', 'ml', 'unit', 'units', 'iu', 'usp',
+  'mcg', 'g', 'ml', 'unit', 'units', 'iu', 'meq', 'usp',
 ]);
 
-const words = (text: string) => text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+/**
+ * A name's words, lower case. A single letter and the short number after it
+ * are one word, however printed or read: "D2", "D-2" and "D 2" are all "d2",
+ * and RxNorm's "vitamin B 12" is "b12". Without that, "VITAMIN D-2" lost its
+ * "2" as a bare number and was identified as plain vitamin D. A long number is
+ * not joined: "D 50000" is a strength.
+ */
+const words = (text: string) =>
+  text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .reduce<string[]>((joined, word) => {
+      const previous = joined[joined.length - 1];
+      if (previous && /^[a-z]$/.test(previous) && /^\d{1,2}$/.test(word)) joined[joined.length - 1] = previous + word;
+      else joined.push(word);
+      return joined;
+    }, []);
 
 /**
  * The words of a printed name that say which medicine it is: without salts,

@@ -104,8 +104,6 @@ describe('reading a chosen photo', () => {
       expect(screen.getByText(Strings.result.curved.restWhole.ko)).toBeTruthy();
       expect(screen.getByText('VITAMIN D2')).toBeTruthy();
       expect(screen.getByText('1.25 MG (50,000 UNIT)')).toBeTruthy();
-      // Not the advice for a dark or distant photo: more light will not help.
-      expect(screen.queryByText(Strings.result.degradedBody.ko)).toBeNull();
       // The directions never reached a field here; their slot says why.
       expect(screen.getByText(Strings.result.curved.fieldNote.ko)).toBeTruthy();
       expect(screen.queryByText(Strings.result.missing.ko)).toBeNull();
@@ -117,21 +115,63 @@ describe('reading a chosen photo', () => {
     });
   });
 
-  it('a curved label: withholds what the curve cut and says so, with no advice about light, and no curve message', async () => {
-    await openPickedPhoto(VITAMIN_D2_VIAL_RETAKE_LINES);
+  it('a curved label: withholds what the curve cut and says so, with no curve message, sweep or fill-in', async () => {
+    // The vial: its directions cut on the right, which with every feature on
+    // brings the curve message, the sweep and fill-in (the tests just above,
+    // and sweep.test.tsx).
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
     await screen.findByText('VITAMIN D2');
 
     expect(screen.getByText('1.25 MG (50,000 UNIT)')).toBeTruthy();
-    // The directions never reached a field; their slot says they may be cut.
+    // The directions are withheld, and their slot says they may be cut.
+    expect(screen.getByText(Strings.result.damaged.instructions.title.ko)).toBeTruthy();
     expect(screen.getByText(Strings.result.curved.edgeNote.ko)).toBeTruthy();
-    expect(screen.queryByText(Strings.result.missing.ko)).toBeNull();
     // Hidden: the curve, its remedy, turning the bottle, and filling in.
     expect(screen.queryByText(Strings.result.curved.title.ko)).toBeNull();
     expect(screen.queryByText(Strings.result.curved.fieldNote.ko)).toBeNull();
     expect(screen.queryByRole('button', { name: Strings.sweep.start.ko })).toBeNull();
     expect(screen.queryByRole('button', { name: Strings.fillIn.start.ko })).toBeNull();
-    // And not the advice for a dark photo either.
-    expect(screen.queryByText(Strings.result.degradedBody.ko)).toBeNull();
+  });
+
+  describe('a degraded reading of a label known to curve', () => {
+    // The vial, with a near miss for an ingredient added below it: enough to
+    // judge the whole reading degraded, while the curve is still diagnosed.
+    const last = VITAMIN_D2_VIAL_LINES[VITAMIN_D2_VIAL_LINES.length - 1];
+    const DEGRADED_CURVED = [
+      ...VITAMIN_D2_VIAL_LINES,
+      {
+        text: 'Rx Lisinoprll',
+        confidence: 0.8,
+        frame: { ...last.frame!, top: last.frame!.top + 200 },
+        corners: last.corners?.map((point) => ({ x: point.x, y: point.y + 200 })),
+      },
+    ];
+
+    it('gives no advice at all: not the curve message, and not "try somewhere brighter"', async () => {
+      await openPickedPhoto(DEGRADED_CURVED);
+      await screen.findByText(Strings.result.degradedTitle.ko);
+      expect(screen.queryByText(Strings.result.curved.title.ko)).toBeNull();
+      expect(screen.queryByText(Strings.result.degradedBody.ko)).toBeNull();
+    });
+
+    describe('with the curve message on (hidden now: see Scope)', () => {
+      withFullScope();
+
+      it('says the label curves, in place of "try somewhere brighter"', async () => {
+        await openPickedPhoto(DEGRADED_CURVED);
+        await screen.findByText(Strings.result.degradedTitle.ko);
+        expect(screen.getByText(Strings.result.curved.title.ko)).toBeTruthy();
+        expect(screen.queryByText(Strings.result.degradedBody.ko)).toBeNull();
+      });
+    });
+  });
+
+  it('a gallery photo is read even where the camera is refused: it needs no camera', async () => {
+    camera.refused();
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+    await screen.findByText('VITAMIN D2');
+    expect(screen.queryByText(Strings.permission.deniedTitle.ko)).toBeNull();
+    expect(screen.queryByText(Strings.permission.askTitle.ko)).toBeNull();
   });
 
   it('without a medicine name, says it cannot be added, and offers no Add button', async () => {
@@ -148,6 +188,8 @@ describe('reading a chosen photo', () => {
   it('asks for a retake when most of the label could not be read', async () => {
     await openPickedPhoto(['xzq wvt', 'mmm nnn', 'qqq rrr', 'zzz yyy', 'ppp ooo']);
     await screen.findByText(Strings.result.degradedTitle.ko);
+    // Not a curved label, so the advice for a dark or distant photo is right.
+    expect(screen.getByText(Strings.result.degradedBody.ko)).toBeTruthy();
     expect(screen.getByRole('button', { name: Strings.camera.retake.ko })).toBeTruthy();
   });
 
@@ -239,11 +281,11 @@ describe('a medicine identified while offline', () => {
         expect(profile.status === 'ok' && profile.value.medications[0].identity?.ingredients).toEqual(['levothyroxine']);
       });
       // RxNav is asked about the product's own code, as at the scan, and
-      // nothing else. (DailyMed is asked for its label too, by the page's
-      // approved uses.)
-      expect(lookups.filter((url) => url.includes('rxnav'))).toEqual([
-        expect.stringContaining('/rxcui/966222/related.json?tty=IN'),
-      ]);
+      // nothing else: here for its ingredients, and by the page's approved
+      // uses for the same, to check a label against (DailyMed is asked too).
+      const rxnav = lookups.filter((url) => url.includes('rxnav'));
+      expect(rxnav).toContainEqual(expect.stringContaining('/rxcui/966222/related.json?tty=IN'));
+      expect(rxnav.every((url) => url.includes('/rxcui/966222/'))).toBe(true);
     } finally {
       global.fetch = original;
     }

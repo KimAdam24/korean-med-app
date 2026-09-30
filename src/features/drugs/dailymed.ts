@@ -195,32 +195,76 @@ export function extractSectionText(xml: string, loincCode: string): string | nul
   return labelMarkupToText(body);
 }
 
+const SUPERSCRIPT: Record<string, string> = {
+  '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+  '+': '⁺', '-': '⁻', '−': '⁻', '=': '⁼', '(': '⁽', ')': '⁾',
+};
+const SUBSCRIPT: Record<string, string> = {
+  '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+  '+': '₊', '-': '₋', '−': '₋', '=': '₌', '(': '₍', ')': '₎',
+};
+
+/**
+ * A superscript or subscript as plain text can show it: in raised or lowered
+ * characters where every character has one ("10⁹", "B₁₂"), and otherwise
+ * marked ("^b", "_(max)"). Never run into the text beside it, where "10⁹/L"
+ * would read as "109/L".
+ */
+function script(content: string, table: Record<string, string>, mark: string): string {
+  const text = content.replace(/<[^>]+>/g, '').trim();
+  if (text.length === 0) return '';
+  if ([...text].every((char) => char in table)) return [...text].map((char) => table[char]).join('');
+  return text.length === 1 ? `${mark}${text}` : `${mark}(${text})`;
+}
+
+/** Marks the end of a list item's marker, until it is known whether text follows on its line. */
+const MARKER_END = '\u0001';
+/** One step of a nested list's indent. Not a plain space, which the tidying below removes. */
+const INDENT = ' ';
+
 /**
  * Reduces SPL markup to readable text.
  *
  * List items become lines rather than being run together: a warning that reads
  * as one long sentence when it was written as four separate risks has been
- * changed in meaning, not just in formatting. A subsection's title is a line
- * of its own too.
+ * changed in meaning, not just in formatting. For the same reason a nested
+ * list stays nested, indented under its item, so a sub-item never reads as
+ * the item's peer. A subsection's title is a line of its own too, and a
+ * superscript stays raised (`script`).
  *
  * XML defines five named entities; everything else arrives as a number. `&amp;`
  * is decoded last, so a label that spells out "&amp;lt;" still shows "&lt;".
  */
 export function labelMarkupToText(markup: string): string | null {
+  let depth = 0;
   const text = markup
     // Line breaks in the markup are its indentation, not the label's: only
     // paragraphs, items, titles and breaks start a line.
     .replace(/\s+/g, ' ')
-    // An item may carry its own marker as a caption ("•", "a."): that is its
-    // marker, not text to add after one.
-    .replace(/<item[^>]*>\s*<caption[^>]*>([\s\S]*?)<\/caption>/gi, (_, caption: string) => {
-      const marker = caption.replace(/<[^>]+>/g, '').trim();
-      // A lone symbol is a bullet, whichever one the label used.
-      return `\n${marker.length === 0 || /^[^A-Za-z0-9]$/.test(marker) ? '•' : marker} `;
-    })
+    .replace(/<sup\b[^>]*>([\s\S]*?)<\/sup>/gi, (_, content: string) => script(content, SUPERSCRIPT, '^'))
+    .replace(/<sub\b[^>]*>([\s\S]*?)<\/sub>/gi, (_, content: string) => script(content, SUBSCRIPT, '_'))
+    // Lists, walked in order so each item knows how deeply it is nested. An
+    // item may carry its own marker as a caption ("•", "a."): that is its
+    // marker, not text to add after one; a lone symbol is a bullet, whichever.
+    .replace(
+      /<list\b[^>]*>|<\/list>|<item\b[^>]*>(?:\s*<caption[^>]*>([\s\S]*?)<\/caption>)?/gi,
+      (tag: string, caption?: string) => {
+        if (/^<list/i.test(tag)) {
+          depth += 1;
+          return '';
+        }
+        if (/^<\/list/i.test(tag)) {
+          depth = Math.max(0, depth - 1);
+          return '';
+        }
+        const own = (caption ?? '').replace(/<[^>]+>/g, '').trim();
+        const bullet = depth > 1 ? '◦' : '•';
+        const marker = own.length === 0 || /^[^A-Za-z0-9]$/.test(own) ? bullet : own;
+        return `\n${INDENT.repeat(Math.max(0, depth - 1))}${marker}${MARKER_END}`;
+      }
+    )
     .replace(/<paragraph[^>]*>/gi, '\n')
     .replace(/<\/?title[^>]*>/gi, '\n')
-    .replace(/<item[^>]*>/gi, '\n• ')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, '')
     .replace(/&lt;/g, '<')
@@ -234,8 +278,13 @@ export function labelMarkupToText(markup: string): string | null {
     .replace(/&amp;/g, '&')
     .replace(/ /g, ' ')
     .replace(/[ \t]+/g, ' ')
+    // An item whose text starts with a paragraph keeps its text on its own
+    // line; one whose next line is a nested item keeps that below it.
+    .replace(new RegExp(`${MARKER_END} *\n(?!${INDENT}|[•◦])`, 'g'), ' ')
+    .replace(new RegExp(`${MARKER_END} *`, 'g'), ' ')
     .replace(/ *\n */g, '\n')
-    .replace(/\n\s*\n\s*/g, '\n')
+    .replace(/\n[ \t]*(?:\n[ \t]*)+/g, '\n')
+    .replace(/ +$/gm, '')
     .trim();
 
   return text.length > 0 ? text : null;

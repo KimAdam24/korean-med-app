@@ -81,12 +81,13 @@ export const Strings = {
   /**
    * The privacy promise, rewritten so it is true of a photo from the user's
    * own gallery as well as of the camera's, and the gallery picker's label.
-   * Awaiting review; until then the current home line stays, and the gallery
-   * picker stays out of release (see `app/index.tsx`). After sign-off:
-   * `privacy.home` replaces `home.privacy`; `pickedPhoto` replaces "the photo
-   * has been deleted" under a reading of a chosen photo; `cameraPermission`
-   * is copied into app.json's expo-camera `cameraPermission`, since the
-   * iPhone shows it in its own dialog and nothing here renders it.
+   * In the app since 2026-09-28, in English until reviewed, since the gallery
+   * ships in release: `privacy.home` in place of `home.privacy`, `pickedPhoto`
+   * in place of "the photo has been deleted" under a reading of a chosen
+   * photo, `onboardingPhotos` and `lookup` in the introduction. After
+   * sign-off, each `untranslated()` becomes her Korean, and `cameraPermission`
+   * is copied into app.json's expo-camera `cameraPermission` (a test keeps
+   * the two alike), since the iPhone shows it in its own dialog.
    */
   privacy: {
     home: untranslated(
@@ -107,7 +108,7 @@ export const Strings = {
       'First-launch introduction, the "your list stays on this phone" step. Replaces 사진은 글씨를 읽는 데만 쓰고, 읽은 뒤 바로 지워요., which is untrue of a photo she picks from her own gallery.'
     ),
     lookup: untranslated(
-      "To identify a medicine and find its FDA label, the app sends the U.S. National Library of Medicine only what names the medicine: its barcode number, or its name as read from the label. It never sends your list or your photos.",
+      "To identify a medicine and find its FDA label, the app sends the U.S. National Library of Medicine the medicine's barcode number, or its name as read from the label or typed in. It never sends your list or your photos.",
       'First-launch introduction, the same step. Replaces 바코드로 약을 찾을 때는 바코드 번호만 보내요..., which no longer covers everything sent: a medicine read from a photo is now looked up by its name, and its FDA label fetched.'
     ),
   },
@@ -418,6 +419,10 @@ export const Strings = {
     addedOn: { ko: '등록한 날', en: 'Added' },
     source: { ko: '등록 방법', en: 'How it was added' },
     sourceScan: { ko: '바코드로 찾음', en: 'Found by barcode' },
+    sourcePhoto: untranslated(
+      'Read from a photo of the label',
+      "A medicine's page, under 등록 방법 (How it was added), for a medicine read from a photo. Beside 바코드로 찾음 (Found by barcode) and 직접 입력함 (Entered by hand); the first used to show, untruly, for photos too."
+    ),
     sourceManual: { ko: '직접 입력함', en: 'Entered by hand' },
 
     /**
@@ -527,7 +532,7 @@ export const Strings = {
     ),
     identifiedAs: untranslated(
       'Identified from its label as: {name}',
-      'Above the label\'s text, for a medicine read from a photo. {name} is the medicine RxNorm matched, in English, e.g. ergocalciferol.'
+      'Above the label\'s text, for a medicine read from a photo. {name} is its ingredient as RxNorm names it, in English, e.g. ergocalciferol; for a combination, its ingredients joined by " / ".'
     ),
     fromLabel: untranslated(
       'From this label on DailyMed (U.S. National Library of Medicine): {title}',

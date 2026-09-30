@@ -40,8 +40,10 @@ DEV_ONLY = {
     # panel's own strings, above, are what show it compiled out.
 }
 # Shipped copy. Each must be present, or the search above proves nothing.
+# These are all in `Strings`, which ships whole, so their presence proves the
+# search works, not that the screen showing them does ('Fill in what the bottle
+# says' belongs to a hidden feature, and still ships in `Strings`).
 SHIPPED = ['Take a photo of your medicine', '약 사진 찍기', 'Fill in what the bottle says',
-           # The gallery, in release since 2026-09-28 (its label in English until reviewed).
            'Choose a photo from your phone',
            # Her reviewed Korean (docs/reviews/copy-batch-2026-09-25-reviewed.csv, #41).
            '앱 사용 중에만 허용']

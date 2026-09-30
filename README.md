@@ -107,9 +107,11 @@ network. One NDC goes out per scan, over HTTPS, with no user or device
 identifier, no account, no cookie, and nothing from the medication profile — but
 NLM can still see that some IP address looked up a particular drug.
 
-Since 2026-09-28 two more requests go the same way, about the medicine alone: a
-medicine read from a photo is identified by its name as read (RxNav), and every
-medicine shown has its FDA label fetched (DailyMed, also NLM).
+Since 2026-09-28 more requests go the same way, about the medicine: a medicine
+read from a photo, or whose name was typed, is identified by that name (RxNav),
+and every medicine shown has its FDA label fetched (DailyMed, also NLM). The
+name read is whatever the parser took for the medicine's, which can in rare
+layouts be another line; `docs/scope.md` says when.
 
 This was the cheaper of the two disclosures available. Cloud OCR would have sent
 the photograph itself; barcode-first sends eleven digits. If even that is

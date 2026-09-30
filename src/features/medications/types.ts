@@ -91,6 +91,12 @@ export type MedicationRecord = {
     readonly rxcui: string;
     readonly ingredients: readonly string[];
     readonly matched: string;
+    /**
+     * The dose form its reading named (capsule or tablet), which chose among
+     * the ingredient's labels: kept, so its page chooses the same label the
+     * reading showed, even where the text that named it was not saved.
+     */
+    readonly form?: 'TABLET' | 'CAPSULE' | null;
   };
   /**
    * Set when the name was saved as read but its reading withheld it: damaged,
