@@ -43,18 +43,20 @@ function parseProfile(value: unknown): MedicationProfile | null {
 }
 
 /**
- * The two optional fields about the name are not reasons to hide a medicine,
+ * The optional fields about the name are not reasons to hide a medicine,
  * and with it its reminders, which a resync would then cancel: a malformed
  * match is dropped, so the page identifies the name afresh; a malformed
  * "incomplete" is read as set, so a name that may be cut stays withheld until
  * the user saves it from the edit form. Either way the record is kept.
  */
 function withSoundExtras(record: MedicationRecord): MedicationRecord {
-  const { nameMatch, nameIncomplete, ...rest } = record;
+  const { nameMatch, nameIncomplete, nameSource, ...rest } = record;
   return {
     ...rest,
     ...(nameMatch !== undefined && isNameMatch(nameMatch) ? { nameMatch } : {}),
     ...(nameIncomplete !== undefined ? { nameIncomplete: true as const } : {}),
+    // Unknown is said as absent, never guessed.
+    ...(nameSource === 'read' || nameSource === 'typed' || nameSource === 'rxnorm' ? { nameSource } : {}),
   };
 }
 

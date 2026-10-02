@@ -94,6 +94,28 @@
     },
     "reminders.statusSilent": {
       "why": "Safety string: left for her to write, and shown in English until she has."
+    },
+    "uses.nameNotWhole": {
+      "ko": "약 이름을 다 읽지 못해서 아직 찾아볼 수 없어요. 약병에 적힌 대로 이름을 입력하시거나, 다시 찍어 주세요."
+    },
+    "uses.identifiedTypedAs": {
+      "ko": "입력하신 이름으로 찾은 약: {name}",
+      "note": "The same shape as the draft of uses.identifiedAs, 약병 글씨로 찾은 약: {name}."
+    },
+    "uses.typedUnidentified": {
+      "ko": "입력하신 이름과 똑같은 약이 없어요. 한 단어씩 약병과 비교해 주세요."
+    },
+    "nameEntry.prompt": {
+      "ko": "약을 찾아보려면 약병에 적힌 대로 약 이름을 입력해 주세요."
+    },
+    "nameEntry.inputLabel": {
+      "ko": "약병에 적힌 약 이름"
+    },
+    "nameEntry.submit": {
+      "ko": "찾아보기"
+    },
+    "nameEntry.typedNote": {
+      "ko": "약병을 보고 직접 입력하신 이름이에요"
     }
   }
 }

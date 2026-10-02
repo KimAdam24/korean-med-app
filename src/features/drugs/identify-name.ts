@@ -16,9 +16,11 @@
  * - The caller asks only with a name that reads whole: never one withheld as
  *   cut off at the label's edge ("VITAMIN D" of "VITAMIN D2"), or as damaged.
  * - RxNorm's approximate match is taken only at its best rank, and only where
- *   every word of the printed name, less salts, forms and strengths, is in the
- *   name it matched. A misread ("Thyeoxine") matches nothing; a word RxNorm
- *   would have to guess at is not guessed.
+ *   the name it matched is, salts, forms and strengths aside, exactly the
+ *   words given: none changed and none added. A misread ("Thyeoxine") or a
+ *   typo matches nothing; a word RxNorm would have to guess at is not guessed;
+ *   one word of a longer name ("ACID") is not that name. This holds as much
+ *   for a name the user typed as for one read from the label.
  * - Every best-ranked match must come to the same ingredients. If they differ,
  *   the name is ambiguous, and nothing is identified.
  *
@@ -63,6 +65,9 @@ const NOT_THE_MEDICINE = new Set([
   'phosphate', 'acetate', 'citrate', 'er', 'xr', 'xl', 'sr', 'dr', 'cr', 'la', 'ec', 'odt', 'tab', 'tabs',
   'tablet', 'tablets', 'cap', 'caps', 'capsule', 'capsules', 'oral', 'solution', 'susp', 'suspension', 'mg',
   'mcg', 'g', 'ml', 'unit', 'units', 'iu', 'meq', 'usp',
+  // What joins a combination's names ("LISINOPRIL AND HYDROCHLOROTHIAZIDE"),
+  // where RxNorm writes "hydrochlorothiazide / lisinopril".
+  'and', 'with',
 ]);
 
 /**
@@ -134,11 +139,16 @@ export async function identifyByName(name: string): Promise<NameIdentification> 
   const best = (found.value.approximateGroup?.candidate ?? []).filter(
     (candidate) => candidate.source === 'RXNORM' && candidate.rank === '1' && candidate.rxcui && candidate.name
   );
-  // Every word printed must be in what it matched: a match that had to change
-  // a word is a guess about that word.
+  // What it matched must name the medicine in exactly the words given, salts
+  // and forms aside: no word changed (a match that had to change one is a
+  // guess about it, so a typo identifies nothing), and none added (a lone
+  // "ACID" is not "ascorbic acid"). RxNorm's search is approximate; this is
+  // what makes the answer exact. Not to be loosened for a typed name either:
+  // a misspelling must fail safe, never land on some other medicine.
+  const given = new Set(printed);
   const whole = best.filter((candidate) => {
-    const matched = new Set(words(candidate.name!));
-    return printed.every((word) => matched.has(word));
+    const named = new Set(medicineWords(candidate.name!));
+    return named.size === given.size && [...given].every((word) => named.has(word));
   });
   if (whole.length === 0) return { status: 'unidentified' };
 

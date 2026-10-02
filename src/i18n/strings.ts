@@ -555,6 +555,39 @@ export const Strings = {
       'Look up the FDA label again',
       "Button under uses.unavailable. Not 다시 시도하기 (Try again): the medicine's page has that button for reminders already, and two buttons alike would not say which is which."
     ),
+    nameNotWhole: untranslated(
+      'The medicine\'s name was not read whole, so it cannot be looked up yet. Type it as the bottle shows it, or take another photo.',
+      "In place of the label's text, when the name runs off the edge of the label, was not read clearly, or was not found."
+    ),
+    identifiedTypedAs: untranslated(
+      'Identified from the name you typed as: {name}',
+      'Like uses.identifiedAs, but for a name the user typed from the bottle. {name} is its ingredient as RxNorm names it, in English.'
+    ),
+    typedUnidentified: untranslated(
+      'No medicine has exactly the name typed. Check each word against the bottle.',
+      'In place of the label\'s text, when a typed name matches no medicine word for word. A misspelling is not corrected: it matches nothing.'
+    ),
+  },
+
+  /**
+   * Typing the medicine's name from the bottle, on the result screen, where the
+   * reading could not give it whole. The name is looked up word for word, so a
+   * misspelling matches nothing (`uses.typedUnidentified`).
+   */
+  nameEntry: {
+    prompt: untranslated(
+      "Type the medicine's name as the bottle shows it, to look it up.",
+      'Result screen, under the medicine name, when the name was cut off, not read clearly, or not found. Above a typing box, prefilled with what was read.'
+    ),
+    inputLabel: untranslated(
+      "Medicine name, as the bottle shows it",
+      'Heard only with the screen reader: the name of the typing box.'
+    ),
+    submit: untranslated('Look it up', 'Button under the typing box.'),
+    typedNote: untranslated(
+      'Typed by you from the bottle',
+      'Under the medicine name, once the user has typed it, so it is clear the name came from them and not from the photo.'
+    ),
   },
 
   guidance: {

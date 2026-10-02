@@ -68,6 +68,31 @@ other fields does not make it whole either (`keepWithheld`): before that rule,
 completing the directions left no line that looked cut, so no edge was found
 at all, and the name, never looked at, read as whole and was identified.
 
+### Typing the name from the bottle
+
+Without a name there is nothing to look up, so where the reading could not
+give the name whole (cut off at the edge, not read clearly, or not found), the
+result screen asks for it: a box under the name, prefilled with what was read,
+to type it as the bottle shows it (`features/ocr/name-entry.tsx`). The card
+says why there is nothing to show yet (`uses.nameNotWhole`), rather than only
+that nothing was identified.
+
+- **Checked, never fuzzy.** A typed name is looked up exactly as a read one:
+  RxNorm's best match must name the medicine in exactly the words given, salts
+  and forms aside, none changed and none added. A misspelling ("VITAMN D2")
+  matches nothing, though RxNorm offers the right spelling, and the card says
+  to check each word against the bottle; one word of a longer name ("ACID")
+  is not that name. The keyboard's own correction is off in the box, so it
+  cannot change a word either. This is not to be loosened.
+- **Shown as the user's.** The name is marked "typed by you from the bottle",
+  and what it identified as is shown ("Identified from the name you typed
+  as: ergocalciferol"), to compare with the bottle.
+- **Saved as typed.** Every record now says where its name came from
+  (`nameSource`): `read` from the label, `typed` by the user (here, or by
+  editing it later), or `rxnorm` for a barcode. A typed name is a different
+  kind of evidence from a read one, and any later cross-check (a printed NDC
+  against the name, say) needs to know which it holds.
+
 ## What a medicine's approved uses can and cannot say
 
 Sourced and imperfect, knowingly (decided 2026-09-28):

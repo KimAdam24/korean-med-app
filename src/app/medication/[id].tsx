@@ -126,7 +126,8 @@ export default function MedicationScreen() {
       await updateMedication(record.id, {
         name,
         // A match for the old name is not one for the new: its page asks again.
-        ...(name !== record.name ? { nameMatch: undefined } : {}),
+        // And the new name is the user's, typed, not the label's, read.
+        ...(name !== record.name ? { nameMatch: undefined, nameSource: 'typed' as const } : {}),
         // Saved from this form, with the cut-off warning under it, the name is
         // the user's word, changed or not, and no longer a withheld reading.
         nameIncomplete: undefined,
@@ -303,6 +304,7 @@ export default function MedicationScreen() {
     : {
         kind: 'name',
         name: nameWithheld ? null : record.name,
+        ...(record.nameSource === 'typed' ? { typed: true } : {}),
         // The form that chose the reading's label, where it was saved with it.
         form: record.nameMatch ? (record.nameMatch.form ?? null) : doseFormOf(record.dosage, record.instructions),
         ...(record.nameMatch ? { known: record.nameMatch } : {}),

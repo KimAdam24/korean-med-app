@@ -61,6 +61,10 @@ function nlm({ online = true, category = 'NDA' } = {}): string[] {
     const url = decodeURIComponent(String(input));
     asked.push(url);
     if (!online) throw new TypeError('Network request failed');
+    if (url.includes('approximateTerm.json?term=vitamn d2')) {
+      // As RxNav does: the right spelling offered for a wrong one.
+      return reply({ approximateGroup: { candidate: [{ rxcui: '4018', name: 'vitamin D2', rank: '1', source: 'RXNORM' }] } });
+    }
     if (url.includes('approximateTerm.json?term=vitamin d2')) {
       return reply({ approximateGroup: { candidate: [{ rxcui: '4018', name: 'vitamin D2', rank: '1', source: 'RXNORM' }] } });
     }
@@ -160,6 +164,8 @@ describe('what a medicine is approved to treat', () => {
     // longer name (the damaged directions were not saved).
     expect(profile.status === 'ok' && profile.value.medications[0].nameMatch).toEqual({ ...MATCH, form: 'CAPSULE' });
     expect(profile.status === 'ok' && profile.value.medications[0].instructions).toBeUndefined();
+    // Read from the label, not typed.
+    expect(profile.status === 'ok' && profile.value.medications[0].nameSource).toBe('read');
   });
 
   it("a saved medicine's page: the same label, by the match it was saved with, without asking RxNav again", async () => {
@@ -204,12 +210,13 @@ describe('what a medicine is approved to treat', () => {
       rxcui: '316965',
       ndc11: '13668075701',
     });
+    expect(profile.status === 'ok' && profile.value.medications[0].nameSource).toBe('rxnorm');
   });
 
   it('a label with no name read: says it could not be identified, and asks nothing', async () => {
     const asked = nlm();
     await openPickedPhoto(['10 MG TABLET', 'Take 1 tablet by mouth twice daily', 'QTY: 60']);
-    await screen.findByText(Strings.uses.unidentified.ko);
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
     expect(asked).toEqual([]);
     expect(screen.queryByText(Strings.uses.disclaimer.ko)).toBeNull();
   });
@@ -237,7 +244,7 @@ describe('what a medicine is approved to treat', () => {
     const saved = await addMedication({ name: 'VITAMIN D2', source: 'label-scan', needsReview: true, nameIncomplete: true });
     launchApp(`/medication/${saved.id}`);
 
-    await screen.findByText(Strings.uses.unidentified.ko);
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
     expect(asked).toEqual([]);
     // Not shown as whole: the damaged-name warning, and that its end may be missing.
     expect(screen.getByText(Strings.result.damaged.name.title.ko)).toBeTruthy();
@@ -279,7 +286,7 @@ describe('what a medicine is approved to treat', () => {
     // HYDROCHLOROTHIAZIDE": its line runs out at the curve.
     const asked = nlm();
     await openPickedPhoto(nameAtTheEdge('LISINOPRIL'));
-    await screen.findByText(Strings.uses.unidentified.ko);
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
     expect(screen.getByText(Strings.result.damaged.name.title.ko)).toBeTruthy();
     expect(asked.some((url) => url.includes('approximateTerm'))).toBe(false);
 
@@ -295,7 +302,7 @@ describe('what a medicine is approved to treat', () => {
 
     // The name is as it was: withheld, unidentified, never sent.
     expect(screen.getByText(Strings.result.damaged.name.title.ko)).toBeTruthy();
-    expect(screen.getByText(Strings.uses.unidentified.ko)).toBeTruthy();
+    expect(screen.getByText(Strings.uses.nameNotWhole.ko)).toBeTruthy();
     expect(asked.some((url) => url.includes('approximateTerm'))).toBe(false);
   });
 
@@ -310,7 +317,7 @@ describe('what a medicine is approved to treat', () => {
     });
     launchApp(`/medication/${saved.id}`);
     // Withheld as it was read, whatever it was once matched as.
-    await screen.findByText(Strings.uses.unidentified.ko);
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
 
     press(Strings.medications.edit.ko);
     fireEvent.changeText(screen.getByDisplayValue('VITAMIN D2'), 'VITAMIN D3');
@@ -323,5 +330,81 @@ describe('what a medicine is approved to treat', () => {
     const profile = await loadProfile();
     expect(profile.status === 'ok' && profile.value.medications[0].nameMatch).toBeUndefined();
     expect(profile.status === 'ok' && profile.value.medications[0].nameIncomplete).toBeUndefined();
+    // The new name is the user's.
+    expect(profile.status === 'ok' && profile.value.medications[0].nameSource).toBe('typed');
+  });
+});
+
+describe('typing the name from the bottle, where the reading could not give it', () => {
+  const typeName = (name: string) => {
+    fireEvent.changeText(screen.getByLabelText(Strings.nameEntry.inputLabel.ko), name);
+    press(Strings.nameEntry.submit.ko);
+  };
+
+  it('a name cut at the edge: completed from the bottle, looked up, shown as typed, and saved as typed', async () => {
+    const asked = nlm();
+    await openPickedPhoto(nameAtTheEdge('VITAMIN D'));
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
+    // Prefilled with what was read, so only the end needs typing.
+    expect(screen.getByDisplayValue('VITAMIN D')).toBeTruthy();
+
+    typeName('VITAMIN D2');
+    await screen.findByText(INDICATION);
+    expect(screen.getByText(fillTemplate(Strings.uses.identifiedTypedAs, { name: 'ergocalciferol' }).ko)).toBeTruthy();
+    expect(screen.getByText(Strings.nameEntry.typedNote.ko)).toBeTruthy();
+    expect(asked).toContainEqual(expect.stringContaining('approximateTerm.json?term=vitamin d2&'));
+
+    press(Strings.medications.saveFromLabel.ko);
+    await screen.findByText(Strings.scan.saved.ko);
+    const profile = await loadProfile();
+    const saved = profile.status === 'ok' ? profile.value.medications[0] : undefined;
+    expect(saved?.name).toBe('VITAMIN D2');
+    expect(saved?.nameSource).toBe('typed');
+    expect(saved?.nameIncomplete).toBeUndefined();
+    expect(saved?.nameMatch?.rxcui).toBe('4018');
+
+    // Its page says the name was typed, too.
+    launchApp(`/medication/${saved!.id}`);
+    await screen.findByText(INDICATION);
+    expect(screen.getByText(fillTemplate(Strings.uses.identifiedTypedAs, { name: 'ergocalciferol' }).ko)).toBeTruthy();
+  });
+
+  it('a misspelling identifies nothing, though RxNav offers the right one, and says to check each word', async () => {
+    nlm();
+    await openPickedPhoto(nameAtTheEdge('VITAMIN D'));
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
+
+    typeName('VITAMN D2');
+    await screen.findByText(Strings.uses.typedUnidentified.ko);
+    expect(screen.queryByText(INDICATION)).toBeNull();
+
+    // Corrected, it is found.
+    typeName('VITAMIN D2');
+    await screen.findByText(INDICATION);
+  });
+
+  it('a label with no name read at all: typed in, it can be looked up and added', async () => {
+    nlm();
+    await openPickedPhoto(['1.25MG(50,000 UNIT)', 'Take 1 capsule by mouth every 7 days', 'QTY: 4']);
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
+    // Nothing to add yet: a medicine needs a name.
+    expect(screen.queryByRole('button', { name: Strings.medications.saveFromLabel.ko })).toBeNull();
+
+    typeName('VITAMIN D2');
+    await screen.findByText(INDICATION);
+    press(Strings.medications.saveFromLabel.ko);
+    await screen.findByText(Strings.scan.saved.ko);
+    const profile = await loadProfile();
+    expect(profile.status === 'ok' && [profile.value.medications[0].name, profile.value.medications[0].nameSource]).toEqual([
+      'VITAMIN D2',
+      'typed',
+    ]);
+  });
+
+  it('a name read whole asks for nothing', async () => {
+    nlm();
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+    await screen.findByText(INDICATION);
+    expect(screen.queryByLabelText(Strings.nameEntry.inputLabel.ko)).toBeNull();
   });
 });

@@ -18,14 +18,18 @@ export type UsesSource =
   /** A barcode's product: exactly this one. */
   | { readonly kind: 'product'; readonly ndc11: string; readonly rxcui: string }
   /**
-   * A medicine by the name on its label. `name` is null when the name was not
-   * read whole (withheld as cut off, or damaged): nothing is looked up for it.
-   * `known` is a match already made, as when a saved medicine carries one.
+   * A medicine by its name. `name` is null when the name was not read whole
+   * (withheld as cut off, or damaged, or not found): nothing is looked up for
+   * it, and the card says how to give it. `typed` when the user typed it from
+   * the bottle, which the card says too, since it is the user's word and not
+   * the label's. `known` is a match already made, as when a saved medicine
+   * carries one.
    */
   | {
       readonly kind: 'name';
       readonly name: string | null;
       readonly form: DoseForm | null;
+      readonly typed?: boolean;
       readonly known?: NameMatch;
     };
 
@@ -139,7 +143,10 @@ export function ApprovedUsesCard({
           {state.match ? (
             <View style={styles.source}>
               <BilingualText
-                text={fillTemplate(Strings.uses.identifiedAs, { name: state.match.ingredients.join(' / ') })}
+                text={fillTemplate(
+                  source.kind === 'name' && source.typed ? Strings.uses.identifiedTypedAs : Strings.uses.identifiedAs,
+                  { name: state.match.ingredients.join(' / ') }
+                )}
                 variant="label"
               />
               <BilingualText text={Strings.guidance.perRxNorm} variant="label" color={theme.textSecondary} />
@@ -166,7 +173,13 @@ export function ApprovedUsesCard({
           <BilingualText
             text={
               state.kind === 'unidentified'
-                ? Strings.uses.unidentified
+                ? // Why, and what to do: a name not read whole is to be typed
+                  // or retaken; a typed one that matched nothing, checked.
+                  unreadable
+                  ? Strings.uses.nameNotWhole
+                  : source.kind === 'name' && source.typed
+                    ? Strings.uses.typedUnidentified
+                    : Strings.uses.unidentified
                 : state.kind === 'none'
                   ? Strings.uses.none
                   : Strings.uses.unavailable

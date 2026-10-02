@@ -148,6 +148,23 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     where: 'The same box, in place of the text, above the button uses.retry.',
     when: 'When the phone has no connection, or the service does not answer, whether identifying the medicine or fetching its label.',
   },
+  'uses.nameNotWhole': {
+    section: USES,
+    where: 'The same box, in place of the text.',
+    when: "When the medicine's name runs off the edge of the label, was not read clearly, or was not found: there is nothing to look up yet.",
+    notes: "On the result screen, the typing box (nameEntry.prompt) is just above; on a medicine's page, the 고치기 (Edit) button.",
+  },
+  'uses.identifiedTypedAs': {
+    section: USES,
+    where: 'The same box, above the English text, for a name the user typed.',
+    when: 'When a typed name was matched to a medicine.',
+    notes: 'The same shape as uses.identifiedAs, which is for a name read from the label.',
+  },
+  'uses.typedUnidentified': {
+    section: USES,
+    where: 'The same box, in place of the text.',
+    when: 'When a typed name matches no medicine word for word, as a misspelling does.',
+  },
   'uses.retry': {
     section: USES,
     where: 'The same box: a button under uses.unavailable.',
@@ -156,6 +173,21 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   },
 
   // --- Reading a label: the result screen ---------------------------------
+  'nameEntry.prompt': {
+    section: RESULT,
+    where: 'The result screen, just under the medicine name and strength: above a typing box, prefilled with what was read.',
+    when: 'When the name was cut off at the edge, not read clearly, or not found.',
+  },
+  'nameEntry.submit': {
+    section: RESULT,
+    where: 'The same: the button under the typing box.',
+    when: 'With nameEntry.prompt.',
+  },
+  'nameEntry.typedNote': {
+    section: RESULT,
+    where: 'Under the medicine name, once the user has typed it.',
+    when: 'After a name is typed: it says the name came from them, not the photo.',
+  },
   'result.curved.title': {
     section: RESULT,
     where: 'Result screen, after a photo of a label: the heading of an amber notice near the top.',
@@ -771,6 +803,11 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     where: 'The result screen and a medicine\'s page: a small line under the Korean directions, which sit under the English ones.',
     when: 'Once she has approved the dosing phrases, for directions made wholly of approved phrases. Not yet.',
     notes: 'It says the Korean was put together from phrases she reviewed, and that the English is the original.',
+  },
+  'nameEntry.inputLabel': {
+    section: SPOKEN,
+    where: 'The typing box for the medicine name, on the result screen.',
+    when: 'Read out when the box is reached.',
   },
   'reminders.later': {
     section: SPOKEN,

@@ -107,6 +107,20 @@ export type MedicationRecord = {
    */
   readonly nameIncomplete?: true;
   /**
+   * Where the name came from, which is a different kind of evidence each time:
+   *
+   * - `read`: the reading of a photo of the label, so any misreading is the
+   *   camera's;
+   * - `typed`: the user, typing it from the bottle (on the result screen, or
+   *   by editing it later), so any mistake is theirs, and it was never read;
+   * - `rxnorm`: RxNorm's name for a barcode's product.
+   *
+   * Kept for any later check of one source against another (a printed NDC
+   * against the name, say), where which kind of evidence the name is matters.
+   * Absent on records saved before it was kept.
+   */
+  readonly nameSource?: 'read' | 'typed' | 'rxnorm';
+  /**
    * Daily reminder times, sorted, no two alike. Stored here, in the encrypted
    * vault, and nowhere else: what the phone's scheduler holds is only an
    * identifier and a generic "time for your medicine", never a name — see

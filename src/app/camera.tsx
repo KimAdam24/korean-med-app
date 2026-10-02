@@ -47,6 +47,7 @@ import { medicationFromReading, readableName } from '@/features/ocr/reading-to-r
 import { isCutAtEdge, keepWithheld, type EdgeTruncation } from '@/features/ocr/truncation';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
 import { FillInPanel } from '@/features/ocr/fill-in-panel';
+import { NameEntry } from '@/features/ocr/name-entry';
 import { findGaps } from '@/features/ocr/fill-in';
 import { koreanDirections } from '@/features/directions/korean-directions';
 import type { MergedReading } from '@/features/ocr/sweep/merge';
@@ -398,6 +399,7 @@ export default function CameraScreen() {
         // RxNorm's concept name, verbatim. Not translated and not reformatted —
         // it is what the user will compare against the printed box.
         name: drug.name,
+        nameSource: 'rxnorm',
         source: 'label-scan',
         // The name came from an authoritative reference and the user has just
         // confirmed it against the carton, so there is nothing left to review.
@@ -431,7 +433,12 @@ export default function CameraScreen() {
    * page under "how to take it".
    */
   const saveFromLabel = useCallback(
-    async (fields: MedicationLabelFields, truncation?: EdgeTruncation | null, match?: NameMatch | null) => {
+    async (
+      fields: MedicationLabelFields,
+      truncation: EdgeTruncation | null | undefined,
+      match: NameMatch | null,
+      nameSource: 'read' | 'typed'
+    ) => {
       const toSave = medicationFromReading(fields, truncation);
       if (!toSave) return;
 
@@ -443,7 +450,12 @@ export default function CameraScreen() {
         // And with the form that chose its label, which the saved fields may not
         // name any more (withheld directions are not saved).
         const form = doseFormOf(fields.dosage?.text, fields.instructions?.text);
-        await addMedication(match ? { ...toSave.record, nameMatch: { ...match, form } } : toSave.record);
+        await addMedication({
+          ...toSave.record,
+          // Read from the label, or typed by the user: different evidence.
+          nameSource,
+          ...(match ? { nameMatch: { ...match, form } } : {}),
+        });
         setPhase({ kind: 'saved' });
       } catch (error) {
         // Back to the same reading, not the camera: the photo is gone, and
@@ -881,7 +893,12 @@ function ReadingResult({
   stalled?: boolean;
   filled?: boolean;
   devProbe: CaptureProbe | null;
-  onSave: (fields: MedicationLabelFields, truncation?: EdgeTruncation | null, match?: NameMatch | null) => void;
+  onSave: (
+    fields: MedicationLabelFields,
+    truncation: EdgeTruncation | null | undefined,
+    match: NameMatch | null,
+    nameSource: 'read' | 'typed'
+  ) => void;
   onRetake: () => void;
   /** Absent where the sweep is not available: iOS, until its Swift is built. */
   onSweep?: () => void;
@@ -890,11 +907,23 @@ function ReadingResult({
 }) {
   const theme = useTheme();
   const degraded = quality?.level === 'degraded';
-  const toSave = medicationFromReading(fields, truncation);
+  /**
+   * The name as the user typed it from the bottle, where the reading could not
+   * give it whole. It then stands for the name: in what is shown, looked up
+   * and saved, and as the user's word, not the camera's, so the edge no
+   * longer withholds it. The reading's own name is left as it was read.
+   */
+  const [typedName, setTypedName] = useState<string | null>(null);
+  const readWhole = readableName(fields, truncation) !== null;
+  const named: MedicationLabelFields = typedName ? { ...fields, name: { text: typedName, confidence: 1 } } : fields;
+  const namedTruncation =
+    typedName && truncation ? { ...truncation, fields: truncation.fields.filter((kind) => kind !== 'name') } : truncation;
+  const toSave = medicationFromReading(named, namedTruncation);
   const usesSource: UsesSource = {
     kind: 'name',
-    name: readableName(fields, truncation),
+    name: typedName ?? readableName(fields, truncation),
     form: doseFormOf(fields.dosage?.text, fields.instructions?.text),
+    ...(typedName ? { typed: true } : {}),
   };
   // What the name was identified as, if it was: saved with the medicine. Held
   // with the reading it was made for, so a reading that changes in place is
@@ -918,6 +947,8 @@ function ReadingResult({
    */
   const fillable = Scope.fillIn && lines
     ? FIELD_KINDS.filter((kind) => {
+        // A name typed whole needs no box.
+        if (kind === 'name' && typedName) return false;
         const text = fields[kind]?.text;
         if (!text) return false;
         const withheld = isCutAtEdge(truncation, kind) || assessField(kind, text).level === 'damaged';
@@ -978,12 +1009,16 @@ function ReadingResult({
         <ReadingField
           label={Strings.result.name}
           kind="name"
-          text={fields.name?.text}
-          assess
+          text={typedName ?? fields.name?.text}
+          // A typed name is the user's word: not judged as a reading.
+          assess={!typedName}
           prominent
           compact={degraded}
-          cutAtEdge={cut('name')}
+          cutAtEdge={typedName ? undefined : cut('name')}
         />
+        {typedName ? (
+          <BilingualText text={Strings.nameEntry.typedNote} variant="label" color={theme.textSecondary} />
+        ) : null}
         <CardDivider />
         <ReadingField
           label={Strings.result.dosage}
@@ -994,6 +1029,12 @@ function ReadingResult({
           cutAtEdge={cut('dosage')}
         />
       </Card>
+
+      {/*
+        Where the name was not read whole, the way to give it: without a name
+        there is nothing to look up. Kept after a name is typed, to correct it.
+      */}
+      {!readWhole ? <NameEntry read={fields.name?.text} onSubmit={setTypedName} /> : null}
 
       {/* The directions: the field whose damage is dangerous rather than untidy. */}
       <Card>
@@ -1043,7 +1084,7 @@ function ReadingResult({
       ) : null}
       <BigButton
         label={Strings.medications.saveFromLabel}
-        onPress={() => onSave(fields, truncation, match)}
+        onPress={() => onSave(named, namedTruncation, match, typedName ? 'typed' : 'read')}
         tone={degraded ? 'secondary' : 'primary'}
       />
     </View>

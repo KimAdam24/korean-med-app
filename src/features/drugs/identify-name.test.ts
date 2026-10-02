@@ -131,19 +131,54 @@ test('a misread matches nothing, and a match that changed a printed word is not 
 });
 
 test('only the best rank counts, and best-ranked matches that disagree identify nothing', async () => {
+  // Two concepts named in exactly these words, with different ingredients.
   rxNav({
-    'approximateTerm.json': approximate(['6809', 'metformin', '1'], ['729717', 'metformin / sitagliptin', '1']),
+    'approximateTerm.json': approximate(['6809', 'metformin', '1'], ['999', 'Metformin', '1']),
     'rxcui/6809/related.json': related([['6809', 'metformin']]),
-    'rxcui/729717/related.json': related([['6809', 'metformin'], ['593411', 'sitagliptin']], [['729717', 'metformin / sitagliptin']]),
+    'rxcui/999/related.json': related([['998', 'something else']]),
   });
   assert.deepEqual(await identifyByName('METFORMIN'), { status: 'unidentified' });
 
   rxNav({
-    'approximateTerm.json': approximate(['6809', 'metformin', '1'], ['729717', 'metformin / sitagliptin', '2']),
+    'approximateTerm.json': approximate(['6809', 'metformin', '1'], ['111', 'metformin', '2']),
     'rxcui/6809/related.json': related([['6809', 'metformin']]),
   });
   const found = await identifyByName('METFORMIN HCL');
   assert.equal(found.status === 'identified' && found.match.rxcui, '6809');
+});
+
+test('a match must be exactly the words given: a combination is not its part, nor one word the whole name', async () => {
+  // RxNav offers the combination too, at the same rank: it has a word more.
+  rxNav({
+    'approximateTerm.json': approximate(['6809', 'metformin', '1'], ['729717', 'metformin / sitagliptin', '1']),
+    'rxcui/6809/related.json': related([['6809', 'metformin']]),
+  });
+  const metformin = await identifyByName('METFORMIN');
+  assert.equal(metformin.status === 'identified' && metformin.match.rxcui, '6809');
+
+  // One word of a longer name, which RxNav would happily complete.
+  rxNav({ 'approximateTerm.json': approximate(['1151', 'ascorbic acid', '1']) });
+  assert.deepEqual(await identifyByName('ACID'), { status: 'unidentified' });
+});
+
+test('a typo identifies nothing, though RxNav offers the right spelling: no fuzzy match, typed or read', async () => {
+  rxNav({
+    'approximateTerm.json?term=lisinopirl&': approximate(['29046', 'lisinopril', '1']),
+    'rxcui/29046/related.json': related([['29046', 'lisinopril']]),
+  });
+  assert.deepEqual(await identifyByName('LISINOPIRL'), { status: 'unidentified' });
+});
+
+test('a combination typed with "and" is the combination', async () => {
+  rxNav({
+    'approximateTerm.json?term=lisinopril hydrochlorothiazide&': approximate(['214618', 'hydrochlorothiazide / lisinopril', '1']),
+    'rxcui/214618/related.json': related(
+      [['29046', 'lisinopril'], ['5487', 'hydrochlorothiazide']],
+      [['214618', 'hydrochlorothiazide / lisinopril']]
+    ),
+  });
+  const found = await identifyByName('Lisinopril and Hydrochlorothiazide');
+  assert.equal(found.status === 'identified' && found.match.rxcui, '214618');
 });
 
 test('nothing to name the medicine by asks nothing', async () => {
