@@ -12,6 +12,7 @@ import test from 'node:test';
 import { assessField, endsCutOff, startsCutOff } from './field-integrity.ts';
 import { interpretLines } from './interpret-lines.ts';
 import { medicationFromReading } from './reading-to-record.ts';
+import { isCutAtEdge } from './truncation.ts';
 import type { RecognizedTextLine } from './types.ts';
 import { VITAMIN_D2_VIAL_LINES, VITAMIN_D2_VIAL_NO_GEOMETRY_LINES, VITAMIN_D2_VIAL_RETAKE_LINES } from './eval/corpus.ts';
 import { scoreField } from './eval/score.ts';
@@ -156,7 +157,8 @@ test('a cut can leave directions that read cleanly and wrongly; they are withhel
   assert.equal(assessField('instructions', directions).level, 'readable');
   // … but the edge does, and the field is withheld and not saved.
   assert.deepEqual(result.truncation?.fields, ['instructions']);
-  assert.equal(scoreField('instructions', directions, 'anything', true), 'withheld');
+  // Scored as the result screen shows it: cut at the edge, so withheld.
+  assert.equal(scoreField('instructions', directions, 'anything', isCutAtEdge(result.truncation, 'instructions')), 'withheld');
   assert.equal(medicationFromReading(result.fields, result.truncation)?.record.instructions, undefined);
 });
 

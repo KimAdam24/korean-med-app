@@ -37,7 +37,7 @@ Without installing anything, from the APK itself (`scripts/check-release.py`):
 | Manifest not debuggable, so the sweep replay refuses to run | pass | pass |
 | Every development-only screen, panel and log compiled out of the bundle ([dev-only-paths.md](dev-only-paths.md)) | pass | pass |
 | Shipped copy found in the bundle, so the search above works | pass | pass |
-| The app's own native classes present: `LabelOcrModule`, `LabelSweepModule`, `LabelSweepView` (and its `(Context, AppContext)` constructor, which Expo calls by reflection), `DoseAlarmsModule`, `ScheduleRestorer` | pass | pass |
+| The app's own native classes present: `LabelOcrModule`, `LabelSweepModule`, `LabelSweepView`, `DoseAlarmsModule`, `ScheduleRestorer` (present only: `LabelSweepView`'s `(Context, AppContext)` constructor, which Expo calls by reflection, is not checked) | pass | pass |
 | Expo still finds its generated module list after R8 | n/a | pass |
 
 The last is the one that could have broken everything. Expo looks up
@@ -97,6 +97,7 @@ A real label can be read on the emulator in release now, from a photo in its
 gallery (push one with `adb push`, then "Choose a photo from your phone"), and
 its approved uses need only the emulator's network. What still needs a real
 camera, and so the release APK on a phone: barcode scanning, and the camera's
-own capture of a label. The curve notice, fill-in and the sweep are hidden in
-this version (`docs/scope.md`); the sweep's native view is still in the APK
-(above) but is never mounted.
+own capture of a label. The sweep is hidden in this version
+(`docs/scope.md`): its native view is still in the APK (above) but is never
+mounted. The curve notice and fill-in, hidden on 2026-09-28, are on again
+since 2026-10-02.

@@ -99,8 +99,8 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
 
 - **It is not the reason the user takes it.** A label lists what the medicine is
   approved for. The vitamin D2 vial's label lists hypoparathyroidism, refractory
-  rickets and familial hypophosphatemia, not low vitamin D. The note under
-  every label's text says so, and is not to be softened.
+  rickets and familial hypophosphatemia, not low vitamin D. The note above
+  every label's text, read before it, says so, and is not to be softened.
 - **It is prescriber's English**, verbatim: the label's Highlights summary
   where it has one (34 to 161 words for the drugs checked), else the whole
   section. Nothing is shortened or reworded.
@@ -110,7 +110,25 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
 - **From a photo, a label of the same ingredient, not the same product.** The
   newest approved label of the form the reading names (capsule or tablet)
   whose active ingredients are exactly the medicine's, by name; which label it
-  was is named under the text. A barcode gets the product's own label.
+  was is named under the text. A barcode gets the product's own label. So the
+  label may be another product's of the same ingredient: METOPROLOL SUCCINATE
+  ER was shown the metoprolol tartrate tablets' label (which does not list
+  heart failure), and a prescription esomeprazole capsule an over-the-counter
+  one's "Uses" (checked live, 2026-10-02). Preferring a label whose title
+  carries the printed salt and release is possible, and not built.
+- **By name, only for a tablet or a capsule** (2026-10-02). A medicine's forms
+  have different labels with different uses: timolol's tablets are for blood
+  pressure, its eye drops for glaucoma; budesonide's capsules for Crohn's
+  disease, its inhaler for asthma. A name says which medicine, not which form,
+  and eye drops, a patch, an inhaler and an injection were all shown their
+  tablets' uses. So a label is looked for by name only where the reading's
+  name, strength or directions say tablet or capsule (softgel, caplet), and
+  none say drops, eye, inhale, puff, patch, apply, inject, spray, nasal,
+  vaginal, rectal and the like. Otherwise the card says uses are shown only
+  for tablets and capsules (`uses.formUnknown`), and DailyMed is not asked.
+  This also refuses a tablet whose directions were cut before the word: the
+  user can type the directions on its page, which then decide. A barcode is
+  not affected; its product is of one form.
 - **Every label proves it is this medicine's.** DailyMed's lookups are loose:
   its NDC search matches by prefix ("70518-317" returned an ibuprofen for a
   terazosin), and its list for an ingredient holds unrelated labels (ascorbic
@@ -121,6 +139,13 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
 - **Verbatim includes its typography.** A superscript stays raised ("10⁹/L",
   never "109/L"), a subscript lowered ("B₁₂"), and a nested list nested; where
   a character has no raised form it is marked ("Grade 1^b").
+- **The salt is part of the name.** It is asked for as printed ("POTASSIUM
+  CHLORIDE", "METFORMIN HYDROCHLORIDE"), with the salts pharmacy labels shorten
+  spelled out (HCL, BESY, CALC, SUCC, MAG, PROP) and release markers (ER, XL,
+  CD) left out. Only a salt that carries the medicine (succinate,
+  hydrochloride, maleate...) is left out, on a second try, where RxNorm has no
+  name with it; never a metal or a salt that is the medicine, so CALCIUM
+  GLUCONATE is never asked as "gluconate".
 - **Some names identify nothing.** A misread, an abbreviation RxNorm would have
   to guess at ("HYDROCODONE/APAP", "LISINOPRIL-HCTZ"), or a name where the best
   matches disagree, says it could not be identified rather than guessing.
@@ -140,8 +165,9 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
 Before, one thing: a barcode's NDC, to RxNav. Now also: for a photo, the
 medicine's name as read, to RxNav, as soon as the reading is shown and before
 the user has checked it against the bottle; for a medicine whose name the user
-typed or edited, that name; for a barcode, its RxNorm code once more, to check
-a label's ingredients against; and for every medicine shown, requests to
+typed or edited, that name; for a barcode whose package DailyMed does not
+list, its RxNorm code once more, to check a label's ingredients against; and
+for every medicine shown (by name, a tablet or capsule), requests to
 DailyMed for its label. All to NLM, over HTTPS, with no identifier, and never
 the list or a photo. The introduction says so (`privacy.lookup`, English until
 reviewed).

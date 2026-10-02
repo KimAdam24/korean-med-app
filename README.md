@@ -74,7 +74,7 @@ src/i18n/strings.ts       all user-facing copy, Korean-first
 | Gallery photos                          | Built, in release since 2026-09-28                |
 | Fill-in, curve message                  | Built, on again since 2026-10-02 (`docs/scope.md`) |
 | Sweep                                   | **Hidden** (`src/features/scope.ts`); the full app is on `archive/full-app-2026-09-28` |
-| First-launch introduction               | Built — copy awaiting translation                 |
+| First-launch introduction               | Built — reviewed, but for two lines in English until reviewed (`privacy.onboardingPhotos`, `privacy.lookup`) |
 | Dose reminders                          | Built — not yet rung on a device; see `docs/reminders.md` |
 | Reading aloud (TTS)                     | Not started — constraints in `docs/tts-feasibility.md` |
 
@@ -104,7 +104,8 @@ user-initiated export — not loosening the keychain accessibility flag.
 ### A lookup tells NLM which medicine was scanned
 
 Resolving an NDC means asking RxNav (National Library of Medicine) over the
-network. One NDC goes out per scan, over HTTPS, with no user or device
+network. One scan sends up to three NDCs (the shapes its digits could have been
+printed in, below), over HTTPS, with no user or device
 identifier, no account, no cookie, and nothing from the medication profile — but
 NLM can still see that some IP address looked up a particular drug.
 

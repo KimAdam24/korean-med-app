@@ -87,7 +87,8 @@
       "note": "알약 for tablet and 캡슐 for capsule, the everyday words; the label itself says TABLET or CAPSULE in English."
     },
     "uses.unavailable": {
-      "ko": "FDA 허가사항을 불러오지 못했어요. 인터넷 연결을 확인한 뒤 다시 시도해 주세요."
+      "ko": "지금은 FDA 허가사항을 불러오지 못했어요. 인터넷 연결을 확인하시거나, 잠시 뒤에 다시 시도해 주세요.",
+      "note": "Not only a lost connection: the service itself may not answer, as failure.lookupUnavailable (잠시 뒤에 다시 시도해 주세요) says for a barcode."
     },
     "uses.retry": {
       "ko": "FDA 허가사항 다시 찾기"

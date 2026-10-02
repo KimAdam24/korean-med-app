@@ -18,7 +18,8 @@
  * Spec §4 says the user's data is theirs alone, so it is worth being precise
  * about what does and does not leave the device:
  *
- *   - Sent: one NDC, over HTTPS.
+ *   - Sent: the scan's NDC, in each shape its digits could have been printed
+ *     in (up to three: `resolveNdcCandidates`), over HTTPS.
  *   - Not sent: any identifier for the user or the device, the medication
  *     profile, anything previously scanned, or any photograph.
  *

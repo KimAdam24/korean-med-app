@@ -31,7 +31,7 @@ question for the pharmacist, not something the app should guess at.
 | Force-stop | n/a | Alarms cancelled, list kept, nothing re-arms until the app runs. The app re-arms at every launch, before the lock |
 | On time | Calendar triggers fire on time | Exact only with "Alarms & reminders", which Android 14 does not grant new installs. Checked (native), reported as "may arrive late", with the button that opens the setting |
 | Allowed to show | Full authorisation only; "provisional" is silent and does not count | `POST_NOTIFICATIONS`, asked for with a reason when the first reminder is set |
-| Makes a sound | The default sound (`sound: 'default'` in the content); "Sounds" off in Settings is reported as silent | The channel's sound, which is the phone's default because the channel names no sound file (naming 'default' made expo-notifications look for a file of that name and log it missing on every launch); a muted or lowered channel is reported as silent |
+| Makes a sound | The default sound (`sound: 'default'` in the content); "Sounds" off in Settings is reported as silent | The channel's sound, which is the phone's default because the channel names no sound file (naming 'default' made expo-notifications look for a file of that name and log it missing on every launch); a muted or lowered channel is reported as silent, and one turned off altogether (importance NONE) as blocked. Below Android 8 there are no channels: the notification's own default sound, and the app-wide switch decides |
 | Capacity | 64 pending notifications per app; the rest are dropped silently. The app caps all reminder times at 48 | No limit that matters |
 
 Sources: the expo-notifications 57.0.21 source (the Android `DailyTrigger`,
@@ -44,7 +44,10 @@ it comes from neither.
 After every change, on every unlock and whenever the app returns to the front,
 `syncReminders`:
 
-1. cancels scheduled reminders that no longer match a medicine and time;
+1. cancels scheduled reminders that no longer match a medicine and time,
+   except those of a medicine the vault could not read: its record is still
+   on the phone, damaged or from another version, and its reminders are left
+   to ring rather than silently cancelled (nothing on screen says so yet);
 2. schedules every reminder again — idempotent by identifier, and it re-arms
    anything lost without a trace;
 3. reads the schedule back, and calls it **unverified** unless the phone holds
@@ -53,7 +56,11 @@ After every change, on every unlock and whenever the app returns to the front,
 5. checks they will make a sound, as the phone holds its settings now
    (**silent** if not): on Android the reminders' channel, read back, since
    the user can turn its sound off or lower its importance in Settings and the
-   app cannot undo that; on iOS the app's "Sounds" switch;
+   app cannot undo that; on iOS the app's "Sounds" switch. On Android the
+   reminders' category can also be turned off on its own while the app's
+   notifications stay allowed, which the permission does not show: the
+   channel then reads importance NONE, and that is **blocked**, not silent,
+   since nothing will appear at all;
 6. asks the scheduler itself when the next one fires, and reports that time;
 7. on Android, checks exact alarms (**late** if not allowed).
 
@@ -72,6 +79,14 @@ too, on the medicine's page and on the home screen.
 
 ## What is still not covered
 
+- **Do Not Disturb** (and iOS Focus) silences reminders without changing any
+  setting the app reads: the channel and the permission are as they were, so
+  the page still says "on". It is momentary and often scheduled, and the app
+  cannot see the schedule; Android can report the mode in force at the moment
+  (`NotificationManager.getCurrentInterruptionFilter`), not whether it will be
+  in force at 8:00. A line of help text, or the channel asking to bypass Do
+  Not Disturb (Android: `bypassDnd`, which the user must still allow), are the
+  options; either is a new string, and neither is built.
 - **Manufacturer battery managers.** Some phones, Samsung's among them, put
   apps unused for a while into "deep sleep", where their alarms may not run.
   An app cannot detect that from inside; the fix is the phone's own battery

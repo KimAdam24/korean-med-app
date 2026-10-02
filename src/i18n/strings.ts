@@ -552,8 +552,8 @@ export const Strings = {
       "In place of the label's text, when the medicine is known by its name but its label does not say it is a tablet or a capsule: it may be eye drops, an inhaler, a patch or an injection, whose labels list other uses than its tablets' do, or the words saying which were not read."
     ),
     unavailable: untranslated(
-      'Its FDA label could not be reached. Check the connection, then try again.',
-      'In place of the label\'s text, when there is no connection. Under it, the button uses.retry.'
+      'Its FDA label could not be reached just now. Check the connection, or try again in a while.',
+      'In place of the label\'s text, when there is no connection, or the service does not answer. Under it, the button uses.retry.'
     ),
     retry: untranslated(
       'Look up the FDA label again',

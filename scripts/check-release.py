@@ -41,8 +41,7 @@ DEV_ONLY = {
 }
 # Shipped copy. Each must be present, or the search above proves nothing.
 # These are all in `Strings`, which ships whole, so their presence proves the
-# search works, not that the screen showing them does ('Fill in what the bottle
-# says' belongs to a hidden feature, and still ships in `Strings`).
+# search works, not that the screen showing them does.
 SHIPPED = ['Take a photo of your medicine', '약 사진 찍기', 'Fill in what the bottle says',
            'Choose a photo from your phone',
            # Her reviewed Korean (docs/reviews/copy-batch-2026-09-25-reviewed.csv, #41).

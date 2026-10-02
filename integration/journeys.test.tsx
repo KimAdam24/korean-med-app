@@ -92,7 +92,7 @@ describe('reading a chosen photo', () => {
     expect(profile.status === 'ok' && profile.value.medications[0].instructions).toBeUndefined();
   });
 
-  describe('with the curve message, hidden for now (Scope)', () => {
+  describe('with the curve message, and everything else in Scope, on', () => {
     withFullScope();
 
     it('says the label curves round the bottle, instead of blaming the light, and withholds what the curve cut', async () => {
