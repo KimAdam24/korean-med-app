@@ -111,8 +111,8 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   },
   'uses.disclaimer': {
     section: USES,
-    where: 'The same box: a blue note under the English text of the label.',
-    when: "Always, under the label's text.",
+    where: 'The same box: an amber note directly under the heading, before the English text of the label, so it is read first.',
+    when: "Always, with the label's text, and above it.",
     notes:
       'A safety string, so no draft. It must not reassure. Two things, both plainly: a medicine may be prescribed for reasons other than those listed; and the text is what the FDA approved, not the reason their doctor prescribed it. Vitamin D2 is the example: its label lists rickets and hypoparathyroidism.',
   },
@@ -451,6 +451,12 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   },
 
   // --- A medicine's page, and its reminders --------------------------------
+  'reminders.statusSilent': {
+    section: REMIND,
+    where: "A medicine's page, under its reminder times: an amber warning, with 설정 열기 (Open settings) under it. On the home screen, the body of 지금은 복용 알림이 울릴 수 없어요 (Your medicine reminders cannot sound right now).",
+    when: "When the phone's own settings have the reminders' sound turned off: they would still appear, silently.",
+    notes: 'Beside it are her 복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요. (notifications off) and 복용 알림이 늦게 울릴 수 있어요... (may be late).',
+  },
   'medications.sourcePhoto': {
     section: REMIND,
     where: "A medicine's page, near the bottom: the line under 등록 방법 (How it was added).",

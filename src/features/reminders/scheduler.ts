@@ -30,12 +30,19 @@ export type ReminderHealth =
   | { readonly kind: 'late'; readonly next: Date | null }
   /** Notifications are off for the app; nothing will sound. */
   | { readonly kind: 'blocked'; readonly canAsk: boolean }
+  /**
+   * They will arrive, but without a sound: the user turned the reminders'
+   * sound off, or lowered them below the importance that makes one, in the
+   * phone's own settings. A reminder that only appears is easily missed.
+   */
+  | { readonly kind: 'silent' }
   /** The phone did not keep what it was given, or could not be asked. */
   | { readonly kind: 'unverified' };
 
 /** Health that means the user must be told reminders will not work as set. */
 export const needsAttention = (health: ReminderHealth | null) =>
-  health !== null && (health.kind === 'blocked' || health.kind === 'unverified' || health.kind === 'late');
+  health !== null &&
+  (health.kind === 'blocked' || health.kind === 'silent' || health.kind === 'unverified' || health.kind === 'late');
 
 let presentationConfigured = false;
 
@@ -63,6 +70,11 @@ export function configureReminderPresentation(): void {
  *
  * Content on it is generic by construction, so it may show on the lock screen
  * in full; a medicine's name never reaches the notification.
+ *
+ * No `sound`: for a channel that is the name of a sound file bundled with the
+ * app, and left out it is the phone's default notification sound. It used to
+ * say 'default', which expo-notifications looked for as a file, logged as
+ * missing on every launch, and only then fell back to the default sound.
  */
 async function ensureChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
@@ -70,7 +82,6 @@ async function ensureChannel(): Promise<void> {
     name: Strings.reminders.channelName.ko,
     description: Strings.reminders.channelDescription.ko,
     importance: Notifications.AndroidImportance.HIGH,
-    sound: 'default',
     enableVibrate: true,
     vibrationPattern: [0, 400, 250, 400],
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
@@ -133,8 +144,25 @@ function content(medicationId: string): Notifications.NotificationContentInput {
     body: Strings.reminders.notificationBody.ko,
     // An identifier, not a name: enough to open the right page after unlock.
     data: { kind: 'dose', medicationId },
+    // The default sound, on iOS. (On Android 8 and later the channel decides.)
     sound: 'default',
   };
+}
+
+/**
+ * Whether a reminder will make a sound, as the phone holds its settings now:
+ * the user can turn the sound off where the app cannot see it happen. On
+ * Android that is the channel, read back as the phone has it (not as it was
+ * created: the user's changes to a channel win, and the app cannot undo
+ * them); on iOS, the app's "Sounds" switch. `null` when the channel is not
+ * there at all, which means a reminder on it would not appear.
+ */
+async function remindersSound(status: Notifications.NotificationPermissionsStatus): Promise<boolean | null> {
+  if (Platform.OS === 'ios') return status.ios?.allowsSound !== false;
+  if (Platform.OS !== 'android') return true;
+  const channel = await Notifications.getNotificationChannelAsync(CHANNEL_ID);
+  if (!channel) return null;
+  return channel.importance >= Notifications.AndroidImportance.DEFAULT && channel.sound !== null;
 }
 
 async function scheduledReminderIds(): Promise<string[]> {
@@ -179,6 +207,10 @@ export async function syncReminders(profile: MedicationProfile): Promise<Reminde
 
   const allowed = await notificationPermission();
   if (!allowed.granted) return { kind: 'blocked', canAsk: allowed.canAsk };
+
+  const sounds = await remindersSound(await Notifications.getPermissionsAsync());
+  if (sounds === null) return { kind: 'unverified' };
+  if (!sounds) return { kind: 'silent' };
 
   const next = await nextFiring([...desired.values()].map((reminder) => reminder.time));
   return exactAlarmsAllowed() === false ? { kind: 'late', next } : { kind: 'on', next };

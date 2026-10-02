@@ -31,6 +31,7 @@ question for the pharmacist, not something the app should guess at.
 | Force-stop | n/a | Alarms cancelled, list kept, nothing re-arms until the app runs. The app re-arms at every launch, before the lock |
 | On time | Calendar triggers fire on time | Exact only with "Alarms & reminders", which Android 14 does not grant new installs. Checked (native), reported as "may arrive late", with the button that opens the setting |
 | Allowed to show | Full authorisation only; "provisional" is silent and does not count | `POST_NOTIFICATIONS`, asked for with a reason when the first reminder is set |
+| Makes a sound | The default sound (`sound: 'default'` in the content); "Sounds" off in Settings is reported as silent | The channel's sound, which is the phone's default because the channel names no sound file (naming 'default' made expo-notifications look for a file of that name and log it missing on every launch); a muted or lowered channel is reported as silent |
 | Capacity | 64 pending notifications per app; the rest are dropped silently. The app caps all reminder times at 48 | No limit that matters |
 
 Sources: the expo-notifications 57.0.21 source (the Android `DailyTrigger`,
@@ -49,8 +50,12 @@ After every change, on every unlock and whenever the app returns to the front,
 3. reads the schedule back, and calls it **unverified** unless the phone holds
    exactly what it was given;
 4. checks notifications are allowed (**blocked** if not);
-5. asks the scheduler itself when the next one fires, and reports that time;
-6. on Android, checks exact alarms (**late** if not allowed).
+5. checks they will make a sound, as the phone holds its settings now
+   (**silent** if not): on Android the reminders' channel, read back, since
+   the user can turn its sound off or lower its importance in Settings and the
+   app cannot undo that; on iOS the app's "Sounds" switch;
+6. asks the scheduler itself when the next one fires, and reports that time;
+7. on Android, checks exact alarms (**late** if not allowed).
 
 Only if all of that holds does the medicine's page say "Reminders are on. The
 next one is at 8:00 AM." Anything else is a warning, spoken to a screen reader

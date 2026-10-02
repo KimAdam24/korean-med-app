@@ -93,6 +93,17 @@ export function ReminderStatus({ attentionOnly = false }: { attentionOnly?: bool
           )}
         </Notice>
       );
+    case 'silent':
+      // Only the phone's settings can turn the sound back on; the app cannot.
+      return (
+        <Notice tone="warn" title={attentionOnly ? Strings.reminders.homeWarning : Strings.reminders.statusSilent} body={attentionOnly ? Strings.reminders.statusSilent : undefined} live>
+          <BigButton
+            label={Strings.permission.openSettings}
+            tone="secondary"
+            onPress={() => void Linking.openSettings().catch(() => undefined)}
+          />
+        </Notice>
+      );
     case 'unverified':
       return (
         <Notice tone="warn" title={attentionOnly ? Strings.reminders.homeWarning : Strings.reminders.statusUnverified} body={attentionOnly ? Strings.reminders.statusUnverified : undefined} live>

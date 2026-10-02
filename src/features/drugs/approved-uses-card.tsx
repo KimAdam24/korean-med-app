@@ -38,9 +38,10 @@ type State =
 
 /**
  * What the medicine's FDA label says it is approved to treat, in the label's
- * own English, under a heading that says what it is, with the label named and
- * the disclaimer beside it: it may be prescribed for something else, and this
- * is the approved indication, not the doctor's reason.
+ * own English, under a heading that says what it is, with the label named.
+ * Between the heading and the label's words, before them, the disclaimer: it
+ * may be prescribed for something else, and this is the approved indication,
+ * not the doctor's reason.
  *
  * Every state says something. "Could not be identified", "no approved label"
  * and "could not be reached" are different, and only the last offers to try
@@ -128,6 +129,13 @@ export function ApprovedUsesCard({
         </View>
       ) : state.kind === 'found' ? (
         <>
+          {/*
+            The caveat first, before a word of the label: read after it, it
+            came too late. The vitamin D2 label says rickets; someone who read
+            that as their reason, and stopped, never reached the note that it
+            is not. Amber, as a caution, not the blue of an aside.
+          */}
+          <Notice tone="warn" title={Strings.uses.disclaimer} />
           {state.match ? (
             <View style={styles.source}>
               <BilingualText
@@ -152,7 +160,6 @@ export function ApprovedUsesCard({
               color={theme.textSecondary}
             />
           </View>
-          <Notice tone="info" title={Strings.uses.disclaimer} />
         </>
       ) : (
         <>

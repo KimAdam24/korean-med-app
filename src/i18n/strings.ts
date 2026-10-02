@@ -528,7 +528,7 @@ export const Strings = {
     ),
     disclaimer: untranslated(
       "A medicine may be prescribed for reasons other than those listed here. This is the indication the FDA approved, not your doctor's reason for prescribing it to you.",
-      'SAFETY STRING: not drafted. Always shown under the label\'s text. It must not be softened into reassurance: their own medicine may be prescribed for something not listed (a vitamin D2 label lists rickets and hypoparathyroidism, not low vitamin D).'
+      'SAFETY STRING: not drafted. Always shown with the label\'s text, above it, so it is read first. It must not be softened into reassurance: their own medicine may be prescribed for something not listed (a vitamin D2 label lists rickets and hypoparathyroidism, not low vitamin D).'
     ),
     identifiedAs: untranslated(
       'Identified from its label as: {name}',
@@ -691,6 +691,10 @@ export const Strings = {
     statusLate: { ko: "복용 알림이 늦게 울릴 수 있어요. 제시간에 울리게 하려면 이 앱의 '알람 및 리마인더'를 허용해 주세요.", en: 'Reminders may arrive late. To make them come on time, allow "Alarms & reminders" for this app.' },
     statusBlocked: { ko: '복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요.', en: 'Reminders cannot sound: notifications are turned off for this app.' },
     statusUnverified: { ko: '휴대폰에서 복용 알림이 설정됐는지 확인되지 않았어요. 다시 시도해 주세요.', en: 'Your phone did not confirm your reminders. Please try again.' },
+    statusSilent: untranslated(
+      "Reminders will come without a sound: their sound is turned off in this app's notification settings.",
+      "A medicine's page, and the home screen, when the phone's own settings have the reminders' sound off. Under it, 설정 열기 (Open settings)."
+    ),
     allow: { ko: '알림 허용하기', en: 'Allow notifications' },
     openAlarmSettings: { ko: "'알람 및 리마인더' 열기", en: 'Open "Alarms & reminders"' },
     homeWarning: { ko: '지금은 복용 알림이 울릴 수 없어요.', en: 'Your medicine reminders cannot sound right now.' },

@@ -320,6 +320,59 @@ describe('taking reminders away', () => {
   });
 });
 
+describe('a reminder that would come without a sound', () => {
+  it('on Android, is made on a channel that names no sound file, and so has the default sound', async () => {
+    const restore = onAndroid();
+    try {
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(on(at(8, 0)));
+      // Not 'default', which expo-notifications looks for as a bundled file and
+      // reports missing on every launch (then falls back to the default).
+      const channel = notifications.state.channels.get('dose-reminders');
+      expect(channel).toBeDefined();
+      expect(channel && 'sound' in channel).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+
+  it.each([
+    ['its sound turned off', 'channel-sound'],
+    ['lowered below the importance that sounds', 'channel-importance'],
+  ] as const)('on Android, with the channel %s in settings, says so, with the way to fix it', async (_, how) => {
+    const restore = onAndroid();
+    const openSettings = settingsOpener();
+    try {
+      notifications.silencedBy(how);
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(R.statusSilent.ko);
+      // Not "on": they would appear, and nobody would hear them.
+      expect(screen.queryByText(on(at(8, 0)))).toBeNull();
+      press(Strings.permission.openSettings.ko);
+      expect(openSettings).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it("on iOS, with the app's Sounds switched off, says so", async () => {
+    notifications.silencedBy('ios-sounds');
+    const record = await medicine([{ hour: 8, minute: 0 }]);
+    await openMedicine(record.id);
+    await screen.findByText(R.statusSilent.ko);
+  });
+
+  it('is warned about on the home screen too', async () => {
+    notifications.silencedBy('ios-sounds');
+    await medicine([{ hour: 8, minute: 0 }]);
+    launchApp();
+    await screen.findByText(R.homeWarning.ko);
+    expect(screen.getByText(R.statusSilent.ko)).toBeTruthy();
+  });
+});
+
 describe('on Android', () => {
   it('says reminders may be late without exact alarms, and opens the setting that fixes it', async () => {
     const restore = onAndroid();

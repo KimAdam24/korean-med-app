@@ -15,12 +15,12 @@ type Permission = {
   granted: boolean;
   canAskAgain: boolean;
   status: string;
-  ios: { status: number };
+  ios: { status: number; allowsSound?: boolean | null };
 };
 type Request = { identifier: string; content: Record<string, unknown>; trigger: Record<string, unknown> };
 type Response = { actionIdentifier: string; notification: { request: Request } };
 
-export const AndroidImportance = { DEFAULT: 5, HIGH: 6, MAX: 7 } as const;
+export const AndroidImportance = { NONE: 2, MIN: 3, LOW: 4, DEFAULT: 5, HIGH: 6, MAX: 7 } as const;
 export const AndroidNotificationVisibility = { UNKNOWN: 0, PUBLIC: 1, PRIVATE: 2, SECRET: 3 } as const;
 export const IosAuthorizationStatus = {
   NOT_DETERMINED: 0,
@@ -50,6 +50,8 @@ const state = {
   requests: 0,
   scheduled: new Map<string, Request>(),
   channels: new Map<string, Record<string, unknown>>(),
+  /** The user's own changes to a channel, in the phone's settings: these win over the app's. */
+  channelChanges: new Map<string, { importance?: number; sound?: 'default' | null }>(),
   dropSchedules: 0,
   lastResponse: null as Response | null,
   listeners: [] as ((response: Response) => void)[],
@@ -66,6 +68,24 @@ export function setNotificationHandler(handler: unknown): void {
 export async function setNotificationChannelAsync(id: string, channel: Record<string, unknown>) {
   state.channels.set(id, channel);
   return channel;
+}
+
+/**
+ * A channel as the phone serialises it. Its sound is 'default' when it was
+ * made without one, and also when it names a file the app does not bundle
+ * (expo-notifications 57 falls back to the default sound, after logging that
+ * the file is missing); null only when made with `sound: null`. Whatever the
+ * user changed in settings overrides what the app asked for.
+ */
+export async function getNotificationChannelAsync(id: string) {
+  const made = state.channels.get(id);
+  if (!made) return null;
+  return {
+    id,
+    importance: made.importance,
+    sound: 'sound' in made && made.sound === null ? null : ('default' as const),
+    ...state.channelChanges.get(id),
+  };
 }
 
 export async function getPermissionsAsync(): Promise<Permission> {
@@ -145,6 +165,21 @@ export const notifications = {
     state.permission = REFUSED;
     state.answer = null;
   },
+  /**
+   * The user turns the reminders' sound off in the phone's settings: on
+   * Android the channel's sound, or its importance below the one that sounds;
+   * on iOS the app's "Sounds" switch.
+   */
+  silencedBy(how: 'channel-sound' | 'channel-importance' | 'ios-sounds'): void {
+    if (how === 'ios-sounds') {
+      state.permission = { ...state.permission, ios: { ...state.permission.ios, allowsSound: false } };
+    } else {
+      state.channelChanges.set(
+        'dose-reminders',
+        how === 'channel-sound' ? { sound: null } : { importance: AndroidImportance.LOW }
+      );
+    }
+  },
   allowed(): void {
     state.permission = ALLOWED;
   },
@@ -169,6 +204,7 @@ export const notifications = {
     state.requests = 0;
     state.scheduled.clear();
     state.channels.clear();
+    state.channelChanges.clear();
     state.dropSchedules = 0;
     state.lastResponse = null;
     state.listeners = [];

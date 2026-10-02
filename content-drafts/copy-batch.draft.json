@@ -91,6 +91,10 @@
     "medications.sourcePhoto": {
       "ko": "사진으로 읽음",
       "note": "In the shape of her 바코드로 찾음 and 직접 입력함."
+    },
+    "reminders.statusSilent": {
+      "ko": "복용 알림이 소리 없이 와요. 이 앱의 알림 설정에서 소리가 꺼져 있어요.",
+      "note": "In the shape of her 복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요."
     }
   }
 }

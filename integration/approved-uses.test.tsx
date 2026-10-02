@@ -6,7 +6,7 @@
  */
 import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
 
-import { APP_LOAD_BUDGET_MS, forgetAppStateListeners, launchApp, loadApp, press } from './app-harness';
+import { APP_LOAD_BUDGET_MS, forgetAppStateListeners, launchApp, loadApp, press, visibleText } from './app-harness';
 import { camera } from './fakes/camera';
 import { ocr } from './fakes/devices';
 import { disk } from './fakes/file-system';
@@ -96,6 +96,15 @@ function expectTheFrame(): void {
   expect(screen.getByText(Strings.guidance.perFdaLabel.ko)).toBeTruthy();
   expect(screen.getByText(fillTemplate(Strings.uses.fromLabel, { title: TORRENT }).ko)).toBeTruthy();
   expect(screen.getByText(Strings.uses.disclaimer.ko)).toBeTruthy();
+  // In that order: the heading, then the caveat, and only then the label's
+  // words, so the caveat is read before the uses, not after them.
+  const order = visibleText();
+  const heading = order.indexOf(Strings.uses.title.ko);
+  const caveat = order.indexOf(Strings.uses.disclaimer.ko);
+  const uses = order.indexOf(INDICATION);
+  expect(heading).toBeGreaterThanOrEqual(0);
+  expect(caveat).toBeGreaterThan(heading);
+  expect(uses).toBeGreaterThan(caveat);
 }
 
 const MATCH = { rxcui: '4018', ingredients: ['ergocalciferol'], matched: 'vitamin D2' };
