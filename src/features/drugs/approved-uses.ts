@@ -29,11 +29,23 @@
  *   all: ascorbic acid's lists an omeprazole tablet, potassium chloride's a
  *   lung-cancer drug. So a label found that way is taken only if its active
  *   ingredients are exactly the medicine's, by name (`sameIngredients`), and
- *   of the form the reading names (capsule or tablet) where it names one.
+ *   of the form the reading names: a tablet, or a capsule.
+ *
+ * ## By name, only for a tablet or a capsule
+ *
+ * A name says which medicine, not which of its forms, and the forms' labels
+ * are not alike: timolol's tablets are for blood pressure and heart attacks,
+ * its eye drops for glaucoma; budesonide's capsules for Crohn's disease, its
+ * inhaler for asthma. So a label is found by name only where the reading says
+ * the medicine is a tablet or a capsule, and says nothing of drops, inhaling,
+ * patches or injections (`doseFormOf`). Anything else, or a reading that does
+ * not say, is refused (`formUnknown`), rather than shown a tablet's uses.
  *
  * A barcode whose package DailyMed does not list (discontinued, say) falls
  * back to its RxNorm product's list, held to the ingredient check like a name.
- * The label chosen is named on screen, so which it was can be seen.
+ * Its form is the product's, which the RxNorm code already fixes, so no form
+ * is asked of its labels. The label chosen is named on screen, so which it
+ * was can be seen.
  *
  * This is not the reason the user was prescribed it. A label lists what the
  * medicine is approved for; a doctor may prescribe it for something else, and
@@ -88,6 +100,12 @@ export type ApprovedUsesLookup =
   | { readonly status: 'found'; readonly uses: AttributedGuidance<ApprovedUses> }
   /** No current FDA-approved label for this medicine, with an Indications section, was found. */
   | { readonly status: 'none' }
+  /**
+   * Looked up by name, and the reading does not say it is a tablet or a
+   * capsule: its labels are not looked for, since which form's would apply
+   * cannot be told. Nothing is asked of DailyMed.
+   */
+  | { readonly status: 'formUnknown' }
   /** DailyMed or RxNav could not be reached, or answered with an error: trying again may work. */
   | { readonly status: 'unavailable' };
 
@@ -99,20 +117,37 @@ export type UsesTarget =
       readonly kind: 'ingredients';
       readonly rxcui: string;
       readonly ingredients: readonly string[];
-      /** The dose form the label's own words give, if they give one. */
+      /**
+       * The dose form the label's own words give (`doseFormOf`). Null when
+       * they give none, or not one swallowed: then nothing is looked up.
+       */
       readonly form: DoseForm | null;
     };
 
 export type DoseForm = 'TABLET' | 'CAPSULE';
 
 /**
- * The dose form a reading names, from its strength and directions: "Take 1
- * capsule" names a capsule. Null when it names neither, or both.
+ * Words that say a medicine is not swallowed: put in the eye or ear, inhaled,
+ * applied to the skin, injected, sprayed, used vaginally or rectally. Its
+ * labels are of another form than a tablet's, with other uses, and a tablet's
+ * are not to be shown for it, though its directions say "tablet" too ("INSERT
+ * 1 TABLET VAGINALLY"). Not "insert" itself: "SEE PACKAGE INSERT" is printed
+ * on tablets too.
+ */
+const NOT_SWALLOWED =
+  /\b(?:drops?|eyes?|ears?|instill\w*|ophthalmic|otic|inhal\w*|puffs?|nebuli[sz]\w*|patch(?:es)?|transdermal|apply|applied|topical\w*|rub|creams?|ointments?|gels?|lotions?|shampoo|inject\w*|subcutaneous\w*|intramuscular\w*|pens?|sprays?|nasal\w*|nostrils?|vaginal\w*|rectal\w*|suppositor\w*|enema)\b/i;
+
+/**
+ * The dose form a reading names, from its name, strength and directions:
+ * "Take 1 capsule" names a capsule, and a softgel is one too. Null when it
+ * names neither, or both, or says the medicine is not swallowed: a name is
+ * then not enough to choose a label by.
  */
 export function doseFormOf(...texts: readonly (string | undefined)[]): DoseForm | null {
   const all = texts.filter(Boolean).join(' ');
-  const capsule = /\bcap(?:sule)?s?\b/i.test(all);
-  const tablet = /\btab(?:let)?s?\b/i.test(all);
+  if (NOT_SWALLOWED.test(all)) return null;
+  const capsule = /\b(?:cap(?:sule)?s?|softgels?)\b/i.test(all);
+  const tablet = /\b(?:tab(?:let)?s?|caplets?)\b/i.test(all);
   return capsule === tablet ? null : capsule ? 'CAPSULE' : 'TABLET';
 }
 
@@ -212,7 +247,16 @@ export function readIndications(xml: string): LabelIndications {
   };
 }
 
-const nameWords = (name: string) => name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+/**
+ * A name's words, lower case. Without "USP", which RxNorm adds to some names
+ * ("estrogens, conjugated (USP)") and labels do not: with it, PREMARIN's own
+ * label was not its ingredient's.
+ */
+const nameWords = (name: string) =>
+  name
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 0 && word !== 'usp');
 
 /**
  * Whether a label's active ingredients are exactly these, by name: as many of
@@ -296,6 +340,8 @@ type Proof = { readonly kind: 'product'; readonly key: string } | { readonly kin
 async function candidates(target: UsesTarget): Promise<Fetched<{ labels: LabelDocument[]; proof: Proof }>> {
   let names: readonly string[];
   let listed: LabelDocument[];
+  // The form its titles must name: the reading's, for a name; for a product,
+  // none, since its RxNorm code is of one form already.
   let form: DoseForm | null = null;
 
   if (target.kind === 'product') {
@@ -324,15 +370,15 @@ async function candidates(target: UsesTarget): Promise<Fetched<{ labels: LabelDo
 
   // Titles name the medicine and its form ("GLUMETZA (METFORMIN
   // HYDROCHLORIDE) TABLET [...]"): first the labels whose titles could be
-  // this one, of the form read (or else a tablet or capsule, never an
-  // injection), so the few downloads go on likely ones. Each is still held to
-  // its own ingredient list, below; a title is only a way to choose.
-  const formWord = form ? new RegExp(`\\b${form}`, 'i') : /\b(TABLET|CAPSULE)/i;
+  // this one, of the form read, so the few downloads go on likely ones. Each
+  // is still held to its own ingredient list, below; a title is only a way to
+  // choose.
+  const formWord = form ? new RegExp(`\\b${form}`, 'i') : null;
   const labels = listed.filter((label) => {
     const title = label.title.replace(/\[.*$/, '');
     const words = new Set(nameWords(title));
     return (
-      formWord.test(title) &&
+      (formWord === null || formWord.test(title)) &&
       names.every((name) => nameWords(name).every((word) => words.has(word))) &&
       // One ingredient's list also holds its combinations ("PIOGLITAZONE AND
       // METFORMIN ..."), which would only fail the count after a download.
@@ -344,6 +390,7 @@ async function candidates(target: UsesTarget): Promise<Fetched<{ labels: LabelDo
 
 /** What the target's label says it is approved to treat. Never throws. */
 export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUsesLookup> {
+  if (target.kind === 'ingredients' && target.form === null) return { status: 'formUnknown' };
   const found = await candidates(target);
   if (!found.ok) return { status: 'unavailable' };
   const { labels, proof } = found.value;

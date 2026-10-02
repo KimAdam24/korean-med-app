@@ -547,6 +547,10 @@ export const Strings = {
       'No FDA-approved label was found for this medicine, so what it is approved to treat is not shown.',
       'In place of the label\'s text, when the medicine is known but has no current FDA-approved label, as with some vitamins sold without approval.'
     ),
+    formUnknown: untranslated(
+      'What it is approved to treat is shown only for tablets and capsules, and this label does not say that it is one. Eye drops, inhalers and other forms have labels of their own, with other uses.',
+      "In place of the label's text, when the medicine is known by its name but its label does not say it is a tablet or a capsule: it may be eye drops, an inhaler, a patch or an injection, whose labels list other uses than its tablets' do, or the words saying which were not read."
+    ),
     unavailable: untranslated(
       'Its FDA label could not be reached. Check the connection, then try again.',
       'In place of the label\'s text, when there is no connection. Under it, the button uses.retry.'

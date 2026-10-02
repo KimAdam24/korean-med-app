@@ -136,12 +136,18 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   'uses.unidentified': {
     section: USES,
     where: 'The same box, in place of the text.',
-    when: 'When the name on the label could not be read clearly enough, or matched to a medicine.',
+    when: 'When the whole name was read, but matched no medicine: a name not read whole shows uses.nameNotWhole instead.',
   },
   'uses.none': {
     section: USES,
     where: 'The same box, in place of the text.',
     when: 'When the medicine is known but has no current FDA-approved label.',
+  },
+  'uses.formUnknown': {
+    section: USES,
+    where: 'The same box, in place of the text.',
+    when: "When the medicine is known by its name, but what was read of its bottle does not say it is a tablet or a capsule: it may be eye drops, an inhaler, a patch or an injection, or the word saying which was cut off.",
+    notes: "Why it matters: one medicine's forms have different labels. Timolol tablets are for blood pressure; timolol eye drops, for glaucoma.",
   },
   'uses.unavailable': {
     section: USES,

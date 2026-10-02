@@ -9,13 +9,22 @@ import { afterEach, test } from 'node:test';
 
 import { identifyByName, medicineWords } from './identify-name.ts';
 
-test('the words that name the medicine: not its salt, form, strength or bare numbers', () => {
+test('the words that name the medicine: its salt, spelled out, but not its form, release, strength or bare numbers', () => {
   assert.deepEqual(medicineWords('VITAMIN D2'), ['vitamin', 'd2']);
-  assert.deepEqual(medicineWords('METFORMIN HCL ER 500MG'), ['metformin']);
-  assert.deepEqual(medicineWords('LEVOTHYROXINE SODIUM 0.1 MG TAB'), ['levothyroxine']);
+  assert.deepEqual(medicineWords('METFORMIN HCL ER 500MG'), ['metformin', 'hydrochloride']);
+  assert.deepEqual(medicineWords('LEVOTHYROXINE SODIUM 0.1 MG TAB'), ['levothyroxine', 'sodium']);
   assert.deepEqual(medicineWords('VITAMIN B12 1000 MCG'), ['vitamin', 'b12']);
-  assert.deepEqual(medicineWords('CALCIUM CITRATE'), []);
-  assert.deepEqual(medicineWords('POTASSIUM CHLORIDE ER 10 MEQ'), ['chloride']);
+  // Where the salt is the medicine, nothing is left without it.
+  assert.deepEqual(medicineWords('CALCIUM CITRATE'), ['calcium', 'citrate']);
+  assert.deepEqual(medicineWords('POTASSIUM CHLORIDE ER 10 MEQ'), ['potassium', 'chloride']);
+  // As pharmacy labels shorten salts, and say how a medicine is released.
+  assert.deepEqual(medicineWords('AMLODIPINE BESY 5MG'), ['amlodipine', 'besylate']);
+  assert.deepEqual(medicineWords('ATORVASTATIN CALC 20MG'), ['atorvastatin', 'calcium']);
+  assert.deepEqual(medicineWords('METOPROLOL SUCC ER 25MG'), ['metoprolol', 'succinate']);
+  assert.deepEqual(medicineWords('ESOMEPRAZOLE MAG DR 40MG'), ['esomeprazole', 'magnesium']);
+  assert.deepEqual(medicineWords('FLUTICASONE PROP 50MCG'), ['fluticasone', 'propionate']);
+  assert.deepEqual(medicineWords('DILTIAZEM CD 180MG'), ['diltiazem']);
+  assert.deepEqual(medicineWords('KLOR-CON 10MEQ'), ['klor', 'con']);
 });
 
 test('a letter and its short number are one word, however they were printed or read', () => {
@@ -78,14 +87,75 @@ test('the vial: "VITAMIN D2" is ergocalciferol, and only the medicine words are 
   assert.equal(asked.length, 2);
 });
 
-test('only the words that name the medicine are sent, not its salt, form or strength', async () => {
+test('only the words that name the medicine are sent, its salt with them, not its form or strength', async () => {
   const asked = rxNav({
-    'approximateTerm.json?term=metformin&': approximate(['6809', 'metformin', '1']),
-    'rxcui/6809/related.json': related([['6809', 'metformin']]),
+    'approximateTerm.json?term=metformin hydrochloride&': approximate(['235743', 'metformin hydrochloride', '1']),
+    'rxcui/235743/related.json': related([['6809', 'metformin']]),
   });
   const found = await identifyByName('METFORMIN HCL ER 500MG TAB');
   assert.equal(found.status === 'identified' && found.match.rxcui, '6809');
-  assert.ok(asked[0].startsWith('approximateTerm.json?term=metformin&'), asked[0]);
+  assert.deepEqual(asked, [
+    'approximateTerm.json?term=metformin hydrochloride&maxEntries=8&option=1',
+    'rxcui/235743/related.json?tty=IN+MIN',
+  ]);
+});
+
+test('a salt that is the medicine is asked for with it: never as the bare "chloride" or "gluconate" of another', async () => {
+  const asked = rxNav({
+    'approximateTerm.json?term=potassium chloride&': approximate(['8591', 'potassium chloride', '1']),
+    'rxcui/8591/related.json': related([['8591', 'potassium chloride']]),
+    'approximateTerm.json?term=calcium gluconate&': { approximateGroup: { candidate: [] } },
+    // What the name without its salt would have been taken for.
+    'approximateTerm.json?term=chloride&': approximate(['2628', 'chloride', '1']),
+    'approximateTerm.json?term=gluconate&': approximate(['70599', 'gluconate', '1']),
+  });
+  assert.deepEqual(await identifyByName('POTASSIUM CHLORIDE ER 10 MEQ'), {
+    status: 'identified',
+    match: { rxcui: '8591', ingredients: ['potassium chloride'], matched: 'potassium chloride' },
+  });
+  // Not found as printed: nothing, rather than "gluconate".
+  assert.deepEqual(await identifyByName('CALCIUM GLUCONATE'), { status: 'unidentified' });
+  assert.ok(!asked.some((url) => /term=(chloride|gluconate)&/.test(url)), asked.join('\n'));
+});
+
+test('a salt that only carries the medicine is left out on a second try, on both sides, where RxNorm has no name with it', async () => {
+  const asked = rxNav({
+    // RxNorm offers the ingredient alone: a word short of the name as printed.
+    'approximateTerm.json?term=metoprolol succinate&': approximate(['6918', 'metoprolol', '1']),
+    'approximateTerm.json?term=metoprolol&': approximate(['6918', 'metoprolol', '1'], ['221124', 'metoprolol succinate', '1']),
+    'rxcui/6918/related.json': related([['6918', 'metoprolol']]),
+    'rxcui/221124/related.json': related([['6918', 'metoprolol']]),
+  });
+  const found = await identifyByName('METOPROLOL SUCC ER 25MG');
+  assert.equal(found.status === 'identified' && found.match.rxcui, '6918');
+  assert.deepEqual(
+    asked.filter((url) => url.startsWith('approximateTerm')),
+    [
+      'approximateTerm.json?term=metoprolol succinate&maxEntries=8&option=1',
+      'approximateTerm.json?term=metoprolol&maxEntries=8&option=1',
+    ]
+  );
+});
+
+test("an exact best match counts from any source, not only RxNorm's own row", async () => {
+  // RxNorm's concept 4099, named in these words by USP and ATC, not by RxNorm.
+  rxNav({
+    'approximateTerm.json?term=conjugated estrogens&': {
+      approximateGroup: {
+        candidate: [
+          { rxcui: '4099', name: 'Conjugated Estrogens', rank: '1', source: 'USP' },
+          { rxcui: '4099', name: 'conjugated estrogens', rank: '1', source: 'ATC' },
+          { rxcui: '4099', name: 'estrogens, conjugated (USP)', rank: '2', source: 'RXNORM' },
+        ],
+      },
+    },
+    'rxcui/4099/related.json': related([['4099', 'estrogens, conjugated (USP)']]),
+  });
+  const found = await identifyByName('CONJUGATED ESTROGENS');
+  assert.deepEqual(found.status === 'identified' && [found.match.rxcui, found.match.ingredients], [
+    '4099',
+    ['estrogens, conjugated (USP)'],
+  ]);
 });
 
 test("RxNorm's own spacing of a letter and number matches the printed name's", async () => {

@@ -456,7 +456,7 @@ export default function CameraScreen() {
         // label without asking RxNorm again.
         // And with the form that chose its label, which the saved fields may not
         // name any more (withheld directions are not saved).
-        const form = doseFormOf(fields.dosage?.text, fields.instructions?.text);
+        const form = doseFormOf(fields.name?.text, fields.dosage?.text, fields.instructions?.text);
         await addMedication({
           ...toSave.record,
           // Read from the label, or typed by the user: different evidence.
@@ -940,7 +940,7 @@ function ReadingResult({
   const usesSource: UsesSource = {
     kind: 'name',
     name: typedName ?? readableName(fields, truncation),
-    form: doseFormOf(fields.dosage?.text, fields.instructions?.text),
+    form: doseFormOf(named.name?.text, fields.dosage?.text, fields.instructions?.text),
     ...(typedName ? { typed: true } : {}),
   };
   // What the name was identified as, if it was: saved with the medicine. Held

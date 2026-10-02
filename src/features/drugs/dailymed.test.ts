@@ -105,3 +105,28 @@ test('an item whose text is a paragraph keeps its text beside its marker', () =>
   const xml = `<section><code code="${BOXED}"/><text><list><item><paragraph>First.</paragraph></item><item>Second.</item></list><paragraph>After.</paragraph></text></section>`;
   assert.equal(extractSectionText(xml, BOXED), '• First.\n• Second.\nAfter.');
 });
+
+test('a numbered list keeps its numbers, in its own style, where the items carry none', () => {
+  // The isoniazid label's risk factors, which its text then calls "(1 to 6)".
+  const xml = `<section><code code="${BOXED}"/><text>
+    <list listType="ordered" styleCode="Arabic"><item>Daily users of alcohol</item><item><paragraph>Past users of injection drugs</paragraph></item>
+      <item>Women
+        <list listType="ordered" styleCode="LittleAlpha"><item>of minority groups</item><item>postpartum</item></list></item></list>
+    <list listType="ordered" styleCode="BigRoman"><item>One</item><item>Two</item><item>Three</item><item>Four</item></list>
+    <list listType="ordered"><item><caption>(a)</caption>Its own marker</item></list>
+  </text></section>`;
+  assert.equal(
+    extractSectionText(xml, BOXED),
+    '1. Daily users of alcohol\n2. Past users of injection drugs\n3. Women\n a. of minority groups\n b. postpartum\nI. One\nII. Two\nIII. Three\nIV. Four\n(a) Its own marker'
+  );
+});
+
+test('an empty numbered item does not take the next item as its text', () => {
+  const xml = `<section><code code="${BOXED}"/><text><list listType="ordered"><item/><item>Second</item></list></text></section>`;
+  assert.equal(extractSectionText(xml, BOXED), '1.\n2. Second');
+});
+
+test('a raised mark that reads the same on the line is shown as itself', () => {
+  const xml = `<section><code code="${BOXED}"/><text><paragraph>DSM-IV<sup>®</sup> criteria; TRADENAME<sup>&#8482;</sup>; the 2<sup>nd</sup> and 3<sup>rd</sup> trimesters; 10<sup>3</sup></paragraph></text></section>`;
+  assert.equal(extractSectionText(xml, BOXED), 'DSM-IV® criteria; TRADENAME™; the 2nd and 3rd trimesters; 10³');
+});

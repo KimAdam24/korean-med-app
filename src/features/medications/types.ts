@@ -94,7 +94,10 @@ export type MedicationRecord = {
     /**
      * The dose form its reading named (capsule or tablet), which chose among
      * the ingredient's labels: kept, so its page chooses the same label the
-     * reading showed, even where the text that named it was not saved.
+     * reading showed, even where the text that named it was not saved. Null
+     * where it named none (or not a swallowed one), and nothing was shown.
+     * Forgotten when the user rewrites the strength or directions, whose
+     * words then decide.
      */
     readonly form?: 'TABLET' | 'CAPSULE' | null;
   };

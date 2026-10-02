@@ -121,20 +121,34 @@ export default function MedicationScreen() {
     }
 
     const editing = mode;
+    const dosage = editing.dosage.trim() || undefined;
+    const instructions = editing.instructions.trim() || undefined;
     setMode({ kind: 'working' });
     try {
       await updateMedication(record.id, {
         name,
         // A match for the old name is not one for the new: its page asks again.
         // And the new name is the user's, typed, not the label's, read.
-        ...(name !== record.name ? { nameMatch: undefined, nameSource: 'typed' as const } : {}),
+        ...(name !== record.name
+          ? { nameMatch: undefined, nameSource: 'typed' as const }
+          : record.nameMatch && (dosage !== record.dosage || instructions !== record.instructions)
+            ? // The form its reading named is the user's to say now: what they
+              // wrote decides it ("Take 1 tablet", "1 drop in each eye").
+              {
+                nameMatch: {
+                  rxcui: record.nameMatch.rxcui,
+                  ingredients: record.nameMatch.ingredients,
+                  matched: record.nameMatch.matched,
+                },
+              }
+            : {}),
         // Saved from this form, with the cut-off warning under it, the name is
         // the user's word, changed or not, and no longer a withheld reading.
         nameIncomplete: undefined,
         // Cleared fields become absent rather than empty strings, so
         // `needsConfirmation` keeps treating them as unfilled.
-        dosage: editing.dosage.trim() || undefined,
-        instructions: editing.instructions.trim() || undefined,
+        dosage,
+        instructions,
       /**
        * Editing is the user telling us what the label says, which is a
        * stronger source than the reading it replaces. Nothing left to check.
@@ -311,10 +325,13 @@ export default function MedicationScreen() {
         name: nameWithheld ? null : record.name,
         ...(record.nameSource === 'typed' ? { typed: true } : {}),
         // The form that chose the reading's label, where it was saved with it.
-        // A match saved before the form was kept with it has none: the
-        // record's own strength and directions decide, as they did then.
+        // A match saved before the form was kept with it has none, nor one
+        // whose strength or directions the user has rewritten: the record's
+        // own name, strength and directions decide.
         form:
-          record.nameMatch?.form !== undefined ? record.nameMatch.form : doseFormOf(record.dosage, record.instructions),
+          record.nameMatch?.form !== undefined
+            ? record.nameMatch.form
+            : doseFormOf(record.name, record.dosage, record.instructions),
         ...(record.nameMatch ? { known: record.nameMatch } : {}),
       };
 

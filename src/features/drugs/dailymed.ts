@@ -204,17 +204,56 @@ const SUBSCRIPT: Record<string, string> = {
   '+': '₊', '-': '₋', '−': '₋', '=': '₌', '(': '₍', ')': '₎',
 };
 
+/** A character given by number ("&#174;"), as the character. */
+const decodeNumbered = (text: string) =>
+  text
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(parseInt(code, 16)));
+
 /**
  * A superscript or subscript as plain text can show it: in raised or lowered
  * characters where every character has one ("10⁹", "B₁₂"), and otherwise
  * marked ("^b", "_(max)"). Never run into the text beside it, where "10⁹/L"
- * would read as "109/L".
+ * would read as "109/L". Except what reads the same on the line, where a mark
+ * would only puzzle: ® and ™ ("DSM-IV®", not "DSM-IV^®"), and an ordinal's
+ * ending ("2nd", not "2^(nd)").
  */
 function script(content: string, table: Record<string, string>, mark: string): string {
-  const text = content.replace(/<[^>]+>/g, '').trim();
+  const text = decodeNumbered(content.replace(/<[^>]+>/g, '')).trim();
   if (text.length === 0) return '';
+  if (mark === '^' && (/^[®™©℠]+$/.test(text) || /^(?:st|nd|rd|th)$/i.test(text))) return text;
   if ([...text].every((char) => char in table)) return [...text].map((char) => table[char]).join('');
   return text.length === 1 ? `${mark}${text}` : `${mark}(${text})`;
+}
+
+/** An ordered list's item number, in the list's own style ("Arabic", "LittleRoman", "BigAlpha"...). */
+function itemNumber(count: number, style: string): string {
+  const roman = () => {
+    let left = count;
+    let out = '';
+    for (const [value, numeral] of [
+      [10, 'x'], [9, 'ix'], [5, 'v'], [4, 'iv'], [1, 'i'],
+    ] as const) {
+      while (left >= value) {
+        out += numeral;
+        left -= value;
+      }
+    }
+    return out;
+  };
+  const alpha = () => (count <= 26 ? String.fromCharCode(96 + count) : String(count));
+  switch (style.toLowerCase()) {
+    case 'littleroman':
+      return count < 40 ? roman() : String(count);
+    case 'bigroman':
+      return count < 40 ? roman().toUpperCase() : String(count);
+    case 'littlealpha':
+      return alpha();
+    case 'bigalpha':
+      return alpha().toUpperCase();
+    default:
+      return String(count);
+  }
 }
 
 /** Marks the end of a list item's marker, until it is known whether text follows on its line. */
@@ -236,7 +275,9 @@ const INDENT = ' ';
  * is decoded last, so a label that spells out "&amp;lt;" still shows "&lt;".
  */
 export function labelMarkupToText(markup: string): string | null {
-  let depth = 0;
+  // The lists the walk is inside, innermost last: whether each is numbered,
+  // in what style, and how many of its items have gone by.
+  const lists: { readonly ordered: boolean; readonly style: string; count: number }[] = [];
   const text = markup
     // Line breaks in the markup are its indentation, not the label's: only
     // paragraphs, items, titles and breaks start a line.
@@ -246,21 +287,36 @@ export function labelMarkupToText(markup: string): string | null {
     // Lists, walked in order so each item knows how deeply it is nested. An
     // item may carry its own marker as a caption ("•", "a."): that is its
     // marker, not text to add after one; a lone symbol is a bullet, whichever.
+    // An item of a numbered list without one is numbered, as the label
+    // numbers it: text that says "(1 to 6)" refers to those numbers.
     .replace(
       /<list\b[^>]*>|<\/list>|<item\b[^>]*>(?:\s*<caption[^>]*>([\s\S]*?)<\/caption>)?/gi,
       (tag: string, caption?: string) => {
         if (/^<list/i.test(tag)) {
-          depth += 1;
+          lists.push({
+            ordered: /\blistType="ordered"/i.test(tag),
+            style: /\bstyleCode="([^"]*)"/i.exec(tag)?.[1] ?? '',
+            count: 0,
+          });
           return '';
         }
         if (/^<\/list/i.test(tag)) {
-          depth = Math.max(0, depth - 1);
+          lists.pop();
           return '';
         }
+        const list = lists[lists.length - 1];
+        if (list) list.count += 1;
+        const depth = Math.max(1, lists.length);
         const own = (caption ?? '').replace(/<[^>]+>/g, '').trim();
-        const bullet = depth > 1 ? '◦' : '•';
-        const marker = own.length === 0 || /^[^A-Za-z0-9]$/.test(own) ? bullet : own;
-        return `\n${INDENT.repeat(Math.max(0, depth - 1))}${marker}${MARKER_END}`;
+        const marker =
+          own.length > 0 && !/^[^A-Za-z0-9]$/.test(own)
+            ? own
+            : list?.ordered && own.length === 0
+              ? `${itemNumber(list.count, list.style)}.`
+              : depth > 1
+                ? '◦'
+                : '•';
+        return `\n${INDENT.repeat(depth - 1)}${marker}${MARKER_END}`;
       }
     )
     .replace(/<paragraph[^>]*>/gi, '\n')
@@ -280,7 +336,8 @@ export function labelMarkupToText(markup: string): string | null {
     .replace(/[ \t]+/g, ' ')
     // An item whose text starts with a paragraph keeps its text on its own
     // line; one whose next line is a nested item keeps that below it.
-    .replace(new RegExp(`${MARKER_END} *\n(?!${INDENT}|[•◦])`, 'g'), ' ')
+    // (A next line that is an item of its own, by its marker, is not text.)
+    .replace(new RegExp(`${MARKER_END} *\n(?!${INDENT}|[•◦]|[^\n${MARKER_END}]{1,8}${MARKER_END})`, 'g'), ' ')
     .replace(new RegExp(`${MARKER_END} *`, 'g'), ' ')
     .replace(/ *\n */g, '\n')
     .replace(/\n[ \t]*(?:\n[ \t]*)+/g, '\n')

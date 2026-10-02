@@ -179,7 +179,8 @@ describe('what a medicine is approved to treat', () => {
       dosage: '1.25 MG (50,000 UNIT)',
       source: 'label-scan',
       needsReview: true,
-      nameMatch: MATCH,
+      // With the form its reading named, as a reading's match is saved.
+      nameMatch: { ...MATCH, form: 'CAPSULE' },
     });
     launchApp(`/medication/${saved.id}`);
 
@@ -245,7 +246,13 @@ describe('what a medicine is approved to treat', () => {
   it('a name its reading withheld: shown as possibly cut, not confirmable, not identified, until saved from the edit form', async () => {
     const asked = nlm();
     // Saved from a reading that found the name cut off at the label's edge.
-    const saved = await addMedication({ name: 'VITAMIN D2', source: 'label-scan', needsReview: true, nameIncomplete: true });
+    const saved = await addMedication({
+      name: 'VITAMIN D2',
+      instructions: 'Take 1 capsule by mouth every 7 days',
+      source: 'label-scan',
+      needsReview: true,
+      nameIncomplete: true,
+    });
     launchApp(`/medication/${saved.id}`);
 
     await screen.findByText(Strings.uses.nameNotWhole.ko);
@@ -270,6 +277,7 @@ describe('what a medicine is approved to treat', () => {
     nlm();
     const saved = await addMedication({
       name: 'VITAMIN D2',
+      instructions: 'Take 1 capsule by mouth every 7 days',
       source: 'label-scan',
       needsReview: false,
       // As a newer or older build might have written it.
@@ -308,6 +316,45 @@ describe('what a medicine is approved to treat', () => {
     expect(screen.getByText(Strings.result.damaged.name.title.ko)).toBeTruthy();
     expect(screen.getByText(Strings.uses.nameNotWhole.ko)).toBeTruthy();
     expect(asked.some((url) => url.includes('approximateTerm'))).toBe(false);
+  });
+
+  it('a reading that does not say tablet or capsule: identified, but no label shown, until its directions say which', async () => {
+    // Timolol's eye drops were shown its tablets' uses this way: blood
+    // pressure and heart attacks, for a glaucoma medicine.
+    const asked = nlm();
+    // The vial, without the word "capsule" in its directions.
+    await openPickedPhoto(
+      VITAMIN_D2_VIAL_LINES.map((line) =>
+        line.text === 'Take 1 capsule (b' ? { ...line, text: 'Take 1 (b' } : line
+      )
+    );
+    await screen.findByText(Strings.uses.formUnknown.ko);
+    expect(screen.queryByText(INDICATION)).toBeNull();
+    expect(asked.some((url) => url.includes('dailymed'))).toBe(false);
+
+    press(Strings.medications.saveFromLabel.ko);
+    await screen.findByText(Strings.scan.saved.ko);
+    const profile = await loadProfile();
+    const saved = profile.status === 'ok' ? profile.value.medications[0] : undefined;
+    // Saved with what it was identified as, and that its reading named no form.
+    expect(saved?.nameMatch).toEqual({ ...MATCH, form: null });
+
+    launchApp(`/medication/${saved!.id}`);
+    await screen.findByText(Strings.uses.formUnknown.ko);
+    // The directions, as the user types them from the bottle: they now say.
+    press(Strings.medications.edit.ko);
+    // Empty: the directions read were cut at the edge, and not saved.
+    const directions = screen
+      .getAllByLabelText(Strings.medications.fieldInstructions.ko)
+      .find((element) => element.props.onChangeText);
+    expect(directions?.props.value).toBe('');
+    fireEvent.changeText(directions!, 'Take 1 capsule by mouth every 7 days');
+    press(Strings.medications.save.ko);
+    await screen.findByText(INDICATION);
+    expectTheFrame();
+    const after = await loadProfile();
+    // Still the same match, without asking RxNav again; the form is now theirs.
+    expect(after.status === 'ok' && after.value.medications[0].nameMatch).toEqual(MATCH);
   });
 
   it("editing a medicine's name forgets what the old name was identified as", async () => {

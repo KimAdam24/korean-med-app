@@ -37,6 +37,7 @@ type State =
   | { readonly kind: 'looking' }
   | { readonly kind: 'unidentified' }
   | { readonly kind: 'none' }
+  | { readonly kind: 'formUnknown' }
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'found'; readonly uses: AttributedGuidance<ApprovedUses>; readonly match?: NameMatch };
 
@@ -47,9 +48,10 @@ type State =
  * may be prescribed for something else, and this is the approved indication,
  * not the doctor's reason.
  *
- * Every state says something. "Could not be identified", "no approved label"
- * and "could not be reached" are different, and only the last offers to try
- * again; an empty space would read as nothing to know.
+ * Every state says something. "Could not be identified", "no approved label",
+ * "only for tablets and capsules" and "could not be reached" are different,
+ * and only the last offers to try again; an empty space would read as
+ * nothing to know.
  */
 export function ApprovedUsesCard({
   source,
@@ -182,7 +184,9 @@ export function ApprovedUsesCard({
                     : Strings.uses.unidentified
                 : state.kind === 'none'
                   ? Strings.uses.none
-                  : Strings.uses.unavailable
+                  : state.kind === 'formUnknown'
+                    ? Strings.uses.formUnknown
+                    : Strings.uses.unavailable
             }
             color={theme.textSecondary}
           />

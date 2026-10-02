@@ -172,6 +172,27 @@ test('the dose form a reading names, or none when it names neither or both', () 
   assert.equal(doseFormOf('10 MG TAB'), 'TABLET');
   assert.equal(doseFormOf('10 MG'), null);
   assert.equal(doseFormOf('1 tablet or 1 capsule'), null);
+  // A softgel is a capsule, a caplet a tablet; and the name may say which.
+  assert.equal(doseFormOf('TAKE 1 SOFTGEL BY MOUTH DAILY'), 'CAPSULE');
+  assert.equal(doseFormOf('TAKE 2 CAPLETS'), 'TABLET');
+  assert.equal(doseFormOf('LISINOPRIL 10MG TAB', '10 MG'), 'TABLET');
+  // "Package insert" is not an insertion.
+  assert.equal(doseFormOf('TAKE 1 TABLET DAILY. SEE PACKAGE INSERT'), 'TABLET');
+});
+
+test('a medicine not swallowed names no form to choose a label by, though its directions say "tablet"', () => {
+  for (const texts of [
+    ['TIMOLOL MALEATE', '0.5%', 'INSTILL 1 DROP IN EACH EYE TWICE DAILY'],
+    ['TIMOLOL MALEATE 0.5% OPHTHALMIC SOLUTION'],
+    ['BUDESONIDE', '180 MCG', 'INHALE 2 PUFFS BY MOUTH TWICE DAILY'],
+    ['FENTANYL', '25 MCG/HR', 'APPLY 1 PATCH EVERY 72 HOURS'],
+    ['OZEMPIC', '0.25 MG', 'INJECT 0.25 MG SUBCUTANEOUSLY ONCE A WEEK'],
+    ['FLUTICASONE PROP', '50 MCG', '2 SPRAYS IN EACH NOSTRIL DAILY'],
+    ['ESTRADIOL', '10 MCG', 'INSERT 1 TABLET VAGINALLY TWICE A WEEK'],
+    ['KETOCONAZOLE 2% CREAM', 'APPLY TO AFFECTED AREA'],
+  ]) {
+    assert.equal(doseFormOf(...texts), null, texts.join(' / '));
+  }
 });
 
 // --- The lookup, against a stubbed DailyMed and RxNav ------------------------
@@ -287,17 +308,73 @@ test('only an approved label: one marketed as unapproved has no approved uses to
 });
 
 test('DailyMed unreachable is "unavailable", not "none": trying again may work', async () => {
-  const target: UsesTarget = { kind: 'ingredients', rxcui: '4018', ingredients: ['ergocalciferol'], form: null };
+  const target: UsesTarget = { kind: 'ingredients', rxcui: '4018', ingredients: ['ergocalciferol'], form: 'CAPSULE' };
   nlm(() => 'offline');
   assert.deepEqual(await findApprovedUses(target), { status: 'unavailable' });
   nlm((url) => (url.includes('spls.json') ? listing(['erg', 'ERGOCALCIFEROL CAPSULE [X]']) : 'offline'));
   assert.deepEqual(await findApprovedUses(target), { status: 'unavailable' });
 });
 
-test('no label of the form read: "none"', async () => {
-  nlm(() => listing(['erg', 'ERGOCALCIFEROL CAPSULE [X]']));
+test('no label of the form read: "none", and the label of another form is not downloaded', async () => {
+  // A label that would be shown, but for its form.
+  const asked = nlm((url) =>
+    url.endsWith('.xml') ? { text: ERGOCALCIFEROL } : listing(['erg', 'ERGOCALCIFEROL CAPSULE [X]'])
+  );
   assert.deepEqual(
     await findApprovedUses({ kind: 'ingredients', rxcui: '4018', ingredients: ['ergocalciferol'], form: 'TABLET' }),
     { status: 'none' }
   );
+  assert.ok(!asked.some((url) => url.endsWith('.xml')), asked.join('\n'));
+  // Of the form read, it is.
+  const found = await findApprovedUses({ kind: 'ingredients', rxcui: '4018', ingredients: ['ergocalciferol'], form: 'CAPSULE' });
+  assert.equal(found.status === 'found' && found.uses.content.label.setId, 'erg');
+});
+
+test('by name, a reading that does not say it is a tablet or capsule is refused, and nothing is asked', async () => {
+  // Timolol's tablet label, which an eye drop's reading used to be shown.
+  const asked = nlm((url) =>
+    url.endsWith('.xml')
+      ? { text: other('TIMOLOL MALEATE', '0378-0055', 'Timolol maleate tablets are indicated for the treatment of hypertension.') }
+      : listing(['tab', 'TIMOLOL MALEATE TABLET [MYLAN]'])
+  );
+  assert.deepEqual(
+    await findApprovedUses({ kind: 'ingredients', rxcui: '10600', ingredients: ['timolol'], form: null }),
+    { status: 'formUnknown' }
+  );
+  assert.deepEqual(asked, []);
+});
+
+test("a barcode's RxNorm product is of one form already: its labels are not held to a tablet's or capsule's", async () => {
+  // Timolol eye drops, discontinued: DailyMed lists the package no more.
+  nlm((url) => {
+    if (url.includes('ndc=')) return listing();
+    if (url.includes('/rxcui/1923428/related.json?tty=IN')) {
+      return { json: { relatedGroup: { conceptGroup: [{ tty: 'IN', conceptProperties: [{ name: 'timolol' }] }] } } };
+    }
+    if (url.includes('spls.json?rxcui=1923428')) return listing(['drops', 'TIMOLOL MALEATE SOLUTION/ DROPS [X]']);
+    if (url.endsWith('/spls/drops.xml')) {
+      return { text: other('TIMOLOL MALEATE', '11111-222', 'Timolol maleate ophthalmic solution is indicated for elevated intraocular pressure.') };
+    }
+    return { status: 404 };
+  });
+  const found = await findApprovedUses({ kind: 'product', ndc11: '00247046605', rxcui: '1923428' });
+  assert.equal(found.status === 'found' && found.uses.content.label.setId, 'drops');
+});
+
+test('RxNorm\'s "(USP)" is not a word a label must have', async () => {
+  assert.equal(sameIngredients([{ substance: 'ESTROGENS, CONJUGATED', moiety: null }], ['estrogens, conjugated (USP)']), true);
+  nlm((url) => {
+    if (url.includes('spls.json?rxcui=4099')) return listing(['prem', 'PREMARIN (ESTROGENS, CONJUGATED) TABLET, FILM COATED [WYETH]']);
+    if (url.endsWith('/spls/prem.xml')) {
+      return { text: other('ESTROGENS, CONJUGATED', '0046-1100', 'PREMARIN is indicated for the treatment of moderate to severe vasomotor symptoms.') };
+    }
+    return { status: 404 };
+  });
+  const found = await findApprovedUses({
+    kind: 'ingredients',
+    rxcui: '4099',
+    ingredients: ['estrogens, conjugated (USP)'],
+    form: 'TABLET',
+  });
+  assert.equal(found.status === 'found' && found.uses.content.label.setId, 'prem');
 });
