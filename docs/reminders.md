@@ -125,7 +125,9 @@ through.
 - **Nothing here has run on a phone.** The Kotlin compiles (a local Gradle
   build of the module and the app's merged manifest), and the JavaScript is
   tested against a fake scheduler. No reminder has yet rung on a device, and the
-  iOS side has not been built at all.
+  iOS side has not been built at all. The settings the reminder strings name
+  (알람 및 리마인더, 방해 금지 모드 무시) are on the list to check on a real
+  phone: [check-on-a-real-phone.md](check-on-a-real-phone.md).
 
 ## Building it
 
