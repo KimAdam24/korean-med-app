@@ -693,7 +693,7 @@ export const Strings = {
     statusUnverified: { ko: '휴대폰에서 복용 알림이 설정됐는지 확인되지 않았어요. 다시 시도해 주세요.', en: 'Your phone did not confirm your reminders. Please try again.' },
     statusSilent: untranslated(
       "Reminders will come without a sound: their sound is turned off in this app's notification settings.",
-      "A medicine's page, and the home screen, when the phone's own settings have the reminders' sound off. Under it, 설정 열기 (Open settings)."
+      "SAFETY STRING: not drafted. A medicine's page, and the home screen, when the phone's own settings have the reminders' sound off. Under it, 설정 열기 (Open settings)."
     ),
     allow: { ko: '알림 허용하기', en: 'Allow notifications' },
     openAlarmSettings: { ko: "'알람 및 리마인더' 열기", en: 'Open "Alarms & reminders"' },

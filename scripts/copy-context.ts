@@ -455,7 +455,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     section: REMIND,
     where: "A medicine's page, under its reminder times: an amber warning, with 설정 열기 (Open settings) under it. On the home screen, the body of 지금은 복용 알림이 울릴 수 없어요 (Your medicine reminders cannot sound right now).",
     when: "When the phone's own settings have the reminders' sound turned off: they would still appear, silently.",
-    notes: 'Beside it are her 복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요. (notifications off) and 복용 알림이 늦게 울릴 수 있어요... (may be late).',
+    notes: 'A safety string, so no draft: a reminder that does not sound is a missed dose. Beside it are her 복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요. (notifications off) and 복용 알림이 늦게 울릴 수 있어요... (may be late).',
   },
   'medications.sourcePhoto': {
     section: REMIND,

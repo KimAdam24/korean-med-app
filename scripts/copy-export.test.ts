@@ -109,7 +109,9 @@ test("a hidden feature's strings are held back from the export, and return with 
 });
 
 test('the safety strings go to her undrafted, each with the reason', () => {
-  for (const key of ['uses.title', 'uses.disclaimer']) {
+  // The heading and disclaimer over a label's uses, and the warning that
+  // reminders will not sound: unreviewed Korean is worse than English here.
+  for (const key of ['uses.title', 'uses.disclaimer', 'reminders.statusSilent']) {
     assert.equal(DRAFTS.strings[key]?.ko, undefined, key);
     assert.match(DRAFTS.strings[key]?.why ?? '', /^Safety string/, key);
   }
