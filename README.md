@@ -72,7 +72,8 @@ src/i18n/strings.ts       all user-facing copy, Korean-first
 | Interaction guidance (§3.4)             | Engine built, rule table empty; **parked**, blocked on licensing and counsel (`docs/blocked-on-data.md`) |
 | What a medicine is approved to treat    | Built: its FDA label's Indications section from DailyMed, verbatim, with a disclaimer (`docs/scope.md`); a plain-language line stays blocked (`docs/blocked-on-data.md`) |
 | Gallery photos                          | Built, in release since 2026-09-28                |
-| Sweep, fill-in, curve message           | **Hidden** (`src/features/scope.ts`, `docs/scope.md`); the full app is on `archive/full-app-2026-09-28` |
+| Fill-in, curve message                  | Built, on again since 2026-10-02 (`docs/scope.md`) |
+| Sweep                                   | **Hidden** (`src/features/scope.ts`); the full app is on `archive/full-app-2026-09-28` |
 | First-launch introduction               | Built — copy awaiting translation                 |
 | Dose reminders                          | Built — not yet rung on a device; see `docs/reminders.md` |
 | Reading aloud (TTS)                     | Not started — constraints in `docs/tts-feasibility.md` |

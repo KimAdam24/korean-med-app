@@ -179,3 +179,15 @@ test('what counts as a line cut at its end, and what is an ordinary wrap', () =>
   assert.ok(!startsCutOff('units) by mouth'));
   assert.ok(!startsCutOff('000 UNIT)'));
 });
+
+test('after a fill-in, a field withheld at the edge stays withheld unless it was the one filled', async () => {
+  const { keepWithheld } = await import('./truncation.ts');
+  const before = { side: 'right' as const, diagnosed: true, cutLines: [7, 8], edgeLines: [3], fields: ['name', 'instructions'] as const };
+  // The directions filled: no line looks cut any more, so no edge is found at all.
+  const kept = keepWithheld({ ...before, fields: [...before.fields] }, null, ['instructions']);
+  assert.deepEqual(kept?.fields, ['name']);
+  // Everything that was withheld, filled: the new reading's own judgement stands.
+  assert.equal(keepWithheld({ ...before, fields: [...before.fields] }, null, ['name', 'instructions']), null);
+  // Nothing withheld before: as the new reading has it.
+  assert.equal(keepWithheld(null, null, ['instructions']), null);
+});

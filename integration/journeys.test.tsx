@@ -15,6 +15,7 @@ import {
   press,
   pressDigits,
   withFullScope,
+  withScope,
 } from './app-harness';
 import { camera } from './fakes/camera';
 import { ocr } from './fakes/devices';
@@ -115,22 +116,31 @@ describe('reading a chosen photo', () => {
     });
   });
 
-  it('a curved label: withholds what the curve cut and says so, with no curve message, sweep or fill-in', async () => {
-    // The vial: its directions cut on the right, which with every feature on
-    // brings the curve message, the sweep and fill-in (the tests just above,
-    // and sweep.test.tsx).
+  it('a curved label: withholds what the curve cut, says the label curves, and offers fill-in, but not the sweep', async () => {
+    // The vial: its directions cut on the right.
     await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
     await screen.findByText('VITAMIN D2');
 
     expect(screen.getByText('1.25 MG (50,000 UNIT)')).toBeTruthy();
-    // The directions are withheld, and their slot says they may be cut.
     expect(screen.getByText(Strings.result.damaged.instructions.title.ko)).toBeTruthy();
-    expect(screen.getByText(Strings.result.curved.edgeNote.ko)).toBeTruthy();
-    // Hidden: the curve, its remedy, turning the bottle, and filling in.
-    expect(screen.queryByText(Strings.result.curved.title.ko)).toBeNull();
-    expect(screen.queryByText(Strings.result.curved.fieldNote.ko)).toBeNull();
+    // The curve, and its remedy: turn the bottle, or type the rest in.
+    expect(screen.getByText(Strings.result.curved.title.ko)).toBeTruthy();
+    expect(screen.getByText(Strings.result.curved.right.ko)).toBeTruthy();
+    expect(screen.getByRole('button', { name: Strings.fillIn.start.ko })).toBeTruthy();
+    // Hidden still (`Scope`): reading while the bottle turns.
     expect(screen.queryByRole('button', { name: Strings.sweep.start.ko })).toBeNull();
-    expect(screen.queryByRole('button', { name: Strings.fillIn.start.ko })).toBeNull();
+  });
+
+  describe('with the curve message and fill-in off (see Scope)', () => {
+    withScope({ curveMessage: false, fillIn: false });
+
+    it('a curved label is still withheld where it is cut, in the plain edge wording, with no fill-in', async () => {
+      await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+      await screen.findByText('VITAMIN D2');
+      expect(screen.getByText(Strings.result.curved.edgeNote.ko)).toBeTruthy();
+      expect(screen.queryByText(Strings.result.curved.title.ko)).toBeNull();
+      expect(screen.queryByRole('button', { name: Strings.fillIn.start.ko })).toBeNull();
+    });
   });
 
   describe('a degraded reading of a label known to curve', () => {
@@ -147,20 +157,20 @@ describe('reading a chosen photo', () => {
       },
     ];
 
-    it('gives no advice at all: not the curve message, and not "try somewhere brighter"', async () => {
+    it('says the label curves, in place of "try somewhere brighter"', async () => {
       await openPickedPhoto(DEGRADED_CURVED);
       await screen.findByText(Strings.result.degradedTitle.ko);
-      expect(screen.queryByText(Strings.result.curved.title.ko)).toBeNull();
+      expect(screen.getByText(Strings.result.curved.title.ko)).toBeTruthy();
       expect(screen.queryByText(Strings.result.degradedBody.ko)).toBeNull();
     });
 
-    describe('with the curve message on (hidden now: see Scope)', () => {
-      withFullScope();
+    describe('with the curve message off (see Scope)', () => {
+      withScope({ curveMessage: false });
 
-      it('says the label curves, in place of "try somewhere brighter"', async () => {
+      it('gives no advice at all: not "try somewhere brighter", which more light would not fix', async () => {
         await openPickedPhoto(DEGRADED_CURVED);
         await screen.findByText(Strings.result.degradedTitle.ko);
-        expect(screen.getByText(Strings.result.curved.title.ko)).toBeTruthy();
+        expect(screen.queryByText(Strings.result.curved.title.ko)).toBeNull();
         expect(screen.queryByText(Strings.result.degradedBody.ko)).toBeNull();
       });
     });

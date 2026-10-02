@@ -42,9 +42,9 @@ import { LabelOcr } from '../../modules/label-ocr';
 import { interpretLines } from '@/features/ocr/interpret-lines';
 import { goBackOr } from '@/features/navigation/go-back';
 import { DevLineList, logRecognizedLines } from '@/features/ocr/dev-line-list';
-import { assessField } from '@/features/ocr/field-integrity';
+import { assessField, type FieldKind } from '@/features/ocr/field-integrity';
 import { medicationFromReading, readableName } from '@/features/ocr/reading-to-record';
-import { isCutAtEdge, type EdgeTruncation } from '@/features/ocr/truncation';
+import { isCutAtEdge, keepWithheld, type EdgeTruncation } from '@/features/ocr/truncation';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
 import { FillInPanel } from '@/features/ocr/fill-in-panel';
 import { findGaps } from '@/features/ocr/fill-in';
@@ -555,12 +555,14 @@ export default function CameraScreen() {
   const sweepCancelled = useCallback(() => setPhase(lastReading.current ?? { kind: 'preview' }), []);
 
   /** The same reading with the user's words in it, already judged whole and confirmed. */
-  const filledIn = useCallback((reading: Recognised) => {
-    setPhase((current) =>
-      current.kind === 'result'
-        ? resultPhase(reading, { swept: current.swept, picked: current.picked, filled: true })
-        : current
-    );
+  const filledIn = useCallback((reading: Recognised, filled: readonly FieldKind[]) => {
+    setPhase((current) => {
+      if (current.kind !== 'result') return current;
+      const next = resultPhase(reading, { swept: current.swept, picked: current.picked, filled: true });
+      // A field withheld at the edge stays withheld unless it was filled in:
+      // completing the directions is not a reason to trust the name.
+      return { ...next, truncation: keepWithheld(current.truncation, next.truncation, filled) };
+    });
   }, []);
   const close = useCallback(() => goBackOr(router, '/'), [router]);
 
@@ -883,7 +885,7 @@ function ReadingResult({
   onRetake: () => void;
   /** Absent where the sweep is not available: iOS, until its Swift is built. */
   onSweep?: () => void;
-  onFilled: (reading: Recognised) => void;
+  onFilled: (reading: Recognised, filled: readonly FieldKind[]) => void;
   onClose: () => void;
 }) {
   const theme = useTheme();
@@ -959,9 +961,9 @@ function ReadingResult({
           lines={lines}
           fields={fields}
           kinds={fillable}
-          onConfirm={(reading) => {
+          onConfirm={(reading, filled) => {
             setFilling(false);
-            onFilled(reading);
+            onFilled(reading, filled);
           }}
           onCancel={() => setFilling(false)}
         />

@@ -221,3 +221,32 @@ export function detectEdgeTruncation(
 export function isCutAtEdge(truncation: EdgeTruncation | null | undefined, kind: FieldKind): boolean {
   return truncation?.fields.includes(kind) ?? false;
 }
+
+/**
+ * The edge to judge a reading by once the user has filled some of its fields
+ * in: the new reading's own, and every field the old one withheld at the edge
+ * that the user did not fill.
+ *
+ * Without it, filling in what was cut made a field nobody looked at read as
+ * whole. With the directions' cut lines completed, no line at the edge looks
+ * cut any more, so no edge is found at all, and a name that ran to the same
+ * edge, with nothing in its own text to show a loss ("LISINOPRIL" of
+ * "LISINOPRIL AND HYDROCHLOROTHIAZIDE"), then read as whole, and was looked up
+ * as another medicine.
+ */
+export function keepWithheld(
+  before: EdgeTruncation | null | undefined,
+  after: EdgeTruncation | null | undefined,
+  filled: readonly FieldKind[]
+): EdgeTruncation | null {
+  const kept = (before?.fields ?? []).filter((kind) => !filled.includes(kind) && !(after?.fields ?? []).includes(kind));
+  if (kept.length === 0) return after ?? null;
+  // The new reading's edge if it found one, else the old one's (its side, and
+  // whether it was the curve), but with only these fields withheld.
+  const base = (after ?? before)!;
+  const own = after?.fields ?? [];
+  return {
+    ...base,
+    fields: (['name', 'dosage', 'instructions'] as const).filter((kind) => own.includes(kind) || kept.includes(kind)),
+  };
+}

@@ -25,46 +25,48 @@ deleted.
 5. **Saved to the list**, behind the PIN lock, in encrypted storage.
 6. **Reminders.**
 
-## What is hidden
+## What is hidden, and what came back
 
-Each is one flag in `src/features/scope.ts`; setting it to `true` restores the
-feature as it was. The tests of every hidden feature still run, with the flags
-turned back on (`withFullScope` in `integration/app-harness.ts`), so a
-restored feature is a tested one. The review sheet leaves out a hidden
-feature's strings until it returns (`hiddenWith` in `scripts/copy-context.ts`).
+Each feature is one flag in `src/features/scope.ts`. The tests of every
+feature run whichever way its flag is set (`withScope` and `withFullScope` in
+`integration/app-harness.ts`), so turning one back on is a flag, not a
+rewrite. The review sheet leaves out a hidden feature's strings until it
+returns (`hiddenWith` in `scripts/copy-context.ts`).
 
-| Flag | What it was | Why hidden |
+| Flag | What it is | Now |
 | --- | --- | --- |
-| `sweep` | Reading a curved label while the bottle turns (Android) | Out of the smaller scope. |
-| `fillIn` | Typing in, from the bottle, the words the camera saw only part of | Out of the smaller scope. **See below.** |
-| `curveMessage` | Telling the user the label curves round the bottle, and to turn it | Out of the smaller scope. The detection behind it stays; see below. |
-| `koreanDrugNames` | 식약처's Korean ingredient names, and the ingredient lookups that fed them | Blocked on data access (`docs/blocked-on-data.md`). |
+| `fillIn` | Typing in, from the bottle, the words the camera saw only part of | **On** again since 2026-10-02 |
+| `curveMessage` | Telling the user the label curves round the bottle, and to turn it | **On** again since 2026-10-02 |
+| `sweep` | Reading a curved label while the bottle turns (Android) | Hidden: it needs a real camera to test |
+| `koreanDrugNames` | 식약처's Korean ingredient names, and the ingredient lookups that fed them | Hidden: blocked on data access (`docs/blocked-on-data.md`) |
 
 Interaction guidance (§3.4) was never on a screen, so there is nothing to
 hide: its engine sits with an empty rule table, blocked on licensing and
 counsel (`docs/blocked-on-data.md`).
 
-### Fill-in was the only thing that recovered a curved-label reading
+### Why fill-in and the curve message came back
 
-Without it, a label whose words run round the curve of the bottle can only be
-retaken, and a retake of a curved label is cut in the same place: the real
-vial, retaken upright and unobstructed, was still cut on the right. Fill-in let
-the reader type the missing part from the bottle, checked, and shown back
-before it was accepted; the sweep read it from later frames, but only on
-Android. **If real labels turn out to hit the curve often, fill-in comes
-back.** How often is not known yet: the corpus has one real vial.
+A curved label is the normal case, not an edge one: on a vial, text that runs
+to the edge of the label wraps out of view, and a retake is cut in the same
+place (the real vial, retaken upright and unobstructed, was still cut on the
+right). Fill-in is the only recovery short of the sweep, and the curve message
+is the only thing that tells the user to turn the bottle rather than look for
+more light.
 
-### The curve message is hidden, but not the detection behind it
+### Cut-off detection, and what fill-in may not undo
 
-Cut-off detection (`features/ocr/truncation.ts`) stays on. It withholds a
-field cut off at the label's edge, and that matters more now than before:
-"VITAMIN D" cut from "VITAMIN D2" would be matched as a different medicine,
-so a name withheld as cut is never identified. A cut field still says it may
-be cut, in the plain edge wording (`result.curved.edgeNote`). What is gone is
-the curve's own explanation and remedy (turn the bottle and take another
-photo), and, on a degraded reading of a label known to curve, any advice at
-all: it used to be kept from "try somewhere brighter" only by the curve
-message, and more light does not bring round what is out of sight.
+Cut-off detection (`features/ocr/truncation.ts`) withholds every field with a
+line at the cut edge, whether or not that line's own text shows a loss. That
+matters most for the name: "LISINOPRIL" at the edge may be the start of
+"LISINOPRIL AND HYDROCHLOROTHIAZIDE", so a name withheld as cut is never
+identified.
+
+Fill-in offers a box only where the text itself shows what is missing ("D" of
+"D2", "(50,0" of "(50,000"). A name that ends on a whole word ("LISINOPRIL",
+"ATORVASTATIN CALC") gets no box, so it cannot be filled in. Filling in the
+other fields does not make it whole either (`keepWithheld`): before that rule,
+completing the directions left no line that looked cut, so no edge was found
+at all, and the name, never looked at, read as whole and was identified.
 
 ## What a medicine's approved uses can and cannot say
 

@@ -105,21 +105,26 @@ export function visibleText(): string[] {
 }
 
 /**
- * Turns every hidden feature back on for the tests that follow (`Scope`), and
- * off again after each: `describe(..., () => { withFullScope(); ... })`.
+ * Sets the given flags (`Scope`) for the tests that follow, and puts them back
+ * after each: `describe(..., () => { withScope({ curveMessage: false }); ... })`.
  *
- * So the hidden features keep their tests, and restoring one is a flag, not a
- * rewrite. The app reads `Scope` as it renders, so this takes effect on the
- * next screen drawn.
+ * So a feature keeps its tests whichever way its flag is set, and restoring
+ * one is a flag, not a rewrite. The app reads `Scope` as it renders, so this
+ * takes effect on the next screen drawn.
  */
-export function withFullScope(): void {
-  const flags = Scope as { -readonly [K in keyof typeof Scope]: boolean };
+export function withScope(flags: Partial<Record<keyof typeof Scope, boolean>>): void {
+  const scope = Scope as { -readonly [K in keyof typeof Scope]: boolean };
   let saved: typeof Scope;
   beforeEach(() => {
     saved = { ...Scope };
-    for (const key of Object.keys(flags) as (keyof typeof Scope)[]) flags[key] = true;
+    Object.assign(scope, flags);
   });
   afterEach(() => {
-    Object.assign(flags, saved);
+    Object.assign(scope, saved);
   });
+}
+
+/** Every hidden feature turned back on (see `withScope`). */
+export function withFullScope(): void {
+  withScope(Object.fromEntries(Object.keys(Scope).map((key) => [key, true])));
 }

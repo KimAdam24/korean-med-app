@@ -13,6 +13,7 @@ import { disk } from './fakes/file-system';
 
 import { addMedication, loadProfile } from '@/features/medications/medication-store';
 import { VITAMIN_D2_VIAL_LINES } from '@/features/ocr/eval/corpus';
+import type { RecognizedTextLine } from '@/features/ocr/types';
 import { Strings, fillTemplate } from '@/i18n/strings';
 
 beforeAll(loadApp, APP_LOAD_BUDGET_MS);
@@ -108,6 +109,31 @@ function expectTheFrame(): void {
 }
 
 const MATCH = { rxcui: '4018', ingredients: ['ergocalciferol'], matched: 'vitamin D2' };
+
+/**
+ * The vial, with its name line in place of "VITAMIN D2" and running out to
+ * the same curved edge as the cut directions, along the text's own slope: a
+ * name cut off at the edge, whose text may still look whole.
+ */
+function nameAtTheEdge(name: string): RecognizedTextLine[] {
+  const lines = VITAMIN_D2_VIAL_LINES.map((line) => ({ ...line }));
+  const at = lines.findIndex((line) => line.text === 'VITAMIN D2');
+  const slopes = lines
+    .map((line) => (line.corners![1].y - line.corners![0].y) / (line.corners![1].x - line.corners![0].x))
+    .sort((a, b) => a - b);
+  const angle = Math.atan(slopes[Math.floor(slopes.length / 2)]);
+  const along = (point: { x: number; y: number }) => point.x * Math.cos(angle) + point.y * Math.sin(angle);
+  const edge = Math.max(...lines.flatMap((line) => [along(line.corners![1]), along(line.corners![2])]));
+  const reach = (y: number) => (edge - y * Math.sin(angle)) / Math.cos(angle);
+  const [topLeft, topRight, bottomRight, bottomLeft] = lines[at].corners!;
+  lines[at] = {
+    ...lines[at],
+    text: name,
+    corners: [topLeft, { x: reach(topRight.y), y: topRight.y }, { x: reach(bottomRight.y), y: bottomRight.y }, bottomLeft],
+    frame: { ...lines[at].frame!, width: reach(topRight.y) - lines[at].frame!.left },
+  };
+  return lines;
+}
 
 describe('what a medicine is approved to treat', () => {
   it('a photo of the vial: identified as ergocalciferol, and its label shown word for word, framed, and saved with the match', async () => {
@@ -246,6 +272,31 @@ describe('what a medicine is approved to treat', () => {
     // Its page identifies the name afresh.
     launchApp(`/medication/${saved.id}`);
     await screen.findByText(INDICATION);
+  });
+
+  it('a name cut at the edge is not looked up, and filling in the directions does not make it whole', async () => {
+    // "LISINOPRIL" may be all of it, or the start of "LISINOPRIL AND
+    // HYDROCHLOROTHIAZIDE": its line runs out at the curve.
+    const asked = nlm();
+    await openPickedPhoto(nameAtTheEdge('LISINOPRIL'));
+    await screen.findByText(Strings.uses.unidentified.ko);
+    expect(screen.getByText(Strings.result.damaged.name.title.ko)).toBeTruthy();
+    expect(asked.some((url) => url.includes('approximateTerm'))).toBe(false);
+
+    // The directions, completed from the bottle.
+    press(Strings.fillIn.start.ko);
+    await screen.findByText(Strings.fillIn.title.ko);
+    fireEvent.changeText(screen.getByDisplayValue('(b'), '(50,000');
+    fireEvent.changeText(screen.getByDisplayValue('eve'), 'every 7');
+    press(Strings.fillIn.check.ko);
+    await screen.findByText(Strings.fillIn.confirmTitle.ko);
+    press(Strings.fillIn.confirmYes.ko);
+    await screen.findByText(Strings.fillIn.filledNote.ko);
+
+    // The name is as it was: withheld, unidentified, never sent.
+    expect(screen.getByText(Strings.result.damaged.name.title.ko)).toBeTruthy();
+    expect(screen.getByText(Strings.uses.unidentified.ko)).toBeTruthy();
+    expect(asked.some((url) => url.includes('approximateTerm'))).toBe(false);
   });
 
   it("editing a medicine's name forgets what the old name was identified as", async () => {

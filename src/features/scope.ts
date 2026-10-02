@@ -4,10 +4,11 @@
  * On 2026-09-28 the app was cut down to: a photo (camera or gallery) or a
  * barcode in; the medicine identified; what its FDA label says it is approved
  * to treat; the strength and directions as read; saved to the list; reminders.
+ * Fill-in and the curve message came back on 2026-10-02.
  *
- * Everything below is hidden, not removed: the code, and its tests, are all
- * still here, and setting a flag back to `true` restores the feature as it
- * was. The whole app as it stood before the cut is on the branch
+ * Anything set to `false` below is hidden, not removed: the code, and its
+ * tests, are all still here, and setting a flag back to `true` restores the
+ * feature as it was. The whole app as it stood before the cut is on the branch
  * `archive/full-app-2026-09-28`. See `docs/scope.md` for why each is hidden.
  */
 export const Scope: Readonly<{
@@ -28,7 +29,9 @@ export const Scope: Readonly<{
   koreanDrugNames: boolean;
 }> = {
   sweep: false,
-  fillIn: false,
-  curveMessage: false,
+  // Back on 2026-10-02: a curved label is the normal case, not an edge one,
+  // and fill-in is the only recovery for a cut field, a cut name above all.
+  fillIn: true,
+  curveMessage: true,
   koreanDrugNames: false,
 };

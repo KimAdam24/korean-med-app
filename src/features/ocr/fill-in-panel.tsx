@@ -68,7 +68,8 @@ export function FillInPanel({
   fields: MedicationLabelFields;
   /** The withheld fields to fill in. */
   kinds: readonly FieldKind[];
-  onConfirm: (reading: Recognised) => void;
+  /** With the fields that were filled in: the others are as they were, withheld or not. */
+  onConfirm: (reading: Recognised, filled: readonly FieldKind[]) => void;
   onCancel: () => void;
 }) {
   const theme = useTheme();
@@ -139,7 +140,7 @@ export function FillInPanel({
             </Text>
           </View>
         ))}
-        <BigButton label={Strings.fillIn.confirmYes} onPress={() => onConfirm(confirming)} />
+        <BigButton label={Strings.fillIn.confirmYes} onPress={() => onConfirm(confirming, kinds)} />
         <BigButton label={Strings.fillIn.confirmNo} tone="secondary" onPress={() => setConfirming(null)} />
       </Card>
     );
