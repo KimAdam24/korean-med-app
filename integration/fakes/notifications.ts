@@ -78,6 +78,9 @@ export async function setNotificationChannelAsync(id: string, channel: Record<st
  * user changed in settings overrides what the app asked for.
  */
 export async function getNotificationChannelAsync(id: string) {
+  // Below Android 8 there are no channels, and the real module answers null.
+  const { Platform } = require('react-native') as typeof import('react-native');
+  if (Platform.OS === 'android' && Number(Platform.Version) < 26) return null;
   const made = state.channels.get(id);
   if (!made) return null;
   return {
@@ -170,13 +173,19 @@ export const notifications = {
    * Android the channel's sound, or its importance below the one that sounds;
    * on iOS the app's "Sounds" switch.
    */
-  silencedBy(how: 'channel-sound' | 'channel-importance' | 'ios-sounds'): void {
+  silencedBy(how: 'channel-sound' | 'channel-importance' | 'channel-blocked' | 'ios-sounds'): void {
     if (how === 'ios-sounds') {
       state.permission = { ...state.permission, ios: { ...state.permission.ios, allowsSound: false } };
     } else {
+      // A category turned off is importance NONE, while the app as a whole
+      // stays allowed: `getPermissionsAsync` reads only the app-wide switch.
       state.channelChanges.set(
         'dose-reminders',
-        how === 'channel-sound' ? { sound: null } : { importance: AndroidImportance.LOW }
+        how === 'channel-sound'
+          ? { sound: null }
+          : how === 'channel-blocked'
+            ? { importance: AndroidImportance.NONE }
+            : { importance: AndroidImportance.LOW }
       );
     }
   },

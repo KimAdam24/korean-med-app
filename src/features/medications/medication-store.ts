@@ -140,6 +140,23 @@ function isIdentity(value: unknown): boolean {
   );
 }
 
+/**
+ * The ids of saved records this build cannot read, as a newer build may have
+ * written them. They are kept in the vault as found (see `updateProfile`), and
+ * so are their reminders: a medicine whose reminders stopped because this
+ * version could not read it would stop ringing with nothing to say why.
+ */
+export async function unreadableMedicationIds(): Promise<string[]> {
+  const result = await readVault<unknown>();
+  if (result.status !== 'ok') return [];
+  const raw = (result.value as { medications?: unknown }).medications;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((record) => !isMedicationRecord(record))
+    .map((record) => (record as { id?: unknown } | null)?.id)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+}
+
 export async function loadProfile(): Promise<ProfileLoadResult> {
   const result = await readVault<unknown>();
   if (result.status !== 'ok') return result;
@@ -175,8 +192,22 @@ function updateProfile(
 
     const raw = (current as { medications: unknown[] }).medications;
     const unreadable = raw.filter((record) => !isMedicationRecord(record));
+    const found = new Map(
+      raw.filter(isMedicationRecord).map((record) => [record.id, record as unknown as Record<string, unknown>])
+    );
+    const read = new Map(parsed.medications.map((record) => [record.id, record]));
     const next = change(parsed);
-    return { ...(current as object), ...next, medications: [...next.medications, ...unreadable] };
+    // Each record as it was found, not as this build read it: reading drops or
+    // settles fields it does not know (see `withSoundExtras`), and writing that
+    // back would rewrite, for good, what a newer build put there. A record the
+    // change left alone goes back exactly as found; one it changed goes back
+    // as found with the change over it.
+    const medications = next.medications.map((record) => {
+      const original = found.get(record.id);
+      if (!original) return record;
+      return read.get(record.id) === record ? original : { ...original, ...record };
+    });
+    return { ...(current as object), ...next, medications: [...medications, ...unreadable] };
   }).then((written) => parseProfile(written) ?? EMPTY_PROFILE);
 }
 

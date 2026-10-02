@@ -154,6 +154,37 @@ describe('the medication profile', () => {
   });
 });
 
+describe('records written by another version', () => {
+  const fromNewerBuild = {
+    id: 'newer-1',
+    name: 'VITAMIN D2',
+    addedAt: '2026-10-01T00:00:00.000Z',
+    source: 'label-scan',
+    needsReview: true,
+    // Values this build does not know, and one it would read differently.
+    nameSource: 'printed-ndc',
+    nameIncomplete: false,
+    somethingNew: { kept: true },
+  };
+
+  it('are written back exactly as found when a save does not touch them', async () => {
+    await mutateVault<unknown>({}, () => ({ version: 1, medications: [fromNewerBuild] }));
+    await addMedication(medicine);
+    const raw = await readVault<{ medications: Record<string, unknown>[] }>();
+    expect(raw.status === 'ok' && raw.value.medications.find((record) => record.id === 'newer-1')).toEqual(
+      fromNewerBuild
+    );
+  });
+
+  it('keep what this build does not know when a save does change them', async () => {
+    await mutateVault<unknown>({}, () => ({ version: 1, medications: [fromNewerBuild] }));
+    await updateMedication('newer-1', { dosage: '1.25 MG' });
+    const raw = await readVault<{ medications: Record<string, unknown>[] }>();
+    const record = raw.status === 'ok' ? raw.value.medications[0] : undefined;
+    expect(record).toMatchObject({ dosage: '1.25 MG', somethingNew: { kept: true }, nameSource: 'printed-ndc' });
+  });
+});
+
 describe('the PIN', () => {
   it('accepts the PIN that was set and nothing else', async () => {
     await setPin('4821');

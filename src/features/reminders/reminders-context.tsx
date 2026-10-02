@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
-import { loadProfile } from '@/features/medications/medication-store';
+import { loadProfile, unreadableMedicationIds } from '@/features/medications/medication-store';
 import { EMPTY_PROFILE } from '@/features/medications/types';
 
 import { medicationFromResponse, syncReminders, type ReminderHealth } from './scheduler';
@@ -43,7 +43,10 @@ export function RemindersProvider({ children }: { children: React.ReactNode }) {
         // An unreadable profile says nothing about which reminders should
         // exist, so the schedule is left exactly as it is — and not called on.
         if (loaded.status === 'unrecoverable') return { kind: 'unverified' };
-        return await syncReminders(loaded.status === 'ok' ? loaded.value : EMPTY_PROFILE);
+        return await syncReminders(
+          loaded.status === 'ok' ? loaded.value : EMPTY_PROFILE,
+          loaded.status === 'ok' ? await unreadableMedicationIds() : []
+        );
       } catch {
         return { kind: 'unverified' };
       }

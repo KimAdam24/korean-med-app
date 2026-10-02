@@ -23,6 +23,7 @@ import * as NotificationsFake from './fakes/notifications';
 import { doseAlarms, notifications } from './fakes/notifications';
 
 import * as store from '@/features/medications/medication-store';
+import { mutateVault } from '@/features/security/secure-vault';
 import type { ReminderTime } from '@/features/medications/types';
 import { MAX_REMINDER_TIMES, formatReminderTime } from '@/features/reminders/plan';
 import { timeWords } from '@/features/reminders/time-picker';
@@ -320,6 +321,35 @@ describe('taking reminders away', () => {
   });
 });
 
+describe('a medicine this build cannot read', () => {
+  it('keeps its reminders: they are not cancelled as stale, nor counted against "on"', async () => {
+    // As a newer build might have written it: a source this build does not know.
+    await mutateVault<unknown>({}, () => ({
+      version: 1,
+      medications: [
+        {
+          id: 'future-1',
+          name: 'VITAMIN D2',
+          addedAt: '2026-10-01T00:00:00.000Z',
+          source: 'barcode-v2',
+          needsReview: false,
+          reminders: [{ hour: 8, minute: 0 }],
+        },
+      ],
+    }));
+    await NotificationsFake.scheduleNotificationAsync({
+      identifier: 'dose:future-1:0800',
+      content: {},
+      trigger: { type: 'daily', hour: 8, minute: 0 },
+    });
+    const record = await medicine([{ hour: 9, minute: 0 }]);
+    await openMedicine(record.id);
+    await screen.findByText(on(at(9, 0)));
+
+    expect(notifications.state.scheduled.has('dose:future-1:0800')).toBe(true);
+  });
+});
+
 describe('a reminder that would come without a sound', () => {
   it('on Android, is made on a channel that names no sound file, and so has the default sound', async () => {
     const restore = onAndroid();
@@ -353,6 +383,35 @@ describe('a reminder that would come without a sound', () => {
       press(Strings.permission.openSettings.ko);
       expect(openSettings).toHaveBeenCalledTimes(1);
     } finally {
+      restore();
+    }
+  });
+
+  it("on Android, with the reminders' category turned off, says they cannot come at all, not that they come silently", async () => {
+    const restore = onAndroid();
+    try {
+      notifications.silencedBy('channel-blocked');
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(R.statusBlocked.ko);
+      expect(screen.queryByText(R.statusSilent.ko)).toBeNull();
+      expect(screen.getByRole('button', { name: Strings.permission.openSettings.ko })).toBeTruthy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('on Android 7, which has no channels, is on: the reminder carries its own sound', async () => {
+    const restore = onAndroid();
+    const version = Object.getOwnPropertyDescriptor(Platform, 'Version');
+    Object.defineProperty(Platform, 'Version', { configurable: true, get: () => 25 });
+    try {
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      // Not "your phone did not confirm your reminders", which retrying never clears.
+      await screen.findByText(on(at(8, 0)));
+    } finally {
+      if (version) Object.defineProperty(Platform, 'Version', version);
       restore();
     }
   });

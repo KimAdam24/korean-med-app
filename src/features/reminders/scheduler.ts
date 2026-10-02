@@ -149,20 +149,34 @@ function content(medicationId: string): Notifications.NotificationContentInput {
   };
 }
 
+/** Android 8 (API 26) brought notification channels; before it, the notification itself carries the sound. */
+const FIRST_API_WITH_CHANNELS = 26;
+
 /**
- * Whether a reminder will make a sound, as the phone holds its settings now:
- * the user can turn the sound off where the app cannot see it happen. On
- * Android that is the channel, read back as the phone has it (not as it was
- * created: the user's changes to a channel win, and the app cannot undo
- * them); on iOS, the app's "Sounds" switch. `null` when the channel is not
- * there at all, which means a reminder on it would not appear.
+ * Whether a reminder will appear with a sound, as the phone holds its settings
+ * now: the user can change them where the app cannot see it happen.
+ *
+ * - On Android 8 and later, the channel, read back as the phone has it (not
+ *   as it was created: the user's changes win, and the app cannot undo them).
+ *   Turned off ("blocked", importance NONE or below), nothing appears at all;
+ *   lowered below DEFAULT, or its sound off, it appears without one. Missing
+ *   altogether, a reminder on it would not appear: `unknown`.
+ * - Before Android 8 there are no channels (the module answers null for any):
+ *   the reminder's own `sound: 'default'` sounds, as permission allows.
+ * - On iOS, the app's "Sounds" switch.
+ *
+ * Not seen: Do Not Disturb, Focus, and the ringer or notification volume.
  */
-async function remindersSound(status: Notifications.NotificationPermissionsStatus): Promise<boolean | null> {
-  if (Platform.OS === 'ios') return status.ios?.allowsSound !== false;
-  if (Platform.OS !== 'android') return true;
+async function reminderSound(
+  status: Notifications.NotificationPermissionsStatus
+): Promise<'sounds' | 'silent' | 'blocked' | 'unknown'> {
+  if (Platform.OS === 'ios') return status.ios?.allowsSound === false ? 'silent' : 'sounds';
+  if (Platform.OS !== 'android') return 'sounds';
+  if (Number(Platform.Version) < FIRST_API_WITH_CHANNELS) return 'sounds';
   const channel = await Notifications.getNotificationChannelAsync(CHANNEL_ID);
-  if (!channel) return null;
-  return channel.importance >= Notifications.AndroidImportance.DEFAULT && channel.sound !== null;
+  if (!channel) return 'unknown';
+  if (channel.importance <= Notifications.AndroidImportance.NONE) return 'blocked';
+  return channel.importance >= Notifications.AndroidImportance.DEFAULT && channel.sound !== null ? 'sounds' : 'silent';
 }
 
 async function scheduledReminderIds(): Promise<string[]> {
@@ -179,11 +193,25 @@ async function scheduledReminderIds(): Promise<string[]> {
  * cancels every alarm while leaving the stored list that `getAll…` reads, so
  * a reminder can look scheduled and never fire.
  */
-export async function syncReminders(profile: MedicationProfile): Promise<ReminderHealth> {
+export async function syncReminders(
+  profile: MedicationProfile,
+  /**
+   * Medicines saved but not readable by this build: what the phone holds for
+   * them is left as it is, neither cancelled as stale nor counted against
+   * "on" (see `unreadableMedicationIds`).
+   */
+  unreadable: readonly string[] = []
+): Promise<ReminderHealth> {
   const desired = desiredReminders(profile);
+  const theirs = (identifier: string) => {
+    const reminder = parseReminderId(identifier);
+    return reminder !== null && unreadable.includes(reminder.medicationId);
+  };
 
   const { stale } = compareSchedules(desired, await scheduledReminderIds());
-  for (const identifier of stale) await Notifications.cancelScheduledNotificationAsync(identifier);
+  for (const identifier of stale.filter((id) => !theirs(id))) {
+    await Notifications.cancelScheduledNotificationAsync(identifier);
+  }
   if (desired.size === 0) return { kind: 'none' };
 
   await ensureChannel();
@@ -203,14 +231,17 @@ export async function syncReminders(profile: MedicationProfile): Promise<Reminde
   // Read back. Anything asked for and not held, or held and not asked for,
   // means the phone's schedule is not the one the user set.
   const after = compareSchedules(desired, await scheduledReminderIds());
-  if (after.missing.length > 0 || after.stale.length > 0) return { kind: 'unverified' };
+  if (after.missing.length > 0 || after.stale.some((id) => !theirs(id))) return { kind: 'unverified' };
 
   const allowed = await notificationPermission();
   if (!allowed.granted) return { kind: 'blocked', canAsk: allowed.canAsk };
 
-  const sounds = await remindersSound(await Notifications.getPermissionsAsync());
-  if (sounds === null) return { kind: 'unverified' };
-  if (!sounds) return { kind: 'silent' };
+  const sound = await reminderSound(await Notifications.getPermissionsAsync());
+  if (sound === 'unknown') return { kind: 'unverified' };
+  // The reminders' category turned off: they will not appear, let alone
+  // sound, and only the phone's settings can turn it back on.
+  if (sound === 'blocked') return { kind: 'blocked', canAsk: false };
+  if (sound === 'silent') return { kind: 'silent' };
 
   const next = await nextFiring([...desired.values()].map((reminder) => reminder.time));
   return exactAlarmsAllowed() === false ? { kind: 'late', next } : { kind: 'on', next };
