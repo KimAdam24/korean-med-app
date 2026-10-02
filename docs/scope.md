@@ -107,15 +107,37 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
 - **Only from an FDA-approved label** (NDA, ANDA, BLA, authorised generic), so
   that "FDA-approved indication" is true. A product sold without approval, or
   under an OTC monograph, shows "no FDA-approved label", not its uses.
-- **From a photo, a label of the same ingredient, not the same product.** The
-  newest approved label of the form the reading names (capsule or tablet)
-  whose active ingredients are exactly the medicine's, by name; which label it
-  was is named under the text. A barcode gets the product's own label. So the
-  label may be another product's of the same ingredient: METOPROLOL SUCCINATE
-  ER was shown the metoprolol tartrate tablets' label (which does not list
-  heart failure), and a prescription esomeprazole capsule an over-the-counter
-  one's "Uses" (checked live, 2026-10-02). Preferring a label whose title
-  carries the printed salt and release is possible, and not built.
+- **From a photo, a label of the same ingredient, salt, release and kind, not
+  the same product.** An approved label of the form the reading names
+  (capsule or tablet) whose active ingredients are exactly the medicine's, by
+  name; which label it was is named under the text. A barcode gets the
+  product's own label.
+- **The salt, release and kind printed decide which** (2026-10-02). Before
+  this, METOPROLOL SUCCINATE ER was shown the metoprolol tartrate tablets'
+  label, which does not list heart failure, and a prescription esomeprazole
+  capsule an over-the-counter one's "Uses". Now:
+  - a salt printed ("SUCC", "TARTRATE", "MAG") must be in the label's own
+    active ingredient;
+  - a release printed (ER, XL, SR, CD: extended; DR, EC: delayed) must be in
+    the label's title. With none printed, a label released at once is tried
+    first, not required: omeprazole is always delayed-release, whether or not
+    the bottle says so;
+  - a pharmacy's label (its Rx number, refills, quantity, prescriber, fill or
+    discard date, "generic for", or "Rx only") is shown the prescription
+    label, or the over-the-counter one where there is none, since a pharmacy
+    can dispense either; a package's Drug Facts, the over-the-counter label;
+    and a reading with neither, nothing, where both kinds have a label
+    (`uses.kindUnknown`). Saved as `labelKind`, since the lines are not.
+  Where no label of what was printed is found, the card says none was: never
+  another salt's. Checked live: metoprolol succinate ER, "METOPROLOL ER" and
+  TOPROL XL all get the succinate label, the tartrate its own; esomeprazole,
+  ibuprofen, famotidine, omeprazole, loperamide and naproxen get their
+  prescription labels from a pharmacy's label, and nothing without one.
+  Still not told apart: two products of one salt and release with different
+  uses, as bupropion SR and XL (both "extended release"), and an
+  over-the-counter strength dispensed by a pharmacy (ibuprofen 200 mg), which
+  is shown the prescription label. Records saved before this have no
+  `labelKind`, so a medicine sold both ways shows nothing on their page.
 - **By name, only for a tablet or a capsule** (2026-10-02). A medicine's forms
   have different labels with different uses: timolol's tablets are for blood
   pressure, its eye drops for glaucoma; budesonide's capsules for Crohn's

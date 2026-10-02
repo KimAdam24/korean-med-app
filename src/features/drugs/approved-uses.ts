@@ -41,11 +41,36 @@
  * patches or injections (`doseFormOf`). Anything else, or a reading that does
  * not say, is refused (`formUnknown`), rather than shown a tablet's uses.
  *
+ * ## By name, the salt, release and kind printed
+ *
+ * One ingredient's labels can be different medicines, approved for different
+ * things: metoprolol succinate extended-release is approved for heart
+ * failure, metoprolol tartrate is not; prescription esomeprazole is for GERD,
+ * ulcers and H. pylori, the over-the-counter one for frequent heartburn. So:
+ *
+ * - **A salt printed is required** of the label's own active ingredient
+ *   ("METOPROLOL SUCC" only a label whose active is metoprolol succinate).
+ * - **A release printed is required** of the label's title (ER, XL, CD:
+ *   extended; DR, EC: delayed). Where none is printed, labels released at
+ *   once are tried first, since a pharmacy prints the release when there is
+ *   one, but not required, since a label may leave out one that is always so
+ *   (omeprazole is always delayed-release).
+ * - **The kind of label read decides prescription or over-the-counter**
+ *   (`labelKindOf`). A pharmacy's label: a prescription label, or an
+ *   over-the-counter one only where there is no prescription one (a pharmacy
+ *   can dispense either). Drug Facts: over-the-counter. Neither read: if both
+ *   kinds have a label, which applies cannot be told, and none is shown
+ *   (`kindUnknown`). DailyMed is asked for each kind separately.
+ *
+ * Where nothing of the salt and release printed has a label, the answer is
+ * "none", not a label of another salt.
+ *
  * A barcode whose package DailyMed does not list (discontinued, say) falls
  * back to its RxNorm product's list, held to the ingredient check like a name.
- * Its form is the product's, which the RxNorm code already fixes, so no form
- * is asked of its labels. The label chosen is named on screen, so which it
- * was can be seen.
+ * Its form, salt and release are the product's, which the RxNorm code already
+ * fixes, so none is asked of its labels; its kind is not, and is held to the
+ * same rule as a name's that was not read. The label chosen is named on
+ * screen, so which it was can be seen.
  *
  * This is not the reason the user was prescribed it. A label lists what the
  * medicine is approved for; a doctor may prescribe it for something else, and
@@ -54,7 +79,9 @@
 
 import { attribute, type AttributedGuidance } from '../guidance/attribution.ts';
 import { Strings } from '../../i18n/strings.ts';
+import type { LabelKind } from '../ocr/label-kind.ts';
 import { DAILYMED_BASE, REQUEST_TIMEOUT_MS, labelMarkupToText, type LabelDocument } from './dailymed.ts';
+import type { Release } from './identify-name.ts';
 
 /** LOINC's code for a label's Indications and Usage section. */
 export const INDICATIONS_SECTION = '34067-9';
@@ -64,6 +91,10 @@ const APPROVED = /^(NDA|ANDA|BLA|NDA AUTHORIZED GENERIC)$/i;
 
 /** The code system of an NDC in SPL. */
 const NDC_SYSTEM = '2.16.840.1.113883.6.69';
+
+/** DailyMed's document types, by their LOINC codes: a prescription drug's label, an over-the-counter one's. */
+const DOCUMENT_TYPES = { prescription: '34391-3', otc: '34390-5' } as const;
+export type DocumentType = keyof typeof DOCUMENT_TYPES;
 
 /** How many labels are opened before giving up: each is a download. */
 const LABELS_TRIED = 4;
@@ -85,6 +116,8 @@ export type LabelIndications = {
   readonly summary: string | null;
   /** The whole Indications section, as text, without its heading. */
   readonly section: string | null;
+  /** What kind of label the document says it is; null where it says neither. */
+  readonly documentType: DocumentType | null;
 };
 
 export type ApprovedUses = {
@@ -106,6 +139,11 @@ export type ApprovedUsesLookup =
    * cannot be told. Nothing is asked of DailyMed.
    */
   | { readonly status: 'formUnknown' }
+  /**
+   * Both a prescription and an over-the-counter label would do, and which this
+   * is was not read: they list different uses, so neither is shown.
+   */
+  | { readonly status: 'kindUnknown' }
   /** DailyMed or RxNav could not be reached, or answered with an error: trying again may work. */
   | { readonly status: 'unavailable' };
 
@@ -122,6 +160,12 @@ export type UsesTarget =
        * they give none, or not one swallowed: then nothing is looked up.
        */
       readonly form: DoseForm | null;
+      /** The salts the name printed beyond its ingredients (`printedSalts`), required of the label. */
+      readonly salts?: readonly string[];
+      /** The release the name printed (`printedRelease`), required of the label. */
+      readonly release?: Release | null;
+      /** The kind of label read (`labelKindOf`): prescription or over-the-counter. */
+      readonly labelKind?: LabelKind | null;
     };
 
 export type DoseForm = 'TABLET' | 'CAPSULE';
@@ -238,12 +282,19 @@ export function readIndications(xml: string): LabelIndications {
     ? section.replace(/<excerpt>[\s\S]*?<\/excerpt>/g, '').replace(/<title\b[^>]*>[\s\S]*?<\/title>/, '')
     : null;
 
+  // The document's own code, its first: "HUMAN PRESCRIPTION DRUG LABEL" or
+  // "HUMAN OTC DRUG LABEL".
+  const type = /<document\b[^>]*>[\s\S]*?<code\b[^>]*\bcode="([^"]+)"/.exec(xml)?.[1];
+  const documentType =
+    type === DOCUMENT_TYPES.prescription ? 'prescription' : type === DOCUMENT_TYPES.otc ? 'otc' : null;
+
   return {
     approvals,
     actives: [...actives.values()],
     products: [...products],
     summary,
     section: body ? labelMarkupToText(body) : null,
+    documentType,
   };
 }
 
@@ -331,70 +382,57 @@ async function ingredientsOf(rxcui: string): Promise<Fetched<string[]>> {
 }
 
 /** What a label must be, besides approved, to be shown for this lookup. */
-type Proof = { readonly kind: 'product'; readonly key: string } | { readonly kind: 'ingredients'; readonly names: readonly string[] };
+type Proof =
+  | { readonly kind: 'product'; readonly key: string }
+  | { readonly kind: 'ingredients'; readonly names: readonly string[]; readonly salts: readonly string[] };
+
+type Outcome = Extract<ApprovedUsesLookup, { status: 'found' | 'none' | 'unavailable' }>;
+
+/** The release a label's title names ("TABLET, FILM COATED, EXTENDED RELEASE"). */
+const releaseOf = (title: string): Release | null =>
+  /\bEXTENDED[- ]RELEASE\b/i.test(title) ? 'extended' : /\bDELAYED[- ]RELEASE\b/i.test(title) ? 'delayed' : null;
 
 /**
- * The labels to try, best first, with what each must prove; `unavailable` if
- * DailyMed or RxNav could not say.
+ * Of the labels DailyMed lists for an RxNorm concept, those whose titles could
+ * be this medicine's, best first. Titles name the medicine and its form
+ * ("GLUMETZA (METFORMIN HYDROCHLORIDE) TABLET [...]"), so the few downloads
+ * go on likely ones; each is still held to its own ingredient list after. A
+ * title is only a way to choose, except for the release, which only the
+ * title says.
  */
-async function candidates(target: UsesTarget): Promise<Fetched<{ labels: LabelDocument[]; proof: Proof }>> {
-  let names: readonly string[];
-  let listed: LabelDocument[];
-  // The form its titles must name: the reading's, for a name; for a product,
-  // none, since its RxNorm code is of one form already.
-  let form: DoseForm | null = null;
-
-  if (target.kind === 'product') {
-    for (const code of dailyMedPackageCodes(target.ndc11)) {
-      const byNdc = await labelsAt(`ndc=${encodeURIComponent(code)}`);
-      if (!byNdc.ok) return byNdc;
-      if (byNdc.value.length > 0) {
-        return { ok: true, value: { labels: byNdc.value, proof: { kind: 'product', key: target.ndc11.slice(0, 9) } } };
-      }
-    }
-    // Not listed by its package: its RxNorm product's labels, which must then
-    // prove they are this medicine by their ingredients.
-    const ingredients = await ingredientsOf(target.rxcui);
-    if (!ingredients.ok) return ingredients;
-    const byProduct = await labelsAt(`rxcui=${encodeURIComponent(target.rxcui)}`);
-    if (!byProduct.ok) return byProduct;
-    names = ingredients.value;
-    listed = byProduct.value;
-  } else {
-    const byIngredient = await labelsAt(`rxcui=${encodeURIComponent(target.rxcui)}&pagesize=100`);
-    if (!byIngredient.ok) return byIngredient;
-    names = target.ingredients;
-    listed = byIngredient.value;
-    form = target.form;
-  }
-
-  // Titles name the medicine and its form ("GLUMETZA (METFORMIN
-  // HYDROCHLORIDE) TABLET [...]"): first the labels whose titles could be
-  // this one, of the form read, so the few downloads go on likely ones. Each
-  // is still held to its own ingredient list, below; a title is only a way to
-  // choose.
-  const formWord = form ? new RegExp(`\\b${form}`, 'i') : null;
-  const labels = listed.filter((label) => {
+function likely(
+  listed: readonly LabelDocument[],
+  names: readonly string[],
+  want: { form: DoseForm | null; salts: readonly string[]; release: Release | null; preferAtOnce: boolean }
+): LabelDocument[] {
+  const formWord = want.form ? new RegExp(`\\b${want.form}`, 'i') : null;
+  const scored = listed.flatMap((label, index) => {
     const title = label.title.replace(/\[.*$/, '');
     const words = new Set(nameWords(title));
-    return (
+    const fits =
       (formWord === null || formWord.test(title)) &&
       names.every((name) => nameWords(name).every((word) => words.has(word))) &&
       // One ingredient's list also holds its combinations ("PIOGLITAZONE AND
       // METFORMIN ..."), which would only fail the count after a download.
-      (names.length > 1 || !words.has('and'))
-    );
+      (names.length > 1 || !words.has('and')) &&
+      (want.release === null || releaseOf(title) === want.release);
+    if (!fits) return [];
+    // First the titles that name the salt printed; then, where no release was
+    // printed, those released at once.
+    const score =
+      (want.salts.every((salt) => words.has(salt)) ? 2 : 0) +
+      (want.preferAtOnce && want.release === null && releaseOf(title) === null ? 1 : 0);
+    return [{ label, index, score }];
   });
-  return { ok: true, value: { labels, proof: { kind: 'ingredients', names } } };
+  return scored.sort((a, b) => b.score - a.score || a.index - b.index).map(({ label }) => label);
 }
 
-/** What the target's label says it is approved to treat. Never throws. */
-export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUsesLookup> {
-  if (target.kind === 'ingredients' && target.form === null) return { status: 'formUnknown' };
-  const found = await candidates(target);
-  if (!found.ok) return { status: 'unavailable' };
-  const { labels, proof } = found.value;
-
+/** The first of these labels that proves it is this medicine's, of this kind; or why none did. */
+async function firstProven(
+  labels: readonly LabelDocument[],
+  proof: Proof,
+  type: DocumentType | null
+): Promise<Outcome> {
   let failed = false;
   for (const label of labels.slice(0, LABELS_TRIED)) {
     const xml = await get(`${DAILYMED_BASE}/spls/${encodeURIComponent(label.setId)}.xml`, (response) =>
@@ -408,9 +446,15 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
     const read = readIndications(xml.value);
     const approved = read.approvals.length > 0 && read.approvals.every((category) => APPROVED.test(category));
     const thisMedicine =
-      proof.kind === 'product' ? read.products.includes(proof.key) : sameIngredients(read.actives, proof.names);
+      proof.kind === 'product'
+        ? read.products.includes(proof.key)
+        : sameIngredients(read.actives, proof.names) &&
+          // The salt printed, in the label's own active ingredient.
+          proof.salts.every((salt) => read.actives.some((active) => nameWords(active.substance).includes(salt)));
+    // Listed by DailyMed as this kind; and not saying otherwise itself.
+    const ofKind = type === null || read.documentType === null || read.documentType === type;
     const text = read.summary ?? read.section;
-    if (!approved || !thisMedicine || !text) continue;
+    if (!approved || !thisMedicine || !ofKind || !text) continue;
 
     return {
       status: 'found',
@@ -426,4 +470,59 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
     };
   }
   return failed ? { status: 'unavailable' } : { status: 'none' };
+}
+
+/**
+ * The label of the kind read: for a pharmacy's label, a prescription one, or
+ * else an over-the-counter one; for Drug Facts, an over-the-counter one; for
+ * neither, whichever kind alone has one, and none if both do.
+ */
+async function ofKind(
+  kind: LabelKind | null,
+  attempt: (type: DocumentType) => Promise<Outcome>
+): Promise<ApprovedUsesLookup> {
+  if (kind === 'otc') return attempt('otc');
+  const prescription = await attempt('prescription');
+  if (prescription.status === 'unavailable') return prescription;
+  if (kind === 'prescription') return prescription.status === 'found' ? prescription : attempt('otc');
+  const otc = await attempt('otc');
+  if (otc.status === 'unavailable') return otc;
+  if (prescription.status === 'found' && otc.status === 'found') return { status: 'kindUnknown' };
+  return prescription.status === 'found' ? prescription : otc;
+}
+
+/** What the target's label says it is approved to treat. Never throws. */
+export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUsesLookup> {
+  if (target.kind === 'ingredients' && target.form === null) return { status: 'formUnknown' };
+
+  if (target.kind === 'product') {
+    for (const code of dailyMedPackageCodes(target.ndc11)) {
+      const byNdc = await labelsAt(`ndc=${encodeURIComponent(code)}`);
+      if (!byNdc.ok) return { status: 'unavailable' };
+      // The package's own labels: this product's, whatever their kind.
+      if (byNdc.value.length > 0) {
+        return firstProven(byNdc.value, { kind: 'product', key: target.ndc11.slice(0, 9) }, null);
+      }
+    }
+    // Not listed by its package: its RxNorm product's labels, which must then
+    // prove they are this medicine by their ingredients.
+    const ingredients = await ingredientsOf(target.rxcui);
+    if (!ingredients.ok) return { status: 'unavailable' };
+    return ofKind(null, async (type) => {
+      const listed = await labelsAt(`rxcui=${encodeURIComponent(target.rxcui)}&doctype=${DOCUMENT_TYPES[type]}`);
+      if (!listed.ok) return { status: 'unavailable' };
+      const labels = likely(listed.value, ingredients.value, { form: null, salts: [], release: null, preferAtOnce: false });
+      return firstProven(labels, { kind: 'ingredients', names: ingredients.value, salts: [] }, type);
+    });
+  }
+
+  const { rxcui, ingredients, form, salts = [], release = null, labelKind = null } = target;
+  return ofKind(labelKind, async (type) => {
+    const listed = await labelsAt(
+      `rxcui=${encodeURIComponent(rxcui)}&doctype=${DOCUMENT_TYPES[type]}&pagesize=100`
+    );
+    if (!listed.ok) return { status: 'unavailable' };
+    const labels = likely(listed.value, ingredients, { form, salts, release, preferAtOnce: true });
+    return firstProven(labels, { kind: 'ingredients', names: ingredients, salts }, type);
+  });
 }

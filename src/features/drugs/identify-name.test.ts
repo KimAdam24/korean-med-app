@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 
-import { identifyByName, medicineWords } from './identify-name.ts';
+import { identifyByName, medicineWords, printedRelease, printedSalts } from './identify-name.ts';
 
 test('the words that name the medicine: its salt, spelled out, but not its form, release, strength or bare numbers', () => {
   assert.deepEqual(medicineWords('VITAMIN D2'), ['vitamin', 'd2']);
@@ -260,4 +260,31 @@ test('nothing to name the medicine by asks nothing', async () => {
 test('RxNav unreachable is "unavailable", not "unidentified"', async () => {
   rxNav('offline');
   assert.deepEqual(await identifyByName('LISINOPRIL'), { status: 'unavailable' });
+});
+
+test('the salt a printed name names beyond its ingredient: what the label shown must be of', () => {
+  assert.deepEqual(printedSalts('METOPROLOL SUCC ER 25MG', ['metoprolol']), ['succinate']);
+  assert.deepEqual(printedSalts('METOPROLOL TARTRATE 25MG', ['metoprolol']), ['tartrate']);
+  assert.deepEqual(printedSalts('ESOMEPRAZOLE MAG DR 40MG', ['esomeprazole']), ['magnesium']);
+  assert.deepEqual(printedSalts('AMLODIPINE BESYLATE AND BENAZEPRIL HCL', ['amlodipine', 'benazepril']), [
+    'besylate',
+    'hydrochloride',
+  ]);
+  // A salt that is the ingredient's own name, a brand, or none printed: none.
+  assert.deepEqual(printedSalts('POTASSIUM CHLORIDE ER 10 MEQ', ['potassium chloride']), []);
+  assert.deepEqual(printedSalts('TOPROL XL 25MG', ['metoprolol']), []);
+  assert.deepEqual(printedSalts('METOPROLOL 25MG', ['metoprolol']), []);
+  // A synonym's words are not salts.
+  assert.deepEqual(printedSalts('VITAMIN D2', ['ergocalciferol']), []);
+});
+
+test('how a printed name says the medicine is released', () => {
+  assert.equal(printedRelease('METOPROLOL SUCC ER 25MG'), 'extended');
+  assert.equal(printedRelease('TOPROL XL'), 'extended');
+  assert.equal(printedRelease('DILTIAZEM CD 180MG'), 'extended');
+  assert.equal(printedRelease('ESOMEPRAZOLE MAG DR 40MG'), 'delayed');
+  assert.equal(printedRelease('ASPIRIN EC 81MG'), 'delayed');
+  assert.equal(printedRelease('METOPROLOL TARTRATE 25MG'), null);
+  // A brand's "24HR" is not a release.
+  assert.equal(printedRelease('ALLEGRA 24HR'), null);
 });

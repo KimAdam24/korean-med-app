@@ -43,6 +43,7 @@ import { interpretLines } from '@/features/ocr/interpret-lines';
 import { goBackOr } from '@/features/navigation/go-back';
 import { DevLineList, logRecognizedLines } from '@/features/ocr/dev-line-list';
 import { assessField, type FieldKind } from '@/features/ocr/field-integrity';
+import { labelKindOf, type LabelKind } from '@/features/ocr/label-kind';
 import { medicationFromReading, readableName, withName } from '@/features/ocr/reading-to-record';
 import { isCutAtEdge, keepWithheld, type EdgeTruncation } from '@/features/ocr/truncation';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
@@ -444,7 +445,8 @@ export default function CameraScreen() {
       fields: MedicationLabelFields,
       truncation: EdgeTruncation | null | undefined,
       match: NameMatch | null,
-      nameSource: 'read' | 'typed'
+      nameSource: 'read' | 'typed',
+      labelKind: LabelKind | null
     ) => {
       const toSave = medicationFromReading(fields, truncation, nameSource === 'typed');
       if (!toSave) return;
@@ -461,6 +463,9 @@ export default function CameraScreen() {
           ...toSave.record,
           // Read from the label, or typed by the user: different evidence.
           nameSource,
+          // A pharmacy's label or a package's Drug Facts: which of its FDA
+          // labels applies. Kept, since the lines that said are not.
+          ...(labelKind ? { labelKind } : {}),
           ...(match ? { nameMatch: { ...match, form } } : {}),
         });
         setPhase({ kind: 'saved' });
@@ -916,7 +921,8 @@ function ReadingResult({
     fields: MedicationLabelFields,
     truncation: EdgeTruncation | null | undefined,
     match: NameMatch | null,
-    nameSource: 'read' | 'typed'
+    nameSource: 'read' | 'typed',
+    labelKind: LabelKind | null
   ) => void;
   onRetake: () => void;
   /** Absent where the sweep is not available: iOS, until its Swift is built. */
@@ -937,10 +943,14 @@ function ReadingResult({
   const namedTruncation =
     typedName && truncation ? { ...truncation, fields: truncation.fields.filter((kind) => kind !== 'name') } : truncation;
   const toSave = medicationFromReading(named, namedTruncation, Boolean(typedName));
+  // A pharmacy's label, or a package's Drug Facts, by the lines read: which of
+  // the ingredient's FDA labels, prescription or over-the-counter, applies.
+  const labelKind = labelKindOf(lines);
   const usesSource: UsesSource = {
     kind: 'name',
     name: typedName ?? readableName(fields, truncation),
     form: doseFormOf(named.name?.text, fields.dosage?.text, fields.instructions?.text),
+    labelKind,
     ...(typedName ? { typed: true } : {}),
   };
   // What the name was identified as, if it was: saved with the medicine. Held
@@ -1109,7 +1119,7 @@ function ReadingResult({
       ) : null}
       <BigButton
         label={Strings.medications.saveFromLabel}
-        onPress={() => onSave(named, namedTruncation, match, typedName ? 'typed' : 'read')}
+        onPress={() => onSave(named, namedTruncation, match, typedName ? 'typed' : 'read', labelKind)}
         tone={degraded ? 'secondary' : 'primary'}
       />
     </View>

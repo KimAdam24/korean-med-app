@@ -50,13 +50,14 @@ function parseProfile(value: unknown): MedicationProfile | null {
  * the user saves it from the edit form. Either way the record is kept.
  */
 function withSoundExtras(record: MedicationRecord): MedicationRecord {
-  const { nameMatch, nameIncomplete, nameSource, ...rest } = record;
+  const { nameMatch, nameIncomplete, nameSource, labelKind, ...rest } = record;
   return {
     ...rest,
     ...(nameMatch !== undefined && isNameMatch(nameMatch) ? { nameMatch } : {}),
     ...(nameIncomplete !== undefined ? { nameIncomplete: true as const } : {}),
     // Unknown is said as absent, never guessed.
     ...(nameSource === 'read' || nameSource === 'typed' || nameSource === 'rxnorm' ? { nameSource } : {}),
+    ...(labelKind === 'prescription' || labelKind === 'otc' ? { labelKind } : {}),
   };
 }
 

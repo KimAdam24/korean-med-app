@@ -124,6 +124,16 @@ export type MedicationRecord = {
    */
   readonly nameSource?: 'read' | 'typed' | 'rxnorm';
   /**
+   * What kind of label the medicine was read from, where its lines said: a
+   * pharmacy's prescription label, or an over-the-counter package's Drug
+   * Facts (`labelKindOf`). It chooses between an ingredient's prescription
+   * and over-the-counter FDA labels, which list different uses. Kept on the
+   * record, not with `nameMatch`, since it is the photo's evidence, which no
+   * later edit can give again. Absent where neither was read, and on older
+   * records.
+   */
+  readonly labelKind?: 'prescription' | 'otc';
+  /**
    * Daily reminder times, sorted, no two alike. Stored here, in the encrypted
    * vault, and nowhere else: what the phone's scheduler holds is only an
    * identifier and a generic "time for your medicine", never a name — see

@@ -49,7 +49,7 @@ const label = (category = 'NDA') => `<document>
  * RxNav and DailyMed, answering the lookups for the vitamin D2 vial. Returns
  * every URL asked for, in order.
  */
-function nlm({ online = true, category = 'NDA' } = {}): string[] {
+function nlm({ online = true, category = 'NDA', overTheCounterToo = false } = {}): string[] {
   const asked: string[] = [];
   const reply = (body: unknown) =>
     ({
@@ -82,7 +82,12 @@ function nlm({ online = true, category = 'NDA' } = {}): string[] {
           : { ndcStatus: { status: 'UNKNOWN' } }
       );
     }
-    if (url.includes('spls.json?rxcui=4018') || url.includes('spls.json?ndc=13668-757-01')) {
+    // A prescription medicine: its labels are listed as prescription ones only,
+    // unless the test says it is sold over the counter too.
+    if (
+      (url.includes('spls.json?rxcui=4018') && (url.includes('doctype=34391-3') || overTheCounterToo)) ||
+      url.includes('spls.json?ndc=13668-757-01')
+    ) {
       return reply({ data: [{ setid: 'torrent', title: TORRENT, spl_version: 3 }] });
     }
     if (url.includes('spls.json')) return reply({ data: [] });
@@ -383,6 +388,50 @@ describe('what a medicine is approved to treat', () => {
     expect(profile.status === 'ok' && profile.value.medications[0].nameIncomplete).toBeUndefined();
     // The new name is the user's.
     expect(profile.status === 'ok' && profile.value.medications[0].nameSource).toBe('typed');
+  });
+});
+
+describe('prescription or over the counter', () => {
+  it("a pharmacy's label is saved as one, and its page asks only for prescription labels", async () => {
+    const asked = nlm();
+    // The vial's "Generic for: Calciferol,Drisdol" is a pharmacy's line.
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+    await screen.findByText(INDICATION);
+    expect(asked.some((url) => url.includes('doctype=34390-5'))).toBe(false);
+
+    press(Strings.medications.saveFromLabel.ko);
+    await screen.findByText(Strings.scan.saved.ko);
+    const profile = await loadProfile();
+    const saved = profile.status === 'ok' ? profile.value.medications[0] : undefined;
+    expect(saved?.labelKind).toBe('prescription');
+
+    asked.length = 0;
+    launchApp(`/medication/${saved!.id}`);
+    await screen.findByText(INDICATION);
+    expect(asked.some((url) => url.includes('doctype=34390-5'))).toBe(false);
+  });
+
+  it('a medicine sold both ways, read with nothing to say which: neither label is shown', async () => {
+    nlm({ overTheCounterToo: true });
+    // The vial without its pharmacy's line, in the same place.
+    await openPickedPhoto(
+      VITAMIN_D2_VIAL_LINES.map((line) =>
+        line.text.startsWith('Generic for') ? { ...line, text: 'KEEP OUT OF REACH OF CHILDREN' } : line
+      )
+    );
+    // Without that line to find it by, the name is not read either: the user
+    // goes on to the reading anyway, and types it from the bottle.
+    await screen.findByText(Strings.result.showReading.ko);
+    press(Strings.result.showReading.ko);
+    fireEvent.changeText(screen.getByLabelText(Strings.nameEntry.inputLabel.ko), 'VITAMIN D2');
+    press(Strings.nameEntry.submit.ko);
+    await screen.findByText(Strings.uses.kindUnknown.ko);
+    expect(screen.queryByText(INDICATION)).toBeNull();
+
+    // With them, the prescription label.
+    nlm({ overTheCounterToo: true });
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+    await screen.findByText(INDICATION);
   });
 });
 

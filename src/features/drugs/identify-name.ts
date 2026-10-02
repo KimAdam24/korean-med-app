@@ -135,6 +135,50 @@ export function medicineWords(name: string): string[] {
 /** The same, without the salts that only carry the medicine (`CARRIER_SALTS`). */
 const withoutCarrier = (medicine: readonly string[]) => medicine.filter((word) => !CARRIER_SALTS.has(word));
 
+/**
+ * Every word that names a salt, the metals and the salts that are medicines
+ * with them included: what a label's active ingredient must also name, where
+ * the bottle prints it.
+ */
+const SALT_WORDS = new Set([
+  ...CARRIER_SALTS,
+  'sodium', 'potassium', 'calcium', 'magnesium', 'zinc', 'ferrous', 'lithium', 'aluminum', 'chloride', 'bromide',
+  'iodide', 'acetate', 'citrate', 'gluconate', 'lactate', 'carbonate', 'bicarbonate', 'sulfate', 'phosphate',
+  'salicylate', 'propionate', 'dipropionate', 'valerate', 'furoate', 'pamoate', 'napsylate', 'oxalate', 'tosylate',
+  'xinafoate', 'nitrate', 'besilate', 'mesilate', 'maleate', 'decanoate', 'cypionate', 'enanthate',
+]);
+
+/**
+ * The salts a printed name names beyond its ingredients' own names:
+ * "METOPROLOL SUCC ER" is metoprolol, as succinate. Different salts of one
+ * ingredient can be different medicines, approved for different things
+ * (metoprolol succinate, extended-release, for heart failure; the tartrate,
+ * not), so the label shown must be of the salt printed. None for a salt that
+ * is the ingredient's own name ("POTASSIUM CHLORIDE"), nor for a brand.
+ */
+export function printedSalts(name: string, ingredients: readonly string[]): string[] {
+  const own = new Set(ingredients.flatMap((ingredient) => medicineWords(ingredient)));
+  return [...new Set(medicineWords(name).filter((word) => SALT_WORDS.has(word) && !own.has(word)))];
+}
+
+export type Release = 'extended' | 'delayed';
+
+const EXTENDED = new Set(['er', 'xr', 'xl', 'sr', 'cr', 'la', 'cd', 'extended']);
+const DELAYED = new Set(['dr', 'ec', 'delayed']);
+
+/**
+ * How a printed name says the medicine is released: "ER", "XL", "SR", "CD"
+ * and the like are extended release, "DR" and "EC" delayed. Null where it
+ * says neither, or both. Not "24HR", a brand's word ("Allegra 24HR" is not
+ * extended release).
+ */
+export function printedRelease(name: string): Release | null {
+  const printed = words(name);
+  const extended = printed.some((word) => EXTENDED.has(word));
+  const delayed = printed.some((word) => DELAYED.has(word));
+  return extended === delayed ? null : extended ? 'extended' : 'delayed';
+}
+
 type Fetched<T> = { readonly ok: true; readonly value: T } | { readonly ok: false };
 
 async function getJson<T>(url: string): Promise<Fetched<T>> {

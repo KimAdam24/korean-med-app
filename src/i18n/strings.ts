@@ -551,6 +551,10 @@ export const Strings = {
       'What it is approved to treat is shown only for tablets and capsules, and this label does not say that it is one. Eye drops, inhalers and other forms have labels of their own, with other uses.',
       "In place of the label's text, when the medicine is known by its name but its label does not say it is a tablet or a capsule: it may be eye drops, an inhaler, a patch or an injection, whose labels list other uses than its tablets' do, or the words saying which were not read."
     ),
+    kindUnknown: untranslated(
+      'This medicine has a prescription label and an over-the-counter label, which list different uses, and what was read of the bottle does not show which it is.',
+      "In place of the label's text, when the medicine is sold both on prescription and over the counter, with different approved uses, and neither a pharmacy's label nor a Drug Facts panel was read."
+    ),
     unavailable: untranslated(
       'Its FDA label could not be reached just now. Check the connection, or try again in a while.',
       'In place of the label\'s text, when there is no connection, or the service does not answer. Under it, the button uses.retry.'

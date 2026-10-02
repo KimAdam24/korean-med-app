@@ -226,6 +226,10 @@ const listing = (...labels: [setid: string, title: string][]) => ({
   json: { data: labels.map(([setid, title]) => ({ setid, title, spl_version: 3 })) },
 });
 
+/** DailyMed's prescription and over-the-counter document types, as asked for. */
+const RX = 'doctype=34391-3';
+const OTC = 'doctype=34390-5';
+
 test("a barcode: the product's own label, by its full package code", async () => {
   const asked = nlm((url) => {
     if (url.includes('ndc=13668-757-01')) return listing(['erg', 'ERGOCALCIFEROL CAPSULE [TORRENT]']);
@@ -263,9 +267,11 @@ test('a barcode whose package DailyMed no longer lists: its RxNorm product, held
     if (url.includes('/rxcui/316965/related.json?tty=IN')) {
       return { json: { relatedGroup: { conceptGroup: [{ tty: 'IN', conceptProperties: [{ name: 'ergocalciferol' }] }] } } };
     }
-    if (url.includes('spls.json?rxcui=316965')) {
+    if (url.includes('spls.json?rxcui=316965') && url.includes(RX)) {
       return listing(['calc', 'CALCIUM AND ERGOCALCIFEROL CAPSULE [X]'], ['erg', 'ERGOCALCIFEROL CAPSULE [OTHER]']);
     }
+    // A prescription vitamin D: no over-the-counter label of the product.
+    if (url.includes('spls.json?rxcui=316965') && url.includes(OTC)) return listing();
     if (url.endsWith('/spls/erg.xml')) return { text: ERGOCALCIFEROL };
     return { status: 404 };
   });
@@ -290,12 +296,20 @@ test('a name: unrelated labels in the ingredient\'s list are passed over, by tit
     if (url.endsWith('/spls/met.xml')) return { text: METFORMIN };
     return { status: 404 };
   });
-  const found = await findApprovedUses({ kind: 'ingredients', rxcui: '6809', ingredients: ['metformin'], form: 'TABLET' });
+  // Read from a pharmacy's label: its prescription labels, and no others once
+  // one is found.
+  const found = await findApprovedUses({
+    kind: 'ingredients',
+    rxcui: '6809',
+    ingredients: ['metformin'],
+    form: 'TABLET',
+    labelKind: 'prescription',
+  });
   assert.equal(found.status, 'found');
   if (found.status !== 'found') return;
   assert.equal(found.uses.content.summary, true);
   assert.equal(found.uses.content.label.setId, 'met');
-  assert.deepEqual(asked, ['/spls.json?rxcui=6809&pagesize=100', '/spls/hidden.xml', '/spls/met.xml']);
+  assert.deepEqual(asked, [`/spls.json?rxcui=6809&${RX}&pagesize=100`, '/spls/hidden.xml', '/spls/met.xml']);
 });
 
 test('only an approved label: one marketed as unapproved has no approved uses to show', async () => {
@@ -318,7 +332,11 @@ test('DailyMed unreachable is "unavailable", not "none": trying again may work',
 test('no label of the form read: "none", and the label of another form is not downloaded', async () => {
   // A label that would be shown, but for its form.
   const asked = nlm((url) =>
-    url.endsWith('.xml') ? { text: ERGOCALCIFEROL } : listing(['erg', 'ERGOCALCIFEROL CAPSULE [X]'])
+    url.endsWith('.xml')
+      ? { text: ERGOCALCIFEROL }
+      : url.includes(RX)
+        ? listing(['erg', 'ERGOCALCIFEROL CAPSULE [X]'])
+        : listing()
   );
   assert.deepEqual(
     await findApprovedUses({ kind: 'ingredients', rxcui: '4018', ingredients: ['ergocalciferol'], form: 'TABLET' }),
@@ -351,7 +369,9 @@ test("a barcode's RxNorm product is of one form already: its labels are not held
     if (url.includes('/rxcui/1923428/related.json?tty=IN')) {
       return { json: { relatedGroup: { conceptGroup: [{ tty: 'IN', conceptProperties: [{ name: 'timolol' }] }] } } };
     }
-    if (url.includes('spls.json?rxcui=1923428')) return listing(['drops', 'TIMOLOL MALEATE SOLUTION/ DROPS [X]']);
+    if (url.includes('spls.json?rxcui=1923428')) {
+      return url.includes(RX) ? listing(['drops', 'TIMOLOL MALEATE SOLUTION/ DROPS [X]']) : listing();
+    }
     if (url.endsWith('/spls/drops.xml')) {
       return { text: other('TIMOLOL MALEATE', '11111-222', 'Timolol maleate ophthalmic solution is indicated for elevated intraocular pressure.') };
     }
@@ -364,7 +384,9 @@ test("a barcode's RxNorm product is of one form already: its labels are not held
 test('RxNorm\'s "(USP)" is not a word a label must have', async () => {
   assert.equal(sameIngredients([{ substance: 'ESTROGENS, CONJUGATED', moiety: null }], ['estrogens, conjugated (USP)']), true);
   nlm((url) => {
-    if (url.includes('spls.json?rxcui=4099')) return listing(['prem', 'PREMARIN (ESTROGENS, CONJUGATED) TABLET, FILM COATED [WYETH]']);
+    if (url.includes('spls.json?rxcui=4099')) {
+      return url.includes(RX) ? listing(['prem', 'PREMARIN (ESTROGENS, CONJUGATED) TABLET, FILM COATED [WYETH]']) : listing();
+    }
     if (url.endsWith('/spls/prem.xml')) {
       return { text: other('ESTROGENS, CONJUGATED', '0046-1100', 'PREMARIN is indicated for the treatment of moderate to severe vasomotor symptoms.') };
     }
@@ -377,4 +399,166 @@ test('RxNorm\'s "(USP)" is not a word a label must have', async () => {
     form: 'TABLET',
   });
   assert.equal(found.status === 'found' && found.uses.content.label.setId, 'prem');
+});
+
+// --- The salt, release and kind printed --------------------------------------
+
+/** A label of one active ingredient, as its own document type says it is. */
+const ofType = (type: 'prescription' | 'otc' | null, substance: string, moiety: string, uses: string) => `<document>
+  ${type ? `<code code="${type === 'prescription' ? '34391-3' : '34390-5'}" codeSystem="2.16.840.1.113883.6.1"/>` : ''}
+  ${active(substance, moiety)}${approval('ANDA')}${ndc('11111-111', '11111-111-11')}
+  <component><section><code code="34067-9"/><title>INDICATIONS AND USAGE</title>
+    <text><paragraph>${uses}</paragraph></text></section></component>
+</document>`;
+
+const SUCCINATE = 'Metoprolol succinate extended-release tablets are indicated for heart failure.';
+const TARTRATE = 'Metoprolol tartrate tablets are indicated for myocardial infarction.';
+
+test("a label's own document type, prescription or over-the-counter", () => {
+  assert.equal(readIndications(ofType('prescription', 'X', 'X', 'x')).documentType, 'prescription');
+  assert.equal(readIndications(ofType('otc', 'X', 'X', 'x')).documentType, 'otc');
+  assert.equal(readIndications(ofType(null, 'X', 'X', 'x')).documentType, null);
+});
+
+/** Metoprolol's labels, the tartrate's listed first, as DailyMed lists them. */
+function metoprolol(xml: Record<string, string> = {}): string[] {
+  return nlm((url) => {
+    if (url.includes('spls.json?rxcui=6918')) {
+      return url.includes(RX)
+        ? listing(
+            ['tart', 'METOPROLOL TARTRATE TABLET, FILM COATED [X]'],
+            ['succ', 'METOPROLOL SUCCINATE TABLET, FILM COATED, EXTENDED RELEASE [Y]']
+          )
+        : listing();
+    }
+    if (url.endsWith('/spls/tart.xml')) {
+      return { text: xml.tart ?? ofType('prescription', 'METOPROLOL TARTRATE', 'METOPROLOL', TARTRATE) };
+    }
+    if (url.endsWith('/spls/succ.xml')) {
+      return { text: xml.succ ?? ofType('prescription', 'METOPROLOL SUCCINATE', 'METOPROLOL', SUCCINATE) };
+    }
+    return { status: 404 };
+  });
+}
+const metoprololTarget = (salts: string[], release: 'extended' | 'delayed' | null): UsesTarget => ({
+  kind: 'ingredients',
+  rxcui: '6918',
+  ingredients: ['metoprolol'],
+  form: 'TABLET',
+  salts,
+  release,
+  labelKind: 'prescription',
+});
+
+test('the salt and release printed: metoprolol succinate ER is shown its own label, not the tartrate listed first', async () => {
+  const asked = metoprolol();
+  const found = await findApprovedUses(metoprololTarget(['succinate'], 'extended'));
+  assert.equal(found.status === 'found' && found.uses.content.text, SUCCINATE);
+  // The tartrate, of another release, was passed over by its title.
+  assert.ok(!asked.includes('/spls/tart.xml'), asked.join('\n'));
+
+  // "METOPROLOL ER", no salt printed: the release alone keeps the tartrate,
+  // released at once and listed first, from being shown.
+  metoprolol();
+  const extended = await findApprovedUses(metoprololTarget([], 'extended'));
+  assert.equal(extended.status === 'found' && extended.uses.content.text, SUCCINATE);
+});
+
+test("a salt printed is required of the label's own active ingredient, whatever its title says", async () => {
+  // Titled extended-release succinate, but its active ingredient is the tartrate.
+  metoprolol({ succ: ofType('prescription', 'METOPROLOL TARTRATE', 'METOPROLOL', TARTRATE) });
+  assert.deepEqual(await findApprovedUses(metoprololTarget(['succinate'], 'extended')), { status: 'none' });
+  // And the tartrate printed is not shown the succinate.
+  metoprolol({ tart: ofType('prescription', 'METOPROLOL SUCCINATE', 'METOPROLOL', SUCCINATE) });
+  assert.deepEqual(await findApprovedUses(metoprololTarget(['tartrate'], null)), { status: 'none' });
+});
+
+test('no release printed: a label released at once is tried first, but one released otherwise is not refused', async () => {
+  const asked = nlm((url) => {
+    if (url.includes('spls.json?rxcui=6918')) {
+      return url.includes(RX)
+        ? listing(
+            ['succ', 'METOPROLOL SUCCINATE TABLET, FILM COATED, EXTENDED RELEASE [Y]'],
+            ['tart', 'METOPROLOL TARTRATE TABLET, FILM COATED [X]']
+          )
+        : listing();
+    }
+    if (url.endsWith('/spls/tart.xml')) return { text: ofType('prescription', 'METOPROLOL TARTRATE', 'METOPROLOL', TARTRATE) };
+    if (url.endsWith('/spls/succ.xml')) return { text: ofType('prescription', 'METOPROLOL SUCCINATE', 'METOPROLOL', SUCCINATE) };
+    return { status: 404 };
+  });
+  const found = await findApprovedUses(metoprololTarget([], null));
+  assert.equal(found.status === 'found' && found.uses.content.text, TARTRATE);
+  assert.ok(!asked.includes('/spls/succ.xml'));
+
+  // Where only the other release has a label, it is shown.
+  nlm((url) => {
+    if (url.includes('spls.json?rxcui=6918')) {
+      return url.includes(RX) ? listing(['succ', 'METOPROLOL SUCCINATE TABLET, FILM COATED, EXTENDED RELEASE [Y]']) : listing();
+    }
+    if (url.endsWith('/spls/succ.xml')) return { text: ofType('prescription', 'METOPROLOL SUCCINATE', 'METOPROLOL', SUCCINATE) };
+    return { status: 404 };
+  });
+  const only = await findApprovedUses(metoprololTarget([], null));
+  assert.equal(only.status === 'found' && only.uses.content.text, SUCCINATE);
+});
+
+const RX_USES = 'Esomeprazole magnesium delayed-release capsules are indicated for the treatment of GERD and H. pylori.';
+const OTC_USES = 'treats frequent heartburn (occurs 2 or more days a week)';
+
+/** Esomeprazole, with a prescription label, an over-the-counter one, or both. */
+function esomeprazole(kinds: { rx: boolean; otc: boolean }): string[] {
+  return nlm((url) => {
+    if (url.includes('spls.json?rxcui=283742')) {
+      if (url.includes(RX)) return kinds.rx ? listing(['rx', 'ESOMEPRAZOLE MAGNESIUM CAPSULE, DELAYED RELEASE [X]']) : listing();
+      return kinds.otc ? listing(['otc', 'ESOMEPRAZOLE MAGNESIUM CAPSULE, DELAYED RELEASE [CVS]']) : listing();
+    }
+    if (url.endsWith('/spls/rx.xml')) return { text: ofType('prescription', 'ESOMEPRAZOLE MAGNESIUM', 'ESOMEPRAZOLE', RX_USES) };
+    if (url.endsWith('/spls/otc.xml')) return { text: ofType('otc', 'ESOMEPRAZOLE MAGNESIUM', 'ESOMEPRAZOLE', OTC_USES) };
+    return { status: 404 };
+  });
+}
+const esomeprazoleTarget = (labelKind: 'prescription' | 'otc' | null): UsesTarget => ({
+  kind: 'ingredients',
+  rxcui: '283742',
+  ingredients: ['esomeprazole'],
+  form: 'CAPSULE',
+  salts: ['magnesium'],
+  release: 'delayed',
+  labelKind,
+});
+const usesOf = (found: Awaited<ReturnType<typeof findApprovedUses>>) =>
+  found.status === 'found' ? found.uses.content.text : found.status;
+
+test("a pharmacy's label is shown the prescription label; Drug Facts, the over-the-counter one", async () => {
+  esomeprazole({ rx: true, otc: true });
+  assert.equal(usesOf(await findApprovedUses(esomeprazoleTarget('prescription'))), RX_USES);
+  const asked = esomeprazole({ rx: true, otc: true });
+  assert.equal(usesOf(await findApprovedUses(esomeprazoleTarget('otc'))), OTC_USES);
+  assert.ok(!asked.some((url) => url.includes(RX)), 'Drug Facts: no prescription label is asked for');
+});
+
+test("a pharmacy's label of a medicine with no prescription label: the over-the-counter one, as it was dispensed", async () => {
+  esomeprazole({ rx: false, otc: true });
+  assert.equal(usesOf(await findApprovedUses(esomeprazoleTarget('prescription'))), OTC_USES);
+});
+
+test('neither read: shown where only one kind has a label, and refused where both do', async () => {
+  esomeprazole({ rx: true, otc: true });
+  assert.deepEqual(await findApprovedUses(esomeprazoleTarget(null)), { status: 'kindUnknown' });
+  esomeprazole({ rx: true, otc: false });
+  assert.equal(usesOf(await findApprovedUses(esomeprazoleTarget(null))), RX_USES);
+  esomeprazole({ rx: false, otc: true });
+  assert.equal(usesOf(await findApprovedUses(esomeprazoleTarget(null))), OTC_USES);
+});
+
+test('a label DailyMed lists as prescription, but which says it is over-the-counter, is not taken as prescription', async () => {
+  nlm((url) => {
+    if (url.includes('spls.json?rxcui=283742')) {
+      return url.includes(RX) ? listing(['mixed', 'ESOMEPRAZOLE MAGNESIUM CAPSULE, DELAYED RELEASE [X]']) : listing();
+    }
+    if (url.endsWith('/spls/mixed.xml')) return { text: ofType('otc', 'ESOMEPRAZOLE MAGNESIUM', 'ESOMEPRAZOLE', OTC_USES) };
+    return { status: 404 };
+  });
+  assert.equal(usesOf(await findApprovedUses(esomeprazoleTarget('prescription'))), 'none');
 });

@@ -183,6 +183,21 @@ describe('records written by another version', () => {
     const record = raw.status === 'ok' ? raw.value.medications[0] : undefined;
     expect(record).toMatchObject({ dosage: '1.25 MG', somethingNew: { kept: true }, nameSource: 'printed-ndc' });
   });
+
+  it('are read with only the label kinds this build knows: another is not taken for prescription or OTC', async () => {
+    await mutateVault<unknown>({}, () => ({
+      version: 1,
+      medications: [
+        { ...fromNewerBuild, id: 'a', labelKind: 'compounded' },
+        { ...fromNewerBuild, id: 'b', labelKind: 'otc' },
+      ],
+    }));
+    const profile = await loadProfile();
+    expect(profile.status === 'ok' && profile.value.medications.map((record) => [record.id, record.labelKind])).toEqual([
+      ['a', undefined],
+      ['b', 'otc'],
+    ]);
+  });
 });
 
 describe('the PIN', () => {

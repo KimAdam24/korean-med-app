@@ -333,6 +333,7 @@ export default function MedicationScreen() {
             ? record.nameMatch.form
             : doseFormOf(record.name, record.dosage, record.instructions),
         ...(record.nameMatch ? { known: record.nameMatch } : {}),
+        labelKind: record.labelKind ?? null,
       };
 
   return (

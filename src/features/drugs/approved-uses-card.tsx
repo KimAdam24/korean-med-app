@@ -10,8 +10,10 @@ import type { AttributedGuidance } from '@/features/guidance/attribution';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, fillTemplate } from '@/i18n/strings';
 
+import type { LabelKind } from '@/features/ocr/label-kind';
+
 import { findApprovedUses, type ApprovedUses, type DoseForm, type UsesTarget } from './approved-uses';
-import { identifyByName, type NameMatch } from './identify-name';
+import { identifyByName, printedRelease, printedSalts, type NameMatch } from './identify-name';
 
 /** What to show the approved uses of. */
 export type UsesSource =
@@ -23,7 +25,8 @@ export type UsesSource =
    * it, and the card says how to give it. `typed` when the user typed it from
    * the bottle, which the card says too, since it is the user's word and not
    * the label's. `known` is a match already made, as when a saved medicine
-   * carries one.
+   * carries one. `labelKind` is what kind of label was read, where it is
+   * known: a pharmacy's, or an over-the-counter package's.
    */
   | {
       readonly kind: 'name';
@@ -31,6 +34,7 @@ export type UsesSource =
       readonly form: DoseForm | null;
       readonly typed?: boolean;
       readonly known?: NameMatch;
+      readonly labelKind?: LabelKind | null;
     };
 
 type State =
@@ -38,6 +42,7 @@ type State =
   | { readonly kind: 'unidentified' }
   | { readonly kind: 'none' }
   | { readonly kind: 'formUnknown' }
+  | { readonly kind: 'kindUnknown' }
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'found'; readonly uses: AttributedGuidance<ApprovedUses>; readonly match?: NameMatch };
 
@@ -49,9 +54,9 @@ type State =
  * not the doctor's reason.
  *
  * Every state says something. "Could not be identified", "no approved label",
- * "only for tablets and capsules" and "could not be reached" are different,
- * and only the last offers to try again; an empty space would read as
- * nothing to know.
+ * "only for tablets and capsules", "prescription or over the counter cannot
+ * be told" and "could not be reached" are different, and only the last offers
+ * to try again; an empty space would read as nothing to know.
  */
 export function ApprovedUsesCard({
   source,
@@ -112,7 +117,17 @@ export function ApprovedUsesCard({
           match = identified.match;
         }
         told.current?.(match);
-        target = { kind: 'ingredients', rxcui: match.rxcui, ingredients: match.ingredients, form: current.form };
+        target = {
+          kind: 'ingredients',
+          rxcui: match.rxcui,
+          ingredients: match.ingredients,
+          form: current.form,
+          // The salt and release the name printed, and the kind of label read:
+          // which of the ingredient's labels is this medicine's.
+          salts: printedSalts(current.name!, match.ingredients),
+          release: printedRelease(current.name!),
+          labelKind: current.labelKind ?? null,
+        };
       }
 
       const found = await findApprovedUses(target);
@@ -186,7 +201,9 @@ export function ApprovedUsesCard({
                   ? Strings.uses.none
                   : state.kind === 'formUnknown'
                     ? Strings.uses.formUnknown
-                    : Strings.uses.unavailable
+                    : state.kind === 'kindUnknown'
+                      ? Strings.uses.kindUnknown
+                      : Strings.uses.unavailable
             }
             color={theme.textSecondary}
           />
