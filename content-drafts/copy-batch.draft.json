@@ -100,6 +100,29 @@
     "reminders.statusSilent": {
       "why": "Safety string: left for her to write, and shown in English until she has."
     },
+    "reminders.statusSet": {
+      "ko": "알림이 설정되어 있어요. 다음 알림 시간: {time}",
+      "note": "The shape of her 알림이 켜져 있어요. 다음 알림 시간: {time}, with 설정되어 (set) for 켜져 (on)."
+    },
+    "reminders.statusSetNoNext": {
+      "ko": "알림이 설정되어 있어요."
+    },
+    "reminders.statusDnd": {
+      "why": "Safety string: left for her to write, and shown in English until she has."
+    },
+    "reminders.statusDndNow": {
+      "why": "Safety string: left for her to write, and shown in English until she has."
+    },
+    "reminders.statusFocus": {
+      "why": "Safety string: left for her to write, and shown in English until she has."
+    },
+    "reminders.letThroughDnd": {
+      "ko": "방해 금지 모드에서도 알림이 울리게 하기"
+    },
+    "reminders.letThroughExplain": {
+      "ko": "다음 화면에서 '방해 금지 모드 무시' 스위치를 켜 주세요. 휴대폰에 따라 이름이 조금 다를 수 있어요. 그러면 방해 금지 모드가 켜져 있어도 복용 알림이 울려요. 전화나 다른 앱의 알림은 그대로 조용해요.",
+      "note": "방해 금지 모드 무시 is a guess at the switch's Korean name; it differs by phone."
+    },
     "uses.nameNotWhole": {
       "ko": "약 이름을 다 읽지 못해서 아직 찾아볼 수 없어요. 약병에 적힌 대로 이름을 입력하시거나, 다시 찍어 주세요."
     },

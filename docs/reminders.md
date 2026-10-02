@@ -33,6 +33,7 @@ question for the pharmacist, not something the app should guess at.
 | Allowed to show | Full authorisation only; "provisional" is silent and does not count | `POST_NOTIFICATIONS`, asked for with a reason when the first reminder is set |
 | Makes a sound | The default sound (`sound: 'default'` in the content); "Sounds" off in Settings is reported as silent | The channel's sound, which is the phone's default because the channel names no sound file (naming 'default' made expo-notifications look for a file of that name and log it missing on every launch); a muted or lowered channel is reported as silent, and one turned off altogether (importance NONE) as blocked. Below Android 8 there are no channels: the notification's own default sound, and the app-wide switch decides |
 | Capacity | 64 pending notifications per app; the rest are dropped silently. The app caps all reminder times at 48 | No limit that matters |
+| Do Not Disturb | A Focus silences them unless the app is allowed in it, which the app cannot read: reported as "set", with that said, never "on" | The channel's "Override Do Not Disturb", which only the user can turn on: read back, and opened for them, after an explanation, from the warning. Do Not Disturb on now is read too (`NotificationManager.getCurrentInterruptionFilter`) |
 
 Sources: the expo-notifications 57.0.21 source (the Android `DailyTrigger`,
 `ExpoSchedulingDelegate`, the receiver's actions; the iOS `DailyTriggerRecord`)
@@ -62,11 +63,49 @@ After every change, on every unlock and whenever the app returns to the front,
    channel then reads importance NONE, and that is **blocked**, not silent,
    since nothing will appear at all;
 6. asks the scheduler itself when the next one fires, and reports that time;
-7. on Android, checks exact alarms (**late** if not allowed).
+7. checks Do Not Disturb: on Android, whether it is on now, and whether the
+   reminders' channel may bypass it (**dnd**, "set" and not "on", if it may
+   not; said first if it is on now); on iOS, where neither can be read, always
+   **dnd**;
+8. on Android, checks exact alarms (**late** if not allowed).
 
 Only if all of that holds does the medicine's page say "Reminders are on. The
 next one is at 8:00 AM." Anything else is a warning, spoken to a screen reader
-too, on the medicine's page and on the home screen.
+too, on the medicine's page and on the home screen; except that Do Not
+Disturb, while it is not on, is said on the medicine's page only, since "your
+reminders cannot sound right now" would be untrue on the home screen.
+
+## Do Not Disturb (2026-10-02)
+
+A reminder silenced overnight by a Do Not Disturb schedule leaves no trace:
+nothing appears to have failed, and the dose is missed. So the page no longer
+says "on" where the phone does not show that Do Not Disturb will let them
+through.
+
+- **The app cannot let itself through.** A channel asking to bypass Do Not
+  Disturb is overruled by Android (`PreferencesHelper.createNotificationChannel`)
+  unless the app has Do Not Disturb access, which would also let it change
+  the user's Do Not Disturb; it is not asked for. Only the user can turn on
+  "Override Do Not Disturb", on the reminders' own channel page.
+- **So it is asked for, explained.** The warning's button explains what the
+  switch does and what it leaves alone, and only then opens that page
+  (`Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS`, falling back to the app's
+  settings). On coming back the channel is read again (`bypassDnd`): "on" only
+  once it is really let through.
+- **What letting through covers.** "Priority only" Do Not Disturb, which is
+  what Android's own settings and schedules set. Not "total silence" or
+  "alarms only", which silence everything but alarms: while either is on, the
+  page says reminders cannot sound now, and offers nothing, since letting
+  through would not help.
+- **What is still not seen.** When Do Not Disturb will next turn on, and which
+  mode it will be; on Android 15, a mode set to let no apps through, even
+  priority ones. Below Android 8, the app-wide override cannot be read: such
+  a phone is always "set", with the warning and no button.
+- **iOS.** A Focus silences reminders unless the app is allowed in it, and an
+  app can read neither. The page says so in place of "on", with no button: no
+  app can open the Focus settings. Letting reminders through a Focus by
+  default would need them sent as Time Sensitive, with Apple's entitlement for
+  it, which is not built and could not be tried here without an iOS build.
 
 ## Edge times
 
@@ -79,14 +118,6 @@ too, on the medicine's page and on the home screen.
 
 ## What is still not covered
 
-- **Do Not Disturb** (and iOS Focus) silences reminders without changing any
-  setting the app reads: the channel and the permission are as they were, so
-  the page still says "on". It is momentary and often scheduled, and the app
-  cannot see the schedule; Android can report the mode in force at the moment
-  (`NotificationManager.getCurrentInterruptionFilter`), not whether it will be
-  in force at 8:00. A line of help text, or the channel asking to bypass Do
-  Not Disturb (Android: `bypassDnd`, which the user must still allow), are the
-  options; either is a new string, and neither is built.
 - **Manufacturer battery managers.** Some phones, Samsung's among them, put
   apps unused for a while into "deep sleep", where their alarms may not run.
   An app cannot detect that from inside; the fix is the phone's own battery

@@ -51,7 +51,7 @@ const state = {
   scheduled: new Map<string, Request>(),
   channels: new Map<string, Record<string, unknown>>(),
   /** The user's own changes to a channel, in the phone's settings: these win over the app's. */
-  channelChanges: new Map<string, { importance?: number; sound?: 'default' | null }>(),
+  channelChanges: new Map<string, { importance?: number; sound?: 'default' | null; bypassDnd?: boolean }>(),
   dropSchedules: 0,
   lastResponse: null as Response | null,
   listeners: [] as ((response: Response) => void)[],
@@ -76,6 +76,10 @@ export async function setNotificationChannelAsync(id: string, channel: Record<st
  * (expo-notifications 57 falls back to the default sound, after logging that
  * the file is missing); null only when made with `sound: null`. Whatever the
  * user changed in settings overrides what the app asked for.
+ *
+ * `bypassDnd` is false whatever the app asked, as Android has it for an app
+ * without Do Not Disturb access, until the user turns on "Override Do Not
+ * Disturb" on the channel's own page.
  */
 export async function getNotificationChannelAsync(id: string) {
   // Below Android 8 there are no channels, and the real module answers null.
@@ -87,6 +91,7 @@ export async function getNotificationChannelAsync(id: string) {
     id,
     importance: made.importance,
     sound: 'sound' in made && made.sound === null ? null : ('default' as const),
+    bypassDnd: false,
     ...state.channelChanges.get(id),
   };
 }
@@ -143,10 +148,21 @@ export function addNotificationResponseReceivedListener(listener: (response: Res
   };
 }
 
-/** The app's DoseAlarms native module (Android exact alarms). */
+/** The app's DoseAlarms native module (Android exact alarms, and Do Not Disturb). */
 export const doseAlarms = {
   exact: true,
   opened: 0,
+  /** Do Not Disturb now, as NotificationManager gives it: 1 off, 2 priority only, 3 none, 4 alarms only. */
+  filter: 1,
+  /** The channels whose own settings page was opened, in order. */
+  channelPages: [] as string[],
+  interruptionFilter(): number {
+    return doseAlarms.filter;
+  },
+  openChannelSettings(channelId: string): boolean {
+    doseAlarms.channelPages.push(channelId);
+    return true;
+  },
   canScheduleExactAlarms(): boolean {
     return doseAlarms.exact;
   },
@@ -179,15 +195,19 @@ export const notifications = {
     } else {
       // A category turned off is importance NONE, while the app as a whole
       // stays allowed: `getPermissionsAsync` reads only the app-wide switch.
-      state.channelChanges.set(
-        'dose-reminders',
-        how === 'channel-sound'
+      state.channelChanges.set('dose-reminders', {
+        ...state.channelChanges.get('dose-reminders'),
+        ...(how === 'channel-sound'
           ? { sound: null }
           : how === 'channel-blocked'
             ? { importance: AndroidImportance.NONE }
-            : { importance: AndroidImportance.LOW }
-      );
+            : { importance: AndroidImportance.LOW }),
+      });
     }
+  },
+  /** The user turns on "Override Do Not Disturb" on the reminders' channel page. */
+  letThroughDoNotDisturb(): void {
+    state.channelChanges.set('dose-reminders', { ...state.channelChanges.get('dose-reminders'), bypassDnd: true });
   },
   allowed(): void {
     state.permission = ALLOWED;
@@ -219,5 +239,7 @@ export const notifications = {
     state.listeners = [];
     doseAlarms.exact = true;
     doseAlarms.opened = 0;
+    doseAlarms.filter = 1;
+    doseAlarms.channelPages = [];
   },
 };

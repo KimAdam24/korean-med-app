@@ -732,6 +732,31 @@ export const Strings = {
       "Reminders will come without a sound: their sound is turned off in this app's notification settings.",
       "SAFETY STRING: not drafted. A medicine's page, and the home screen, when the phone's own settings have the reminders' sound off. Under it, 설정 열기 (Open settings)."
     ),
+    statusSet: untranslated(
+      'Reminders are set. The next one is at {time}.',
+      "A medicine's page, under its reminder times, in place of 알림이 켜져 있어요. 다음 알림 시간: {time} (Reminders are on...) when the app cannot tell that Do Not Disturb will let them sound. Under it, a warning saying so."
+    ),
+    statusSetNoNext: untranslated('Reminders are set.', 'As reminders.statusSet, where the phone gave no next time.'),
+    statusDnd: untranslated(
+      'Reminders will not sound while Do Not Disturb is on, and the phone does not tell this app when it will be on.',
+      "SAFETY STRING: not drafted. Android, a medicine's page, under reminders.statusSet: the reminders are not let through Do Not Disturb. Under it, the button reminders.letThroughDnd."
+    ),
+    statusDndNow: untranslated(
+      'Do Not Disturb is on now, so reminders will not sound until it is turned off.',
+      "SAFETY STRING: not drafted. Android, a medicine's page and the home screen, while Do Not Disturb is on and would silence the reminders."
+    ),
+    statusFocus: untranslated(
+      'Reminders will not sound while a Focus, such as Do Not Disturb or Sleep, is on, unless this app is allowed in it. The phone does not tell this app.',
+      "SAFETY STRING: not drafted. iPhone, a medicine's page, under reminders.statusSet. There is no button: the app cannot open the Focus settings."
+    ),
+    letThroughDnd: untranslated(
+      'Let reminders sound during Do Not Disturb',
+      'Button under reminders.statusDnd. Shows reminders.letThroughExplain before anything opens.'
+    ),
+    letThroughExplain: untranslated(
+      'On the next screen, turn on the switch called "Override Do Not Disturb" (on some phones, "Ignore Do Not Disturb"). Medicine reminders will then sound even when Do Not Disturb is on. Calls and other apps stay silenced.',
+      "Shown after reminders.letThroughDnd is pressed, before the phone's settings open. Under it, 계속하기 (Continue) and 나중에 할게요 (Not now)."
+    ),
     allow: { ko: '알림 허용하기', en: 'Allow notifications' },
     openAlarmSettings: { ko: "'알람 및 리마인더' 열기", en: 'Open "Alarms & reminders"' },
     homeWarning: { ko: '지금은 복용 알림이 울릴 수 없어요.', en: 'Your medicine reminders cannot sound right now.' },

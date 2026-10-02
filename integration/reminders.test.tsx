@@ -36,7 +36,14 @@ afterEach(() => jest.restoreAllMocks());
 const R = Strings.reminders;
 /** A time as the app writes it, in the reviewed words: `at(8, 0)`. */
 const at = (hour: number, minute: number) => formatReminderTime({ hour, minute }, timeWords());
+/** "On": verified, and nothing the phone reports can stop them, Do Not Disturb included. */
 const on = (time: string) => fillTemplate(R.statusOn, { time }).ko;
+/**
+ * "Set": verified and allowed to sound, but Do Not Disturb (a Focus, on iOS)
+ * could silence them unseen. What an iPhone, which these tests are unless
+ * they say otherwise, and an Android phone nobody has changed, both show.
+ */
+const set = (time: string) => fillTemplate(R.statusSet, { time }).ko;
 
 async function medicine(reminders?: ReminderTime[]) {
   return store.addMedication({
@@ -83,7 +90,7 @@ describe('setting a reminder', () => {
     expect(notifications.state.requests).toBe(0);
     press(R.askContinue.ko);
 
-    await screen.findByText(on(at(8, 0)));
+    await screen.findByText(set(at(8, 0)));
     expect(notifications.state.requests).toBe(1);
     const scheduled = notifications.state.scheduled.get(`dose:${record.id}:0800`);
     expect(scheduled?.trigger).toMatchObject({ type: 'daily', hour: 8, minute: 0, channelId: 'dose-reminders' });
@@ -95,7 +102,7 @@ describe('setting a reminder', () => {
   it('never puts the medicine in the notification, which the lock screen shows', async () => {
     const record = await medicine([{ hour: 8, minute: 0 }]);
     await openMedicine(record.id);
-    await screen.findByText(on(at(8, 0)));
+    await screen.findByText(set(at(8, 0)));
 
     for (const content of notifications.scheduledContents()) {
       expect(JSON.stringify([content.title, content.body])).not.toMatch(/LISINOPRIL|10 MG/);
@@ -113,7 +120,7 @@ describe('setting a reminder', () => {
     press(R.askContinue.ko);
 
     await screen.findByText(R.statusBlocked.ko);
-    expect(screen.queryByText(on(at(8, 0)))).toBeNull();
+    expect(screen.queryByText(set(at(8, 0)))).toBeNull();
     expect(screen.getByRole('button', { name: Strings.permission.openSettings.ko })).toBeTruthy();
   });
 
@@ -155,7 +162,7 @@ describe('choosing a time', () => {
     fireEvent(screen.getByRole('adjustable', { name: R.minute.ko }), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
     press(R.saveTime.ko);
 
-    await screen.findByText(on(at(21, 5)));
+    await screen.findByText(set(at(21, 5)));
     expect(notifications.state.scheduled.get(`dose:${record.id}:2105`)?.trigger).toMatchObject({ hour: 21, minute: 5 });
   });
 
@@ -197,7 +204,7 @@ describe('putting right what stops a reminder', () => {
     await screen.findByText(R.statusBlocked.ko);
     expect(notifications.state.requests).toBe(0);
     press(R.allow.ko);
-    await screen.findByText(on(at(8, 0)));
+    await screen.findByText(set(at(8, 0)));
     expect(notifications.state.requests).toBe(1);
   });
 
@@ -245,10 +252,10 @@ describe('what the app says about its reminders', () => {
     press(R.saveTime.ko);
 
     await screen.findByText(R.statusUnverified.ko);
-    expect(screen.queryByText(on(at(8, 0)))).toBeNull();
+    expect(screen.queryByText(set(at(8, 0)))).toBeNull();
 
     press(Strings.scan.retry.ko);
-    await screen.findByText(on(at(8, 0)));
+    await screen.findByText(set(at(8, 0)));
   });
 
   it('warns on the home screen when reminders cannot sound', async () => {
@@ -270,7 +277,7 @@ describe('what the app says about its reminders', () => {
   it('checks again on coming back to the app: notifications turned off while away', async () => {
     const record = await medicine([{ hour: 8, minute: 0 }]);
     await openMedicine(record.id);
-    await screen.findByText(on(at(8, 0)));
+    await screen.findByText(set(at(8, 0)));
 
     notifications.turnedOff();
     await sendAppTo('active');
@@ -289,17 +296,17 @@ describe('taking reminders away', () => {
       { hour: 20, minute: 0 },
     ]);
     await openMedicine(record.id);
-    await screen.findByText(on(at(8, 0)));
+    await screen.findByText(set(at(8, 0)));
 
     press(fillTemplate(R.removeLabel, { time: at(8, 0) }).ko);
-    await screen.findByText(on(at(20, 0)));
+    await screen.findByText(set(at(20, 0)));
     expect([...notifications.state.scheduled.keys()]).toEqual([`dose:${record.id}:2000`]);
   });
 
   it('cancels a removed medicine’s reminders', async () => {
     const record = await medicine([{ hour: 8, minute: 0 }]);
     await openMedicine(record.id);
-    await screen.findByText(on(at(8, 0)));
+    await screen.findByText(set(at(8, 0)));
 
     press(Strings.medications.remove.ko);
     press(Strings.medications.removeConfirmYes.ko);
@@ -344,7 +351,7 @@ describe('a medicine this build cannot read', () => {
     });
     const record = await medicine([{ hour: 9, minute: 0 }]);
     await openMedicine(record.id);
-    await screen.findByText(on(at(9, 0)));
+    await screen.findByText(set(at(9, 0)));
 
     expect(notifications.state.scheduled.has('dose:future-1:0800')).toBe(true);
   });
@@ -356,7 +363,7 @@ describe('a reminder that would come without a sound', () => {
     try {
       const record = await medicine([{ hour: 8, minute: 0 }]);
       await openMedicine(record.id);
-      await screen.findByText(on(at(8, 0)));
+      await screen.findByText(set(at(8, 0)));
       // Not 'default', which expo-notifications looks for as a bundled file and
       // reports missing on every launch (then falls back to the default).
       const channel = notifications.state.channels.get('dose-reminders');
@@ -379,7 +386,7 @@ describe('a reminder that would come without a sound', () => {
       await openMedicine(record.id);
       await screen.findByText(R.statusSilent.ko);
       // Not "on": they would appear, and nobody would hear them.
-      expect(screen.queryByText(on(at(8, 0)))).toBeNull();
+      expect(screen.queryByText(set(at(8, 0)))).toBeNull();
       press(Strings.permission.openSettings.ko);
       expect(openSettings).toHaveBeenCalledTimes(1);
     } finally {
@@ -401,7 +408,7 @@ describe('a reminder that would come without a sound', () => {
     }
   });
 
-  it('on Android 7, which has no channels, is on: the reminder carries its own sound', async () => {
+  it('on Android 7, which has no channels, is set with its own sound, and not claimed past Do Not Disturb', async () => {
     const restore = onAndroid();
     const version = Object.getOwnPropertyDescriptor(Platform, 'Version');
     Object.defineProperty(Platform, 'Version', { configurable: true, get: () => 25 });
@@ -409,7 +416,12 @@ describe('a reminder that would come without a sound', () => {
       const record = await medicine([{ hour: 8, minute: 0 }]);
       await openMedicine(record.id);
       // Not "your phone did not confirm your reminders", which retrying never clears.
-      await screen.findByText(on(at(8, 0)));
+      await screen.findByText(set(at(8, 0)));
+      expect(screen.queryByText(R.statusUnverified.ko)).toBeNull();
+      // Its app-wide override of Do Not Disturb cannot be read: said, and no
+      // button, since what it opened could never be read back.
+      expect(screen.getByText(R.statusDnd.ko)).toBeTruthy();
+      expect(screen.queryByRole('button', { name: R.letThroughDnd.ko })).toBeNull();
     } finally {
       if (version) Object.defineProperty(Platform, 'Version', version);
       restore();
@@ -429,6 +441,139 @@ describe('a reminder that would come without a sound', () => {
     launchApp();
     await screen.findByText(R.homeWarning.ko);
     expect(screen.getByText(R.statusSilent.ko)).toBeTruthy();
+  });
+});
+
+describe('Do Not Disturb', () => {
+  it('on an iPhone, reminders are set, not on: a Focus would silence them, and the app cannot tell', async () => {
+    const record = await medicine([{ hour: 8, minute: 0 }]);
+    await openMedicine(record.id);
+    await screen.findByText(set(at(8, 0)));
+    expect(screen.getByText(R.statusFocus.ko)).toBeTruthy();
+    expect(screen.queryByText(on(at(8, 0)))).toBeNull();
+    // Nothing the app can open would change it.
+    expect(screen.queryByRole('button', { name: R.letThroughDnd.ko })).toBeNull();
+  });
+
+  it('on Android, not yet let through: set, not on; explained before anything opens; on once let through', async () => {
+    const restore = onAndroid();
+    try {
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(set(at(8, 0)));
+      expect(screen.getByText(R.statusDnd.ko)).toBeTruthy();
+      expect(screen.queryByText(on(at(8, 0)))).toBeNull();
+
+      // The reason first, and nothing opened until the user goes on.
+      press(R.letThroughDnd.ko);
+      await screen.findByText(R.letThroughExplain.ko);
+      expect(doseAlarms.channelPages).toEqual([]);
+      press(R.askContinue.ko);
+      // The reminders' own page, where the switch is; not the app's settings.
+      expect(doseAlarms.channelPages).toEqual(['dose-reminders']);
+
+      // The user turns it on, and comes back: read back, and now "on".
+      notifications.letThroughDoNotDisturb();
+      await sendAppTo('active');
+      await screen.findByText(on(at(8, 0)));
+      expect(screen.queryByText(R.statusDnd.ko)).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('on Android, "Not now" opens nothing, and the warning stays', async () => {
+    const restore = onAndroid();
+    try {
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(R.statusDnd.ko);
+      press(R.letThroughDnd.ko);
+      press(Strings.onboarding.notNow.ko);
+      expect(doseAlarms.channelPages).toEqual([]);
+      expect(screen.getByText(R.statusDnd.ko)).toBeTruthy();
+      expect(screen.getByRole('button', { name: R.letThroughDnd.ko })).toBeTruthy();
+    } finally {
+      restore();
+    }
+  });
+
+  it("on Android, where the reminders' own page cannot be opened, opens the app settings", async () => {
+    const restore = onAndroid();
+    const openSettings = settingsOpener();
+    try {
+      jest.spyOn(doseAlarms, 'openChannelSettings').mockReturnValue(false);
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(R.statusDnd.ko);
+      press(R.letThroughDnd.ko);
+      press(R.askContinue.ko);
+      expect(openSettings).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it('on Android, while it is on and they are not let through: they cannot sound now, on the page and at home', async () => {
+    const restore = onAndroid();
+    try {
+      doseAlarms.filter = 2; // priority only
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      launchApp();
+      await screen.findByText(R.homeWarning.ko);
+      expect(screen.getByText(R.statusDndNow.ko)).toBeTruthy();
+
+      await openMedicine(record.id);
+      await screen.findByText(R.statusDndNow.ko);
+      expect(screen.getByRole('button', { name: R.letThroughDnd.ko })).toBeTruthy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('on Android, let through, but set to silence everything now: cannot sound now, and letting through would not help', async () => {
+    const restore = onAndroid();
+    try {
+      notifications.letThroughDoNotDisturb();
+      doseAlarms.filter = 3; // none
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(R.statusDndNow.ko);
+      expect(screen.queryByText(on(at(8, 0)))).toBeNull();
+      expect(screen.queryByRole('button', { name: R.letThroughDnd.ko })).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('on Android, let through, with Do Not Disturb on in priority only: on, and nothing at home', async () => {
+    const restore = onAndroid();
+    try {
+      notifications.letThroughDoNotDisturb();
+      doseAlarms.filter = 2;
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      launchApp();
+      await screen.findByText(Strings.home.capture.ko);
+      await act(async () => undefined);
+      expect(screen.queryByText(R.homeWarning.ko)).toBeNull();
+      await openMedicine(record.id);
+      await screen.findByText(on(at(8, 0)));
+    } finally {
+      restore();
+    }
+  });
+
+  it('is not on the home screen while it is not on: "cannot sound right now" would be untrue', async () => {
+    const restore = onAndroid();
+    try {
+      await medicine([{ hour: 8, minute: 0 }]);
+      launchApp();
+      await screen.findByText(Strings.home.capture.ko);
+      await act(async () => undefined);
+      expect(screen.queryByText(R.homeWarning.ko)).toBeNull();
+    } finally {
+      restore();
+    }
   });
 });
 

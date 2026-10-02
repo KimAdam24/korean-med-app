@@ -24,8 +24,20 @@ export const CHANNEL_ID = 'dose-reminders';
 export type ReminderHealth =
   /** No medicine has a reminder. */
   | { readonly kind: 'none' }
-  /** Confirmed with the phone. `next` is the scheduler's own next firing. */
+  /**
+   * Confirmed with the phone, and nothing it reports can stop them: Do Not
+   * Disturb included, which they are let through. `next` is the scheduler's
+   * own next firing.
+   */
   | { readonly kind: 'on'; readonly next: Date | null }
+  /**
+   * Scheduled, and allowed to sound, but Do Not Disturb (on iOS, a Focus) will
+   * silence them while it is on, and the phone does not say when that will
+   * be: so not "on". `now` when it is on at this moment, and they cannot
+   * sound now. `letThrough` when the reminders' own setting that lets them
+   * through it can be opened, and would help (Android 8 and later).
+   */
+  | { readonly kind: 'dnd'; readonly next: Date | null; readonly now: boolean; readonly letThrough: boolean }
   /** Confirmed, but Android may deliver them late: exact alarms are not allowed. */
   | { readonly kind: 'late'; readonly next: Date | null }
   /** Notifications are off for the app; nothing will sound. */
@@ -42,7 +54,13 @@ export type ReminderHealth =
 /** Health that means the user must be told reminders will not work as set. */
 export const needsAttention = (health: ReminderHealth | null) =>
   health !== null &&
-  (health.kind === 'blocked' || health.kind === 'silent' || health.kind === 'unverified' || health.kind === 'late');
+  (health.kind === 'blocked' ||
+    health.kind === 'silent' ||
+    health.kind === 'unverified' ||
+    health.kind === 'late' ||
+    // Only while it is on: "cannot sound right now" is then true. That it
+    // could be on later is said on the medicine's page, beside the times.
+    (health.kind === 'dnd' && health.now));
 
 let presentationConfigured = false;
 
@@ -129,6 +147,64 @@ function exactAlarmsAllowed(): boolean | null {
   }
 }
 
+/** Android's Do Not Disturb filters (`NotificationManager.INTERRUPTION_FILTER_*`). */
+const FILTER = { ALL: 1, PRIORITY: 2, NONE: 3, ALARMS: 4 } as const;
+
+/** Android: the Do Not Disturb filter in force now; null where it cannot be told. */
+function interruptionFilterNow(): number | null {
+  if (Platform.OS !== 'android') return null;
+  try {
+    const filter = DoseAlarms?.interruptionFilter?.();
+    return typeof filter === 'number' && filter > 0 ? filter : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What Do Not Disturb can do to the reminders, as far as the phone says.
+ *
+ * - Android 8 and later: whether the reminders' channel may bypass it, read
+ *   back. Only the user can turn that on, on the channel's own page: Android
+ *   ignores an app's own request to bypass unless the app has Do Not Disturb
+ *   access, which would let it change Do Not Disturb too, and is not asked
+ *   for. Let through, they sound in "priority only" Do Not Disturb; nothing
+ *   sounds in "none" or "alarms only".
+ * - Below Android 8 the app-wide override cannot be read: not known to pass.
+ * - iOS: a Focus silences them unless the app is allowed in it, which the app
+ *   cannot read. Not known to pass, and no setting the app can open.
+ *
+ * Not seen anywhere: when Do Not Disturb will next be on, and, on Android 15,
+ * a mode set to let no apps through at all.
+ */
+async function doNotDisturb(): Promise<{ passes: boolean; now: boolean; letThrough: boolean }> {
+  if (Platform.OS !== 'android') return { passes: false, now: false, letThrough: false };
+  const filter = interruptionFilterNow();
+  const silencesAll = filter === FILTER.NONE || filter === FILTER.ALARMS;
+  if (Number(Platform.Version) < FIRST_API_WITH_CHANNELS) {
+    return { passes: false, now: silencesAll, letThrough: false };
+  }
+  const channel = await Notifications.getNotificationChannelAsync(CHANNEL_ID);
+  const bypass = channel?.bypassDnd === true;
+  return {
+    passes: bypass && !silencesAll,
+    now: silencesAll || (filter === FILTER.PRIORITY && !bypass),
+    letThrough: !bypass && !silencesAll,
+  };
+}
+
+/**
+ * Opens the reminders' own channel page, where "Override Do Not Disturb" is,
+ * after the explanation the caller has shown. False where it cannot be opened.
+ */
+export function openReminderChannelSettings(): boolean {
+  try {
+    return DoseAlarms?.openChannelSettings?.(CHANNEL_ID) ?? false;
+  } catch {
+    return false;
+  }
+}
+
 /** Opens Android's "Alarms & reminders" setting for the app. */
 export function openExactAlarmSettings(): boolean {
   try {
@@ -165,7 +241,8 @@ const FIRST_API_WITH_CHANNELS = 26;
  *   the reminder's own `sound: 'default'` sounds, as permission allows.
  * - On iOS, the app's "Sounds" switch.
  *
- * Not seen: Do Not Disturb, Focus, and the ringer or notification volume.
+ * Not seen here: Do Not Disturb and Focus (`doNotDisturb`), and the ringer
+ * or notification volume.
  */
 async function reminderSound(
   status: Notifications.NotificationPermissionsStatus
@@ -244,7 +321,13 @@ export async function syncReminders(
   if (sound === 'silent') return { kind: 'silent' };
 
   const next = await nextFiring([...desired.values()].map((reminder) => reminder.time));
-  return exactAlarmsAllowed() === false ? { kind: 'late', next } : { kind: 'on', next };
+  const dnd = await doNotDisturb();
+  // On now, it stops them now: said first. Late can be put right meanwhile.
+  if (dnd.now) return { kind: 'dnd', next, now: true, letThrough: dnd.letThrough };
+  if (exactAlarmsAllowed() === false) return { kind: 'late', next };
+  // Not "on" while Do Not Disturb could silence them unseen.
+  if (!dnd.passes) return { kind: 'dnd', next, now: false, letThrough: dnd.letThrough };
+  return { kind: 'on', next };
 }
 
 /**

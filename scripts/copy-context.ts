@@ -495,6 +495,47 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     when: "When the phone's own settings have the reminders' sound turned off: they would still appear, silently.",
     notes: 'A safety string, so no draft: a reminder that does not sound is a missed dose. Beside it are her 복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요. (notifications off) and 복용 알림이 늦게 울릴 수 있어요... (may be late).',
   },
+  'reminders.statusSet': {
+    section: REMIND,
+    where: "A medicine's page, under its reminder times.",
+    when: "When the reminders are scheduled, but the app cannot tell whether Do Not Disturb will let them sound: in place of her 알림이 켜져 있어요. 다음 알림 시간: {time} (Reminders are on), which says more than the app knows.",
+    notes: '{time} is written as elsewhere, e.g. 오전 8:00. "Set", not "on": they are scheduled, and may still be silenced.',
+  },
+  'reminders.statusSetNoNext': {
+    section: REMIND,
+    where: "A medicine's page, under its reminder times.",
+    when: 'As reminders.statusSet, when the phone gave no next time.',
+  },
+  'reminders.statusDnd': {
+    section: REMIND,
+    where: "A medicine's page, under reminders.statusSet: an amber warning, with reminders.letThroughDnd under it.",
+    when: "Android, when the reminders are not let through Do Not Disturb (방해 금지 모드), as on a phone where nobody has changed it.",
+    notes: 'A safety string, so no draft: a reminder silenced overnight by a Do Not Disturb schedule is a missed dose, and nothing on the phone shows it happened.',
+  },
+  'reminders.statusDndNow': {
+    section: REMIND,
+    where: "A medicine's page, and the home screen as the body of 지금은 복용 알림이 울릴 수 없어요 (Your medicine reminders cannot sound right now).",
+    when: 'Android, while Do Not Disturb is on and would silence the reminders.',
+    notes: 'A safety string, so no draft.',
+  },
+  'reminders.statusFocus': {
+    section: REMIND,
+    where: "A medicine's page, under reminders.statusSet.",
+    when: 'iPhone, always: a Focus (집중 모드), such as Do Not Disturb or Sleep, silences reminders unless the app is allowed in it, and the app cannot tell.',
+    notes: 'A safety string, so no draft. There is no button under it.',
+  },
+  'reminders.letThroughDnd': {
+    section: REMIND,
+    where: 'A button under reminders.statusDnd.',
+    when: 'Android, when the reminders are not let through Do Not Disturb.',
+    notes: 'Explains first (reminders.letThroughExplain); nothing opens until 계속하기 (Continue).',
+  },
+  'reminders.letThroughExplain': {
+    section: REMIND,
+    where: "Under reminders.letThroughDnd, once it is pressed, above 계속하기 (Continue) and 나중에 할게요 (Not now).",
+    when: "Before the phone's settings open, at the page for the reminders alone.",
+    notes: "The switch's name depends on the phone: on Google's phones \"Override Do Not Disturb\", on Samsung's \"Ignore Do Not Disturb\". Worth checking the Korean name on a real phone.",
+  },
   'medications.sourcePhoto': {
     section: REMIND,
     where: "A medicine's page, near the bottom: the line under 등록 방법 (How it was added).",
