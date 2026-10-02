@@ -21,11 +21,30 @@ import { Strings } from '@/i18n/strings';
  * medicine, and what it identified as is shown to compare with the bottle. The
  * keyboard's own correction is off for the same reason: a word "corrected" to
  * another medicine's would be a guess the user did not make.
+ *
+ * The name as read is not accepted back unchanged. It was withheld because it
+ * may be cut ("LISINOPRIL" of "LISINOPRIL AND HYDROCHLOROTHIAZIDE"); taking
+ * one tap on it as the user's word would undo that without their having
+ * looked. A name that really is complete as read can be saved, and given from
+ * the edit form, beside the same warning.
  */
-export function NameEntry({ read, onSubmit }: { read: string | undefined; onSubmit: (name: string) => void }) {
+export function NameEntry({
+  read,
+  typed,
+  onSubmit,
+}: {
+  /** The name as read, withheld; absent when none was found. */
+  read: string | undefined;
+  /** What the user typed before, if anything: the box starts from it. */
+  typed?: string;
+  onSubmit: (name: string) => void;
+}) {
   const theme = useTheme();
-  const [value, setValue] = useState(read ?? '');
+  const [value, setValue] = useState(typed ?? read ?? '');
   const name = value.trim();
+  const same = (a: string, b: string) => a.replace(/\s+/g, ' ').trim().toLowerCase() === b.replace(/\s+/g, ' ').trim().toLowerCase();
+  const asRead = read !== undefined && same(name, read);
+  const ready = name.length > 0 && !asRead;
 
   return (
     <Card>
@@ -34,16 +53,19 @@ export function NameEntry({ read, onSubmit }: { read: string | undefined; onSubm
         value={value}
         onChangeText={setValue}
         accessibilityLabel={Strings.nameEntry.inputLabel.ko}
+        // Its label is English until reviewed, and what is typed is a drug name
+        // in Latin letters: an English voice for both, until then.
+        accessibilityLanguage={Strings.nameEntry.inputLabel.pendingKo ? 'en-US' : 'ko-KR'}
         autoCorrect={false}
         spellCheck={false}
         autoComplete="off"
         autoCapitalize="characters"
         returnKeyType="search"
-        onSubmitEditing={() => name && onSubmit(name)}
+        onSubmitEditing={() => ready && onSubmit(name)}
         maxFontSizeMultiplier={TypeMaxScale.body}
         style={[styles.input, { color: theme.text, borderColor: theme.textSecondary, backgroundColor: theme.surface }]}
       />
-      <BigButton label={Strings.nameEntry.submit} onPress={() => onSubmit(name)} disabled={name.length === 0} />
+      <BigButton label={Strings.nameEntry.submit} onPress={() => onSubmit(name)} disabled={!ready} />
     </Card>
   );
 }

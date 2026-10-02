@@ -1,7 +1,7 @@
 import type { MedicationRecord } from '../medications/types.ts';
 import { assessField, type FieldKind } from './field-integrity.ts';
 import { isCutAtEdge, type EdgeTruncation } from './truncation.ts';
-import type { MedicationLabelFields } from './types.ts';
+import type { MedicationLabelFields, RecognizedTextLine } from './types.ts';
 
 /**
  * Turns a label reading into the record that is saved.
@@ -42,14 +42,19 @@ export function medicationFromReading(
    * however whole its text looks — "every day" is what is left of "every
    * other day" with `other` past the edge — so it is treated as damaged.
    */
-  truncation?: EdgeTruncation | null
+  truncation?: EdgeTruncation | null,
+  /**
+   * The name is the user's, typed from the bottle: not a reading, so not
+   * judged as one, and never saved as incomplete.
+   */
+  nameTyped = false
 ): ReadingToSave | null {
   const name = fields.name?.text.trim();
   if (!name) return null;
 
   const dropped: FieldKind[] = [];
   const flagged: FieldKind[] =
-    assessField('name', name).level === 'damaged' || isCutAtEdge(truncation, 'name') ? ['name'] : [];
+    !nameTyped && (assessField('name', name).level === 'damaged' || isCutAtEdge(truncation, 'name')) ? ['name'] : [];
 
   function keep(kind: 'dosage' | 'instructions', text: string | undefined): string | undefined {
     const trimmed = text?.trim();
@@ -94,4 +99,22 @@ export function readableName(fields: MedicationLabelFields, truncation?: EdgeTru
   const name = fields.name?.text.trim();
   if (!name) return null;
   return assessField('name', name).level === 'damaged' || isCutAtEdge(truncation, 'name') ? null : name;
+}
+
+/**
+ * The lines with the name as typed in place of the name as read, in the line
+ * it was read from; the lines as they were where it cannot be found. For
+ * fill-in, which reads the lines again: so a name the user typed whole is
+ * whole there too.
+ */
+export function withName(
+  lines: readonly RecognizedTextLine[],
+  read: string | undefined,
+  typed: string
+): RecognizedTextLine[] {
+  const wanted = read?.trim();
+  if (!wanted) return [...lines];
+  const at = lines.findIndex((line) => line.text.includes(wanted));
+  if (at === -1) return [...lines];
+  return lines.map((line, index) => (index === at ? { ...line, text: line.text.replace(wanted, typed) } : line));
 }

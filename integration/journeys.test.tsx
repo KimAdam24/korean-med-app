@@ -184,13 +184,16 @@ describe('reading a chosen photo', () => {
     expect(screen.queryByText(Strings.permission.askTitle.ko)).toBeNull();
   });
 
-  it('without a medicine name, says it cannot be added, and offers no Add button', async () => {
+  it('without a medicine name, offers no Add button, and asks for the name from the bottle', async () => {
     // A strength and directions; no name line at all.
     await openPickedPhoto(['10 MG TABLET', 'Take 1 tablet by mouth twice daily', 'QTY: 60']);
     await screen.findByText('Take 1 tablet by mouth twice daily');
 
-    expect(screen.getByText(Strings.failure.nameUnreadable.ko)).toBeTruthy();
     expect(screen.queryByRole('button', { name: Strings.medications.saveFromLabel.ko })).toBeNull();
+    // The way to add it: the name typed from the bottle, and not "cannot be
+    // added" beside the box that adds it.
+    expect(screen.getByLabelText(Strings.nameEntry.inputLabel.ko)).toBeTruthy();
+    expect(screen.queryByText(Strings.failure.nameUnreadable.ko)).toBeNull();
     // Still a way on: another photo.
     expect(screen.getByRole('button', { name: Strings.camera.retake.ko })).toBeTruthy();
   });

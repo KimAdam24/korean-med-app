@@ -273,6 +273,9 @@ export default function MedicationScreen() {
    * that would otherwise present them as instructions.
    */
   const assess = record.needsReview;
+  // A name typed from the bottle on the result screen is the user's already,
+  // though the rest of the reading is still to check: not judged as a misread.
+  const assessName = assess && record.nameSource !== 'typed';
   // A name its reading found cut off at the label's edge counts as damaged
   // however whole it reads: the rest of it is on the bottle, not here.
   const nameCut = record.nameIncomplete === true;
@@ -280,11 +283,11 @@ export default function MedicationScreen() {
     nameCut ||
     (
       [
-        ['name', record.name],
-        ['dosage', record.dosage],
-        ['instructions', record.instructions],
+        ['name', record.name, assessName],
+        ['dosage', record.dosage, assess],
+        ['instructions', record.instructions, assess],
       ] as const
-    ).some(([kind, text]) => assess && text && assessField(kind, text).level === 'damaged');
+    ).some(([kind, text, judged]) => judged && text && assessField(kind, text).level === 'damaged');
 
   // §3.2: Korean only from approved sources, and null until they arrive: the
   // ingredients in 식약처's names (a barcode record's, all or none), and the
@@ -297,8 +300,10 @@ export default function MedicationScreen() {
   // A barcode's product exactly; otherwise the medicine its name names, by
   // the match made when it was saved, or made now for an older record. A
   // name that reads as damaged is not matched at all, nor one its reading
-  // withheld as cut off, until the user has saved it from the edit form.
-  const nameWithheld = nameCut || assessField('name', record.name).level === 'damaged';
+  // withheld as cut off until the user has saved it from the edit form. A
+  // typed one is matched as typed: word for word, so a slip matches nothing.
+  const nameWithheld =
+    nameCut || (record.nameSource !== 'typed' && assessField('name', record.name).level === 'damaged');
   const usesSource: UsesSource = record.identity
     ? { kind: 'product', ndc11: record.identity.ndc11, rxcui: record.identity.rxcui }
     : {
@@ -306,7 +311,10 @@ export default function MedicationScreen() {
         name: nameWithheld ? null : record.name,
         ...(record.nameSource === 'typed' ? { typed: true } : {}),
         // The form that chose the reading's label, where it was saved with it.
-        form: record.nameMatch ? (record.nameMatch.form ?? null) : doseFormOf(record.dosage, record.instructions),
+        // A match saved before the form was kept with it has none: the
+        // record's own strength and directions decide, as they did then.
+        form:
+          record.nameMatch?.form !== undefined ? record.nameMatch.form : doseFormOf(record.dosage, record.instructions),
         ...(record.nameMatch ? { known: record.nameMatch } : {}),
       };
 
@@ -318,7 +326,7 @@ export default function MedicationScreen() {
           label={Strings.medications.fieldName}
           kind="name"
           text={record.name}
-          assess={assess}
+          assess={assessName}
           cutAtEdge={nameCut ? 'edge' : undefined}
           prominent
           korean={koreanName ? { text: koreanName, source: Strings.guidance.perMfds } : undefined}

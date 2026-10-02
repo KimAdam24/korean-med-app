@@ -11,6 +11,7 @@ import { camera } from './fakes/camera';
 import { ocr } from './fakes/devices';
 import { disk } from './fakes/file-system';
 
+import * as store from '@/features/medications/medication-store';
 import { addMedication, loadProfile } from '@/features/medications/medication-store';
 import { VITAMIN_D2_VIAL_LINES } from '@/features/ocr/eval/corpus';
 import type { RecognizedTextLine } from '@/features/ocr/types';
@@ -64,6 +65,9 @@ function nlm({ online = true, category = 'NDA' } = {}): string[] {
     if (url.includes('approximateTerm.json?term=vitamn d2')) {
       // As RxNav does: the right spelling offered for a wrong one.
       return reply({ approximateGroup: { candidate: [{ rxcui: '4018', name: 'vitamin D2', rank: '1', source: 'RXNORM' }] } });
+    }
+    if (url.includes('approximateTerm.json?term=lisinoprl')) {
+      return reply({ approximateGroup: { candidate: [{ rxcui: '29046', name: 'lisinopril', rank: '1', source: 'RXNORM' }] } });
     }
     if (url.includes('approximateTerm.json?term=vitamin d2')) {
       return reply({ approximateGroup: { candidate: [{ rxcui: '4018', name: 'vitamin D2', rank: '1', source: 'RXNORM' }] } });
@@ -399,6 +403,103 @@ describe('typing the name from the bottle, where the reading could not give it',
       'VITAMIN D2',
       'typed',
     ]);
+  });
+
+  it('the name as read is not taken back unchanged: one tap would undo the withholding', async () => {
+    const asked = nlm();
+    await openPickedPhoto(nameAtTheEdge('VITAMIN D'));
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
+
+    // Neither the button nor the keyboard's return accepts it as it was read,
+    // in whatever case or spacing.
+    const submit = () => screen.getByRole('button', { name: Strings.nameEntry.submit.ko });
+    expect(submit()).toBeDisabled();
+    fireEvent(screen.getByLabelText(Strings.nameEntry.inputLabel.ko), 'submitEditing');
+    fireEvent.changeText(screen.getByLabelText(Strings.nameEntry.inputLabel.ko), ' vitamin  d ');
+    expect(submit()).toBeDisabled();
+    fireEvent(screen.getByLabelText(Strings.nameEntry.inputLabel.ko), 'submitEditing');
+    await act(async () => {});
+    expect(screen.getByText(Strings.uses.nameNotWhole.ko)).toBeTruthy();
+    expect(asked.some((url) => url.includes('approximateTerm'))).toBe(false);
+
+    fireEvent.changeText(screen.getByLabelText(Strings.nameEntry.inputLabel.ko), 'VITAMIN D2');
+    expect(submit()).toBeEnabled();
+  });
+
+  it('a typed name stays through filling in the directions, and the directions can then be read whole', async () => {
+    nlm();
+    await openPickedPhoto(nameAtTheEdge('VITAMIN D'));
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
+    typeName('VITAMIN D2');
+    await screen.findByText(INDICATION);
+
+    press(Strings.fillIn.start.ko);
+    await screen.findByText(Strings.fillIn.title.ko);
+    fireEvent.changeText(screen.getByDisplayValue('(b'), '(50,000');
+    fireEvent.changeText(screen.getByDisplayValue('eve'), 'every 7');
+    press(Strings.fillIn.check.ko);
+    await screen.findByText(Strings.fillIn.confirmTitle.ko);
+    press(Strings.fillIn.confirmYes.ko);
+    await screen.findByText(Strings.fillIn.filledNote.ko);
+
+    // The box still says what was typed, and the card what it identified.
+    expect(screen.getByLabelText(Strings.nameEntry.inputLabel.ko).props.value).toBe('VITAMIN D2');
+    await screen.findByText(INDICATION);
+    expect(screen.getByText(fillTemplate(Strings.uses.identifiedTypedAs, { name: 'ergocalciferol' }).ko)).toBeTruthy();
+
+    // The directions as filled in are saved: the typed name no longer leaves
+    // the edge looking cut beside them.
+    press(Strings.medications.saveFromLabel.ko);
+    await screen.findByText(Strings.scan.saved.ko);
+    const profile = await loadProfile();
+    const saved = profile.status === 'ok' ? profile.value.medications[0] : undefined;
+    expect([saved?.name, saved?.nameSource, saved?.nameIncomplete]).toEqual(['VITAMIN D2', 'typed', undefined]);
+    expect(saved?.instructions).toContain('every 7 days');
+  });
+
+  it('a save that fails goes back to the reading with the typed name still in it', async () => {
+    nlm();
+    await openPickedPhoto(nameAtTheEdge('VITAMIN D'));
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
+    typeName('VITAMIN D2');
+    await screen.findByText(INDICATION);
+
+    jest.spyOn(store, 'addMedication').mockRejectedValueOnce(new Error('Disk full (injected).'));
+    press(Strings.medications.saveFromLabel.ko);
+    await screen.findByText(Strings.failure.addNotSaved.ko);
+    press(Strings.scan.retry.ko);
+
+    await screen.findByText(INDICATION);
+    expect(screen.getByLabelText(Strings.nameEntry.inputLabel.ko).props.value).toBe('VITAMIN D2');
+    press(Strings.medications.saveFromLabel.ko);
+    await screen.findByText(Strings.scan.saved.ko);
+    const profile = await loadProfile();
+    expect(profile.status === 'ok' && [profile.value.medications[0].name, profile.value.medications[0].nameSource]).toEqual([
+      'VITAMIN D2',
+      'typed',
+    ]);
+  });
+
+  it("a typed name that would read as damaged is saved as typed, not as a reading cut short, and its page looks it up", async () => {
+    nlm();
+    await openPickedPhoto(nameAtTheEdge('VITAMIN D'));
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
+    // A slip the check for misreads would flag, one letter from "lisinopril".
+    // Matched word for word, it identifies nothing; but it is the user's word,
+    // not a misread, and not a name cut short.
+    typeName('LISINOPRL');
+    await screen.findByText(Strings.uses.typedUnidentified.ko);
+
+    press(Strings.medications.saveFromLabel.ko);
+    await screen.findByText(Strings.scan.saved.ko);
+    const profile = await loadProfile();
+    const saved = profile.status === 'ok' ? profile.value.medications[0] : undefined;
+    expect([saved?.name, saved?.nameSource, saved?.nameIncomplete]).toEqual(['LISINOPRL', 'typed', undefined]);
+
+    launchApp(`/medication/${saved!.id}`);
+    await screen.findByText(Strings.uses.typedUnidentified.ko);
+    expect(screen.queryByText(Strings.uses.nameNotWhole.ko)).toBeNull();
+    expect(screen.queryByText(Strings.result.damaged.name.title.ko)).toBeNull();
   });
 
   it('a name read whole asks for nothing', async () => {

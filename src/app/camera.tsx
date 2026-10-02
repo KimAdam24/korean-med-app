@@ -43,7 +43,7 @@ import { interpretLines } from '@/features/ocr/interpret-lines';
 import { goBackOr } from '@/features/navigation/go-back';
 import { DevLineList, logRecognizedLines } from '@/features/ocr/dev-line-list';
 import { assessField, type FieldKind } from '@/features/ocr/field-integrity';
-import { medicationFromReading, readableName } from '@/features/ocr/reading-to-record';
+import { medicationFromReading, readableName, withName } from '@/features/ocr/reading-to-record';
 import { isCutAtEdge, keepWithheld, type EdgeTruncation } from '@/features/ocr/truncation';
 import { recognizeLabel } from '@/features/ocr/recognize-label';
 import { FillInPanel } from '@/features/ocr/fill-in-panel';
@@ -117,6 +117,13 @@ type Phase =
        * deleted" would be untrue of it.
        */
       picked?: boolean;
+      /**
+       * The medicine's name as the user typed it from the bottle (or completed
+       * it in fill-in), where the reading could not give it whole. Held with
+       * the reading, so it survives fill-in and a failed save, and is the
+       * user's word, not the camera's.
+       */
+      typedName?: string;
     }
   /**
    * `photoDiscarded` is carried explicitly rather than assumed: every failure
@@ -157,7 +164,7 @@ type Recognised = Extract<LabelRecognitionResult, { status: 'recognized' }>;
 
 const resultPhase = (
   result: Recognised,
-  how: { swept?: boolean; stalled?: boolean; filled?: boolean; picked?: boolean } = {}
+  how: { swept?: boolean; stalled?: boolean; filled?: boolean; picked?: boolean; typedName?: string } = {}
 ): Extract<Phase, { kind: 'result' }> => ({
   kind: 'result',
   fields: result.fields,
@@ -439,7 +446,7 @@ export default function CameraScreen() {
       match: NameMatch | null,
       nameSource: 'read' | 'typed'
     ) => {
-      const toSave = medicationFromReading(fields, truncation);
+      const toSave = medicationFromReading(fields, truncation, nameSource === 'typed');
       if (!toSave) return;
 
       const reading = lastReading.current;
@@ -570,11 +577,17 @@ export default function CameraScreen() {
   const filledIn = useCallback((reading: Recognised, filled: readonly FieldKind[]) => {
     setPhase((current) => {
       if (current.kind !== 'result') return current;
-      const next = resultPhase(reading, { swept: current.swept, picked: current.picked, filled: true });
+      // A name completed in fill-in is the user's word, as a name typed in the
+      // box is; one typed in the box before stays theirs.
+      const typedName = filled.includes('name') ? (reading.fields.name?.text ?? current.typedName) : current.typedName;
+      const next = resultPhase(reading, { swept: current.swept, picked: current.picked, filled: true, typedName });
       // A field withheld at the edge stays withheld unless it was filled in:
       // completing the directions is not a reason to trust the name.
       return { ...next, truncation: keepWithheld(current.truncation, next.truncation, filled) };
     });
+  }, []);
+  const nameTyped = useCallback((name: string) => {
+    setPhase((current) => (current.kind === 'result' ? { ...current, typedName: name } : current));
   }, []);
   const close = useCallback(() => goBackOr(router, '/'), [router]);
 
@@ -715,6 +728,8 @@ export default function CameraScreen() {
         truncation={phase.truncation}
         swept={phase.swept}
         picked={phase.picked}
+        typedName={phase.typedName}
+        onNameTyped={nameTyped}
         stalled={phase.stalled}
         filled={phase.filled}
         devProbe={devProbe}
@@ -875,6 +890,8 @@ function ReadingResult({
   truncation,
   swept = false,
   picked = false,
+  typedName = null,
+  onNameTyped,
   stalled = false,
   filled = false,
   devProbe,
@@ -890,6 +907,8 @@ function ReadingResult({
   truncation?: EdgeTruncation | null;
   swept?: boolean;
   picked?: boolean;
+  typedName?: string | null;
+  onNameTyped: (name: string) => void;
   stalled?: boolean;
   filled?: boolean;
   devProbe: CaptureProbe | null;
@@ -913,12 +932,11 @@ function ReadingResult({
    * and saved, and as the user's word, not the camera's, so the edge no
    * longer withholds it. The reading's own name is left as it was read.
    */
-  const [typedName, setTypedName] = useState<string | null>(null);
   const readWhole = readableName(fields, truncation) !== null;
   const named: MedicationLabelFields = typedName ? { ...fields, name: { text: typedName, confidence: 1 } } : fields;
   const namedTruncation =
     typedName && truncation ? { ...truncation, fields: truncation.fields.filter((kind) => kind !== 'name') } : truncation;
-  const toSave = medicationFromReading(named, namedTruncation);
+  const toSave = medicationFromReading(named, namedTruncation, Boolean(typedName));
   const usesSource: UsesSource = {
     kind: 'name',
     name: typedName ?? readableName(fields, truncation),
@@ -955,6 +973,13 @@ function ReadingResult({
         return withheld && findGaps(lines, fields, kind).length > 0;
       })
     : [];
+  /**
+   * The lines as fill-in should see them: with a typed name in place of the
+   * one read. Otherwise the name's line still ends cut at the edge ("VITAMIN
+   * D"), the edge is still found, and the directions filled beside it can
+   * never read whole.
+   */
+  const fillLines = typedName && lines ? withName(lines, fields.name?.text, typedName) : lines;
   const [filling, setFilling] = useState(false);
   // §3.2: the directions in Korean, only from reviewed phrases; null until
   // they are approved, and for any direction not wholly covered by them.
@@ -985,12 +1010,12 @@ function ReadingResult({
   // whatever the last one left.
   const [showFields, setShowFields] = useState(false);
 
-  if (filling && lines) {
+  if (filling && fillLines) {
     return (
       <Sheet>
         <FillInPanel
-          lines={lines}
-          fields={fields}
+          lines={fillLines}
+          fields={named}
           kinds={fillable}
           onConfirm={(reading, filled) => {
             setFilling(false);
@@ -1034,7 +1059,7 @@ function ReadingResult({
         Where the name was not read whole, the way to give it: without a name
         there is nothing to look up. Kept after a name is typed, to correct it.
       */}
-      {!readWhole ? <NameEntry read={fields.name?.text} onSubmit={setTypedName} /> : null}
+      {!readWhole ? <NameEntry read={fields.name?.text} typed={typedName ?? undefined} onSubmit={onNameTyped} /> : null}
 
       {/* The directions: the field whose damage is dangerous rather than untidy. */}
       <Card>
@@ -1066,11 +1091,11 @@ function ReadingResult({
     <Notice tone="info" title={Strings.sweep.stalled} />
   ) : null;
 
-  const saveBlock = !toSave ? (
-    // No name, so nothing to match against the box; the reading cannot become a
-    // record. It used to show no save button and no reason.
-    <Notice tone="warn" title={Strings.failure.nameUnreadable} />
-  ) : (
+  // No name, so nothing to match against the box; the reading cannot become a
+  // record. It used to say so here (`failure.nameUnreadable`: cannot be added,
+  // take another photo); now the box to type the name is shown instead, which
+  // is the way to add it, and the photo can still be retaken.
+  const saveBlock = !toSave ? null : (
     <View style={styles.actions}>
       {/* Said before the tap rather than after: what will be left out, and why. */}
       {toSave.dropped.includes('instructions') ? (
