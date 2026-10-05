@@ -180,8 +180,10 @@ device.
 
 Native code on both platforms: a camera view each, the recognition reused from
 `LabelOcr`. **The Swift half is written but not linked.** It cannot be compiled
-here (there is no Xcode on Windows), so it is not even compile-verified, and an
-uncompiled Swift file in a linked module would break every iOS build. The
+here (there is no Xcode on Windows). It was compiled once, in an EAS simulator
+build on 2026-10-05, and has one error to fix (see the module's README); a
+Swift file that does not compile, in a linked module, would break every iOS
+build. The
 module's `expo-module.config.json` lists Android only; on iOS the app offers
 the single capture and manual fill-in instead. Linking it is one line — add
 `"apple"` to `platforms` — once a Mac has compiled it.

@@ -1,247 +1,257 @@
-# 약 도우미 / Korean Medication Assistant
+# 약 도우미 — Korean Medication Assistant
 
-A phone app for elderly users who take several prescriptions and are more
-comfortable reading Korean. It reads a medication label through the camera,
-explains it in Korean, and keeps a medication profile on the device.
+A phone app that reads a US prescription bottle and explains it in Korean. It
+is for older Korean speakers who take several medicines and cannot easily read
+the English on the label: the people least able to check what an app tells
+them about their medicine.
 
-Two rules shape most of the design decisions in this repo:
+Point the camera at a pharmacy bottle, scan a box's barcode, or choose a photo.
+The app reads the label on the phone itself, identifies the medicine against
+the U.S. National Library of Medicine's drug vocabulary, and shows:
 
-- **Photographs are never stored.** An image exists only long enough to be read,
-  and the capture path deletes it before returning — and refuses to hand back
-  pixels it could not delete. See `src/features/capture/transient-capture.ts`.
-  A photo chosen from the gallery arrives as the picker's copy in the app's
-  cache, never the user's original, and that copy is deleted the same way. Both
-  caches are emptied at every launch, for a run that died mid-read. See
-  `src/features/capture/photo-caches.ts`.
-- **The profile is the user's alone.** Medication records are encrypted at rest
-  under a key that never leaves this device's keychain. See
-  `src/features/security/`.
+- **the name, strength and directions** as the bottle prints them, or, where
+  any of them could not be read with certainty, a plain statement that it could
+  not, and what to do;
+- **what the medicine is approved to treat**, quoted word for word from its
+  FDA label, under a note that a doctor may prescribe it for other reasons;
+- **daily reminders**, which say plainly when the phone will not let them ring.
+
+The app is Korean first. A button shows the English beside it for a family
+member or a pharmacist. The medicine list is encrypted on the phone and never
+leaves it, and photos are never kept.
+
+Built with Expo (SDK 57) and React Native 0.86, in TypeScript, with native
+modules in Swift and Kotlin.
+
+## The rule behind it: right, or visibly withheld
+
+A medication app that is wrong in a confident voice is worse than none, and
+these users cannot catch it: that is why they need the app. So every field the
+app shows is either right or visibly withheld, never clean and wrong. Most of
+the design follows from that.
+
+**Refuse rather than guess.**
+
+- A name cut off at the label's edge is not looked up. "VITAMIN D" is what is
+  left of "VITAMIN D2" round the curve of a vial, and it is a different
+  medicine. The user is asked to type the name from the bottle instead.
+- Directions with recognition damage are never shown as directions. The first
+  real label tested lost the "UP" of "UP TO 3 TIMES DAILY", which turns a
+  ceiling into a schedule. The raw reading is available behind a tap, captioned
+  as inaccurate, with the damaged words marked.
+- Identification by name is exact. A misspelling matches nothing, even when the
+  lookup service offers the right spelling: no fuzzy matching, typed or read. A
+  name with Korean in it is not looked up at all, because the English part
+  alone is only part of the name.
+- Where products of one strength are approved for different things, and only
+  the brand, the release or the strength tells them apart, a bottle that does
+  not show which gets no label. Where only the release marker is missing, the
+  app asks instead: "Does the bottle say ER, XL, SR or CD?"
+- A barcode whose digits fit more than one product code asks the user which,
+  rather than picking.
+
+**Sourced and attributed.** Every medical statement the app makes is someone
+else's: the FDA's, or RxNorm's. Attribution is carried in the type system
+(`AttributedGuidance`), so no screen can show a claim without its source. The
+approved uses are the label's Indications section, verbatim; the one thing
+folded away is the FDA's standard background paragraphs on blood pressure,
+never a use and never a limitation. No medical content is generated or written
+from memory. Three features are parked for exactly that reason (below).
+
+**Never repair a drug name.** Recognised text is never "corrected". A wrongly
+corrected name or dose looks exactly like a right one; visibly broken text at
+least announces itself.
+
+**Korean that has not been reviewed says so.** A native Korean speaker reviews
+the app's wording in batches. Each batch goes out as a spreadsheet: every
+string with where it appears and when, and a draft to correct rather than
+write. The returned sheets are kept as the record, and a test fails if the
+app's Korean drifts from them. Safety warnings are written by the reviewer,
+never drafted. The few strings shipped ahead of review are marked as
+AI-completed and keep their English beside them until she has read them.
+
+## Privacy
+
+- **Photos are never stored.** A capture is deleted before the capture path
+  returns, and the path refuses to hand back pixels it could not delete. A
+  photo chosen from the gallery is read from the picker's own copy, which is
+  deleted the same way; the user's original is untouched.
+- **The list is the user's alone.** Records are sealed with AES-GCM under a
+  random key held in the keychain as `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, so the
+  key never travels in a backup. The app locks with biometrics or a PIN. While
+  it is locked, the screens are not mounted at all, so nothing medical sits in
+  memory behind the lock screen. The app switcher's thumbnail is blanked.
+- **What leaves the phone** is the medicine's name or barcode number, sent to
+  the National Library of Medicine (RxNav and DailyMed) over HTTPS with no
+  identifier. The list never leaves, and neither does a photo. Reminders give
+  the phone's scheduler an identifier and "Time for your medicine", never a
+  medicine's name, since notifications show on the lock screen.
+
+## How it works
+
+```
+ camera · gallery · barcode
+            │
+ modules/label-ocr        Apple Vision (Swift) · ML Kit (Kotlin), on the phone
+            │             lines of text, with their geometry
+ src/features/ocr         reading order → label parser → field integrity → cut-at-edge check
+            │             name, strength, directions: each a value, or withheld
+ src/features/drugs       identify (RxNorm, exact) → products (RxNorm) → labels (DailyMed)
+            │             → which label fits this bottle → its Indications, verbatim
+ screens (expo-router) ── encrypted vault ── reminders
+```
+
+### Reading the label
+
+`modules/label-ocr` is a small native module written for this app: Apple
+Vision on iOS, ML Kit on Android, both on-device. No maintained community
+library was current with the SDK when it was written. It returns lines of text
+with their corners. Reading order is rebuilt in TypeScript from that geometry
+(`reading-order.ts`), following each line's slope, so a printed line bent round
+a vial stays one line. A parser picks the name, strength and directions by
+content. `field-integrity` then decides, field by field, whether the text can
+be shown as a value or only as damaged text, and `truncation` withholds
+anything cut off at the label's edge.
+
+### Finding the right label
+
+The hard part is not reading the bottle; it is choosing which FDA label
+describes it. DailyMed holds tens to hundreds of labels for a common medicine:
+the brand, each generic maker, each repackager. They do not all say the same
+thing. One strength of tadalafil is a drug for erectile dysfunction under one
+brand and for pulmonary hypertension under another, and clonidine treats blood
+pressure released at once but ADHD as an extended-release tablet.
+
+So the lookup narrows by what the bottle actually shows: the exact product
+first, then release, strength, salt and brand. It refuses a label written for
+two products, and prefers the manufacturer's own label to a repackager's copy.
+Where the bottle does not say enough, the app shows no label rather than a
+plausible one.
+
+Those rules were found and are guarded by a regression tool, `tools/label-scan`.
+It reads every DailyMed label (about 32,000) for the 200 most-prescribed US
+medicines, then replays the app's own lookup for a typical bottle of every
+product of them. Each change to the rules is measured against it, as losses and
+gains bottle by bottle. Today the most common bottle of 155 of the 195 that
+identify gets a label, 13 of them after the release question. The rest are
+refused on purpose, because their labels disagree and nothing on the bottle
+says which applies. The findings are in
+[`docs/label-scan.md`](docs/label-scan.md).
+
+### Reminders
+
+A reminder that fails silently is worse than none: someone told they will be
+reminded stops remembering for themselves. So the app never reports "on" from
+what it asked the phone to do. It reports what the phone says back: allowed or
+blocked, the channel muted, exact alarms refused, Do Not Disturb that could
+silence them. Each comes with its fix beside it. See
+[`docs/reminders.md`](docs/reminders.md).
+
+## Testing
+
+- **Unit tests** (`npm run test:unit`, Node's test runner, about 400): the label
+  parser, field integrity, reading order, the label rules against DailyMed- and
+  RxNav-shaped answers, and the review-sheet pipeline.
+- **Integration tests** (`npm run test:integration`, Jest, about 220): the real
+  app end to end above the native boundary. The vault runs with real AES-GCM,
+  and the screens through `expo-router`'s test renderer. Native modules are
+  faked, with the platform behaviour each fake models checked against platform
+  source.
+- **A recognition scorecard** (`npm run eval`): real readings, redacted in
+  shape (every letter becomes X, every digit 0) so no patient's details are
+  kept, scored on the one thing that matters: no field shown as a value that is
+  not what the label says.
+- **The label scan replay**, above.
+
+What none of this reaches: a physical phone. The app has been run on an
+Android emulator, including a real dispensed label read from a photograph. On
+iOS it builds for the simulator on EAS, most recently on 2026-10-05. Neither
+has read a bottle through a real camera.
+
+## What is parked, and why
+
+Each of these stopped at the same rule: medical content only from an
+authoritative source the app is allowed to use.
+
+| Feature | Built | Why it waits |
+| --- | --- | --- |
+| Warnings about medicines that should not be combined | The engine, tested; its rule table is empty | Licensing of the data, and regulatory counsel |
+| "What this medicine is for", in plain words | Instead, the label's own words, shown today | The only patient-language source is licensed |
+| Official Korean ingredient names (식약처) | The importer and the display; the table is empty | Access to the Korean government's dataset |
+| Reading a curved label while the bottle turns | Android: built, and replayed from video on an emulator. iOS: written; its first compile found one error | A real camera to test with; the iOS half not yet linked |
+| Reading aloud | Not started | Constraints in [`docs/tts-feasibility.md`](docs/tts-feasibility.md) |
+
+The first three are set out in [`docs/blocked-on-data.md`](docs/blocked-on-data.md):
+what was built, what each source's terms allow, and what would unblock it.
+What is hidden behind a flag, and why, is in [`docs/scope.md`](docs/scope.md).
+
+The largest open question is not a feature at all: the label parser has been
+measured against one real vial and one stock template. It needs ten to twenty
+real bottles, photographed the way users will photograph them, before its
+scorecard means much.
 
 ## Running it
 
-These are native modules (camera, keychain, biometrics), so **Expo Go will not
-work** — the app needs a development build.
+The app uses native modules (camera, keychain, biometrics, on-device
+recognition), so **Expo Go will not run it**: it needs a development build.
 
-Node 22.13 or later is required (React Native 0.86's floor). EAS builds use
-22.23.1, pinned in `eas.json` and `.nvmrc`; use the same locally so the lock
-file is written by the npm that will install it.
+Node 22.13 or later (React Native 0.86's floor). EAS builds use 22.23.1, pinned
+in `eas.json` and `.nvmrc`.
 
 ```bash
 npm install
-
-# One-time per device: build and install a dev client.
-npx expo run:android      # or: npx expo run:ios
+npx expo run:android      # or: npx expo run:ios — builds and installs a dev client
+npx expo start            # afterwards, reloads JavaScript against it
 ```
-
-After the dev build is installed, `npx expo start` reloads JS against it as
-usual.
 
 ```bash
-npm run typecheck   # app and tests
-npm run test:unit   # pure-logic tests, run on Node
-npm run test:integration   # the app end to end under Jest, native modules faked
-npm run eval        # OCR scorecard against real label readings
-npm run smoke:android -- --dev-server http://10.0.2.2:8081   # launch a real build, fail on a crash
+npm run typecheck          # app and tests
+npm run test:unit          # pure logic, on Node
+npm run test:integration   # the app end to end under Jest
+npm run eval               # the recognition scorecard
 npm run lint
+npm run smoke:android -- --dev-server http://10.0.2.2:8081   # launch a real build; fail on a crash
+npm run label-scan:fetch && npm run label-scan:replay        # the DailyMed scan (tools/label-scan/README.md)
+npm run copy:pending -- --export batch.csv                   # the next Korean review sheet
 ```
 
-Integration failures are also appended to `.test-results/failures.log`
-(ignored by git), so one that does not recur can still be named.
-
-## Layout
+## Where things are
 
 ```
-src/app/                  screens (expo-router)
-src/features/capture/     transient photo capture (§3.1)
-src/features/ocr/         label-recognition seam (§3.1)
-src/features/security/    app lock and encrypted vault (§3.3)
-src/features/medications/ the medication profile (§3.3)
-src/i18n/strings.ts       all user-facing copy, Korean-first
+src/app/                 screens (expo-router)
+src/features/ocr/        reading order, label parser, field integrity, the scorecard's corpus
+src/features/drugs/      identification and the label lookup
+src/features/security/   vault, keychain key, PIN, app lock, screen privacy
+src/features/reminders/  scheduling, and what the phone says back
+src/features/capture/    capture that keeps no photo
+src/i18n/                every word the app shows, Korean first
+modules/label-ocr/       on-device recognition (Swift, Kotlin)
+modules/label-sweep/     the turning-bottle reader (Kotlin; Swift written, not linked)
+modules/dose-alarms/     Android exact alarms and Do Not Disturb
+tools/label-scan/        the DailyMed scan and replay
+content-drafts/          Korean drafts awaiting review, never imported by the app
+integration/             end-to-end tests, and the platform fakes
+docs/                    decisions, and the evidence for them
 ```
-
-## What is built
-
-| Area                                    | State                                             |
-| --------------------------------------- | ------------------------------------------------- |
-| Camera capture, photo discarded         | Built                                             |
-| Barcode identification, NDC → RxNorm    | Built — the primary path (§3.1)                   |
-| OCR label reading (§3.1 fallback)       | Custom native module — not yet verified on device  |
-| App lock, biometric + PIN (§3.3)        | Built                                             |
-| Encrypted medication storage (§3.3)     | Built                                             |
-| Korean translation (§3.2)               | App copy reviewed in batches; dosing phrases await review; Korean medicine names **parked**, blocked on data access (`docs/blocked-on-data.md`) |
-| Interaction guidance (§3.4)             | Engine built, rule table empty; **parked**, blocked on licensing and counsel (`docs/blocked-on-data.md`) |
-| What a medicine is approved to treat    | Built: its FDA label's Indications section from DailyMed, verbatim, with a disclaimer (`docs/scope.md`); a plain-language line stays blocked (`docs/blocked-on-data.md`) |
-| Gallery photos                          | Built, in release since 2026-09-28                |
-| Fill-in, curve message                  | Built, on again since 2026-10-02 (`docs/scope.md`) |
-| Sweep                                   | **Hidden** (`src/features/scope.ts`); the full app is on `archive/full-app-2026-09-28` |
-| First-launch introduction               | Built — reviewed                                  |
-| Dose reminders                          | Built — not yet rung on a device; see `docs/reminders.md` |
-| Reading aloud (TTS)                     | Not started — constraints in `docs/tts-feasibility.md` |
-
-Identification is US-first: NDC codes resolved against RxNorm. Korean products
-(식약처/KIMS) are not handled yet, and the Korean OCR script model is
-deliberately not bundled — see the limitations below.
 
 ## Known limitations
 
-Things that are understood and accepted, not oversights. Revisit before release.
+Understood and accepted, not overlooked:
 
-### The medication profile does not survive a change of device
-
-The vault key is stored with `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, so it never
-travels in an encrypted backup. Restoring onto a new phone leaves the saved
-records unreadable and the user has to re-scan their medicines.
-
-This is deliberate and follows the privacy requirement that the data be
-accessible only to the user — a key that rides a backup makes "the user" mean
-"whoever restored it". The app detects this case and says the data cannot be
-opened, rather than presenting an empty list as though nothing was saved.
-
-The cost is real: a phone upgrade costs a re-scan, for the users least likely to
-enjoy doing one. If that turns out to hurt in practice, the fix is a deliberate,
-user-initiated export — not loosening the keychain accessibility flag.
-
-### A lookup tells NLM which medicine was scanned
-
-Resolving an NDC means asking RxNav (National Library of Medicine) over the
-network. One scan sends up to three NDCs (the shapes its digits could have been
-printed in, below), over HTTPS, with no user or device
-identifier, no account, no cookie, and nothing from the medication profile — but
-NLM can still see that some IP address looked up a particular drug.
-
-Since 2026-09-28 more requests go the same way, about the medicine: a medicine
-read from a photo, or whose name was typed, is identified by that name (RxNav),
-and every medicine shown has its FDA label fetched (DailyMed, also NLM). The
-name read is whatever the parser took for the medicine's, which can in rare
-layouts be another line; `docs/scope.md` says when.
-
-This was the cheaper of the two disclosures available. Cloud OCR would have sent
-the photograph itself; barcode-first sends eleven digits. If even that is
-unacceptable, the alternative is bundling an offline copy of the NDC directory,
-which is large but not impossible.
-
-### Label reading is heuristic, and measured against very few labels
-
-`modules/label-ocr` is a local Expo module: Apple Vision on iOS, ML Kit via Play
-Services on Android, both entirely on-device. It returns ordered lines of text.
-
-`sig-parser` picks the name, strength and directions out of those lines by
-content, and `field-integrity` decides whether each can be shown as a value or
-only as damaged text. Both are heuristics. The rule they are built to keep is
-that a field is either right or visibly withheld — never shown clean and wrong
-— and `src/features/ocr/eval` measures exactly that against real readings:
-`npm run eval` prints the scorecard, and the unit tests fail on any field shown
-as a value that is not what the label says.
-
-The corpus behind that is tiny: one stock template and one real vial. Until it
-holds ten to twenty real labels, photographed the way users will photograph
-them, a clean scorecard means little. Photographs are never added — only the
-engine's lines, redacted in shape; the corpus header says how.
-
-Reading order is decided in TypeScript (`reading-order.ts`) from the geometry
-both native modules return, following each line's slope so that the pieces of
-a printed line bent round a vial stay on one row. One real capture has
-geometry: the vial, photographed tilted by about 8°, which reads in order and
-keeps every wrapped line of its directions — after it exposed a bug in how a
-wrapped line is joined on a tilt. Curvature is still tested on synthetic
-geometry only, so how it behaves on a strongly curved bottle is not yet known.
-
-We wrote this rather than taking a dependency because no community OCR library
-is both maintained and current: `expo-text-extractor`'s last substantive commit
-was ~4 months before we looked and it has no SDK 56/57 support, Infinite Red's
-text-recognition package is pinned two majors behind its own core, and
-`react-native-ml-kit` had not been pushed in over a year. On iOS, Vision is part
-of the OS, so the dependency count there is zero.
-
-Only Latin script is bundled. ML Kit ships one model per script at roughly 38 MB
-each, and these users read English labels — Korean is the language of the
-guidance, not of the input.
-
-### OCR confidence is not comparable across platforms
-
-Both engines report a 0–1 confidence per line — Vision's top candidate on iOS,
-`Text.Line.getConfidence()` on Android. The Android module sent `null` for
-every line until this was caught, on the mistaken belief that ML Kit exposed
-none; it does, in the API reference.
-
-The two numbers come from different models and mean different things, so no
-threshold should be shared between them. Nothing currently gates on
-confidence: every OCR field is capped below the confirmation threshold
-regardless, because a perfectly recognised line can still be the wrong line.
-
-### The native module has not been run on hardware
-
-The Kotlin compiles, including the change that returns line geometry
-(verified with a local Gradle build of the module). The Swift compiled before
-that change, in an EAS iOS simulator build; the geometry version has not been
-compiled yet. Android has read a real dispensed label, from a photograph on an
-emulator. Neither platform has read one through the camera of a physical
-device.
-
-### A scanned barcode cannot say which NDC segmentation it holds
-
-A 10-digit NDC is printed as 4-4-2, 5-3-2 or 5-4-1, and the barcode omits the
-hyphens that would say which. Each scan therefore yields up to three candidate
-11-digit codes, and RxNorm is asked about all of them. Usually exactly one
-exists. When more than one does, the app asks the user rather than picking —
-`src/features/drugs/ndc.ts` explains why at length.
-
-### Screenshots are blocked on Android
-
-The app switcher must not show what the lock hides, so the app blurs itself in
-the iOS switcher and sets `FLAG_SECURE` on Android (`screen-privacy.ts`).
-Android has no way to blank the recents thumbnail without also blocking
-screenshots and screen recording, so on Android a caregiver cannot screenshot
-the medicine list to share it. iOS screenshots still work. This needs a
-native rebuild to take effect; older builds run unprotected rather than crash.
-
-The library needs `DETECT_SCREEN_CAPTURE` just to load: on Android 14+ it
-registers a screen-capture callback as it starts, and Android throws without
-the permission. A build that blocked it crashed at launch; the permission is
-normal-level, granted at install, and asks nothing of the user.
-`integration/android-permissions.test.ts` now checks every removed permission
-against the native code that ships, and `npm run smoke:android` launches a
-real build to catch what no JavaScript test can see.
-
-The smoke check passes only when the app draws one of its own first screens
-(lock, PIN, fingerprint prompt, or home) and stays up; a live process on a
-blank screen is a failure. For a dev build it checks the dev server answers
-first — on the emulator that is `http://10.0.2.2:<port>`. It was proven on the
-Pixel 7 emulator both ways: the good build passes, and a build with
-`DETECT_SCREEN_CAPTURE` stripped fails on the exact permission-denial crash.
-If a dev build hangs on a blank screen, the dev server is usually the cause:
-restart it, and force-stop the app before retrying.
-
-### The PIN lockout can be shortened by changing the device clock
-
-The lockout schedule reads `Date.now()`. Defeating it requires already holding
-an unlocked phone, at which point the PIN is not what protects the data — the
-hardware-backed key is. Accepted knowingly; see `src/features/security/pin.ts`.
-
-### What the tests cannot reach
-
-Two layers of automated tests. `npm run test:unit` covers the pure logic — the
-label parser, field integrity, reading order, the evaluation corpus, the UTF-8
-codec — on Node. `npm run test:integration` (Jest, in `integration/`) runs the
-real app above the native boundary: the vault with real AES-GCM, the PIN store
-and its lockout, the lock and relock behaviour, the capture path's deletion
-guarantee, and the screens end to end through `expo-router`'s test renderer.
-
-Below that boundary everything is faked — keychain, file system, biometric
-prompt, camera, photo picker, OCR engine — so the tests prove the app uses
-those modules correctly *as the fakes describe them*. Where a fake models
-platform behaviour (Android dropping a prompt started in the background,
-the picker copying photos into the cache), it follows the platform source it
-was checked against; it is still no substitute for a physical device, on which
-the native modules have not yet been exercised.
-
-Accessibility is covered the same way, above the boundary.
-`integration/accessibility.test.tsx` asserts what the app asks the platform
-for — which heading takes focus, what is announced, which voice language a
-string is marked with (heeded by iOS's VoiceOver only: Android's TalkBack
-reads in the phone's own language whatever the app marks), how far each size
-may grow — and every screen state is
-scrollable. Layout at large text sizes was checked by rendering the components
-in a browser at a simulated 200% on a 320pt-wide column. Neither is TalkBack or
-VoiceOver actually speaking on a phone with large text set, which has not been
-tried.
+- **A new phone means adding the medicines again.** The key never leaves the
+  device, by design: a key that rides a backup makes "the user" mean "whoever
+  restored it". The app says the old list cannot be opened, rather than showing
+  an empty one.
+- **The National Library of Medicine can see which medicine an address looked
+  up.** It is the cheaper disclosure: cloud recognition would have sent the
+  photograph.
+- **Identification is US-only**: product codes and names resolved against
+  RxNorm. Korean products are not handled.
+- **Recognition confidence is not comparable across platforms**, so nothing
+  gates on it. A perfectly recognised line can still be the wrong line.
+- **Screenshots are blocked on Android.** Android cannot blank the app-switcher
+  thumbnail without also blocking screenshots, so a caregiver cannot screenshot
+  the list to share it.
+- **The PIN's lockout reads the device clock.** Defeating it needs an unlocked
+  phone already in hand, where the hardware-backed key, not the PIN, is what
+  protects the data.

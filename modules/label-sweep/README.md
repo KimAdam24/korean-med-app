@@ -8,13 +8,25 @@ recognised lines. The privacy invariant it keeps is in
 | Platform | State |
 | --- | --- |
 | Android | `android/` — Kotlin, CameraX 1.6.0 and ML Kit. Compiled, and the whole app assembles with it (local Gradle build); linked. **Not yet run on a device.** |
-| iOS | `ios/` — Swift, AVFoundation and Vision. **Written, not compiled, not linked.** |
+| iOS | `ios/` — Swift, AVFoundation and Vision. **Written, compiled once with one error, not linked.** |
 
 ## Why the Swift is not linked
 
-It cannot be compiled on the Windows machine this project is built on, so it
-has never been compiled at all. A Swift file that does not compile, in a linked
-module, breaks every iOS build of the app. So `expo-module.config.json` lists
+It cannot be compiled on the Windows machine this project is built on. It was
+compiled once, on 2026-10-05, in an EAS iOS simulator build of the branch
+`ios-compile-check`, which autolinks the pod for that build only and registers
+no module. `LabelSweepModule.swift` compiled. `LabelSweepView.swift` has one
+error, at line 215:
+
+    error: use of 'frame' refers to instance method rather than global
+    function 'frame(of:in:)' in module 'LabelSweep'
+
+Inside the view, the bare name `frame` is the `UIView`'s own; the file's
+private `frame(of:in:)` helper needs another name, or `LabelSweep.frame(...)`.
+Nothing after compiling (linking, running) has been tried.
+
+A Swift file that does not compile, in a linked module, breaks every iOS build
+of the app. So `expo-module.config.json` lists
 `android` only, and on iOS the app offers the single capture and manual fill-in
 instead; `sweepAvailable` in `index.ts` is false there.
 
