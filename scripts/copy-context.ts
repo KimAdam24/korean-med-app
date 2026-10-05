@@ -167,6 +167,12 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     when: "When the medicine is sold, at the strength on the bottle, as products approved for different things, and only the brand name tells them apart, and none was read. Today two: tadalafil 20 mg (CIALIS for erectile dysfunction and an enlarged prostate, ADCIRCA and ALYQ for pulmonary hypertension) and bupropion SR 150 mg (WELLBUTRIN SR for depression, ZYBAN for stopping smoking).",
     notes: '상표명 for brand name, as on the boxes Korean pharmacies hand out.',
   },
+  'uses.strengthUnknown': {
+    section: USES,
+    where: 'The same box, in place of the text.',
+    when: "When the strength was not read from the bottle (cut off, damaged, or not on the photo), or a medicine was saved without one, and the medicine is made at more than one strength.",
+    notes: "Why it matters: finasteride 1 mg is for hair loss, 5 mg for an enlarged prostate. On the result screen the way out is another photo; on a medicine's page, 고치기 (Edit) to add the strength.",
+  },
   'uses.releaseQuestion': {
     section: USES,
     where: "The same box, in place of the text: the question, over a row of buttons each showing two English letters, and the button uses.releaseNone under them.",

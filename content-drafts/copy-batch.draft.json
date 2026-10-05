@@ -2,6 +2,10 @@
   "status": "DRAFT, UNREVIEWED. Korean drafted by the implementation (Claude) for the copy batch, so the reviewer reads and corrects rather than writes. Not imported by the app, and nothing here reaches it until the reviewer has signed off each string; see README.md.",
   "drafted": "2026-09-25; follow-up drafted 2026-09-28; release question drafted 2026-10-05",
   "strings": {
+    "uses.strengthUnknown": {
+      "ko": "약병에서 용량을 읽지 못했어요. 같은 약도 용량에 따라 효능이 다를 수 있어서, 용량 없이는 보여 드리지 않아요.",
+      "note": "용량 for strength, as on her result screen."
+    },
     "uses.releaseQuestion": {
       "ko": "약병의 약 이름 옆에 이 중 하나가 적혀 있나요?",
       "note": "A question to answer by tapping, so short; 약병 as in her uses.kindUnknown."

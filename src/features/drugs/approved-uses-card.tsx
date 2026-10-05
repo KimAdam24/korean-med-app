@@ -65,6 +65,7 @@ type State =
   | { readonly kind: 'formUnknown' }
   | { readonly kind: 'kindUnknown' }
   | { readonly kind: 'productUnknown' }
+  | { readonly kind: 'strengthUnknown' }
   | { readonly kind: 'releaseUnknown'; readonly releases: readonly ('immediate' | Release)[] }
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'found'; readonly uses: AttributedGuidance<ApprovedUses>; readonly match?: NameMatch };
@@ -320,7 +321,9 @@ export function ApprovedUsesCard({
                       ? Strings.uses.kindUnknown
                       : state.kind === 'productUnknown'
                         ? Strings.uses.productUnknown
-                        : Strings.uses.unavailable
+                        : state.kind === 'strengthUnknown'
+                          ? Strings.uses.strengthUnknown
+                          : Strings.uses.unavailable
             }
             color={theme.textSecondary}
           />

@@ -514,6 +514,10 @@ export const Strings = {
       'This medicine is sold as different products approved for different things, which only the brand name tells apart, and no brand name was read on the bottle.',
       "In place of the label's text, when a medicine's products of one strength are approved for different things and only the brand tells them apart: tadalafil 20 mg is CIALIS (erectile dysfunction, enlarged prostate) or ADCIRCA and ALYQ (pulmonary hypertension); bupropion SR 150 mg is WELLBUTRIN SR (depression) or ZYBAN (stopping smoking)."
     ),
+    strengthUnknown: untranslated(
+      'The strength on the bottle was not read. A medicine can be approved for different things at different strengths, so nothing is shown without it.',
+      "In place of the label's text, when the strength was not read from the bottle (or not saved with the medicine) and the medicine is made at more than one: finasteride 1 mg is for hair loss, 5 mg for an enlarged prostate."
+    ),
     releaseQuestion: untranslated(
       "Does the bottle show one of these beside the medicine's name?",
       'In place of the label\'s text, above a row of buttons each with two English letters on it (ER, XL, SR, CD, XR, CR, LA; or DR, EC), and the button uses.releaseNone. Asked when the medicine is made at the strength on the bottle both released at once and released over time, approved for different things, and nothing read from the bottle said which.'

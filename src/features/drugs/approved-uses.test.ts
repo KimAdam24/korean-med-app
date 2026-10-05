@@ -21,6 +21,7 @@ import {
   readIndications,
   releasesMade,
   sameIngredients,
+  strengthsMade,
   sectionMarkup,
   titledNames,
   type UsesTarget,
@@ -1146,4 +1147,141 @@ test("WELLBUTRIN SR 150 mg is shown its own label, not the smoking-cessation gen
   bupropion();
   const found = await findApprovedUses(bupropionTarget([{ value: 150, unit: 'mg' }], 'sr', ['wellbutrin']));
   assert.equal(found.status === 'found' && found.uses.content.text, DEPRESSION);
+});
+
+test('nifedipine ER, fluoxetine tablets: refused without the brand, as tadalafil is', async () => {
+  const asked = nlm(() => ({ status: 404 }));
+  const nifedipine = await findApprovedUses(target('7417', 'nifedipine', { strengths: [{ value: 30, unit: 'mg' }], release: 'extended' }));
+  assert.deepEqual(nifedipine, { status: 'productUnknown' });
+  // Nor with no release printed: at 30 mg, its tablets are all extended-release.
+  assert.deepEqual(await findApprovedUses(target('7417', 'nifedipine', { strengths: [{ value: 30, unit: 'mg' }] })), {
+    status: 'productUnknown',
+  });
+  const fluoxetine = await findApprovedUses(target('4493', 'fluoxetine', { strengths: [{ value: 20, unit: 'mg' }] }));
+  assert.deepEqual(fluoxetine, { status: 'productUnknown' });
+  assert.deepEqual(asked, []);
+  // Its capsules are one product's: not refused.
+  nlm(() => ({ status: 404 }));
+  const capsule = await findApprovedUses({ ...target('4493', 'fluoxetine', { strengths: [{ value: 20, unit: 'mg' }] }), form: 'CAPSULE' } as UsesTarget);
+  assert.notEqual(capsule.status, 'productUnknown');
+});
+
+/** Cyclosporine 100 mg capsules: SANDIMMUNE's generic (transplants alone) listed before a modified one. */
+function cyclosporine(): string[] {
+  const label = (uses: string) =>
+    product({ substance: 'CYCLOSPORINE', moiety: 'CYCLOSPORINE', strengths: [['100', 'mg']], route: 'ORAL', uses });
+  return nlm((url) => {
+    if (url.includes('spls.json?rxcui=3008')) {
+      return url.includes(RX)
+        ? listing(['plain', 'CYCLOSPORINE CAPSULE, GELATIN COATED [APOTEX]'], ['modified', 'CYCLOSPORINE CAPSULE, LIQUID FILLED [AUROBINDO]'])
+        : listing();
+    }
+    if (url.endsWith('/spls/plain.xml')) {
+      return { text: label('Cyclosporine capsules, (NON-MODIFIED), in combination with adrenal corticosteroids, are indicated for the prophylaxis of organ rejection.') };
+    }
+    if (url.endsWith('/spls/modified.xml')) {
+      return { text: label('Cyclosporine capsules (modified) are indicated for the prophylaxis of organ rejection, for rheumatoid arthritis and for psoriasis.') };
+    }
+    return { status: 404 };
+  });
+}
+
+test('cyclosporine: refused without its brand, and MODIFIED printed stands in for it, shown only a modified label', async () => {
+  cyclosporine();
+  const capsule = (brand: string[]) =>
+    findApprovedUses({ ...target('3008', 'cyclosporine', { strengths: [{ value: 100, unit: 'mg' }], brand }), form: 'CAPSULE' } as UsesTarget);
+  assert.deepEqual(await capsule([]), { status: 'productUnknown' });
+  const asked = cyclosporine();
+  assert.match(usesOf(await capsule(['modified'])), /rheumatoid arthritis/);
+  // The non-modified label, listed first, was read and passed over.
+  assert.ok(asked.includes('/spls/plain.xml'));
+});
+
+test('diltiazem ER 120 mg capsules: CD printed is a once-a-day product, not the twice-a-day label listed first', async () => {
+  const label = (uses: string) =>
+    product({ substance: 'DILTIAZEM HYDROCHLORIDE', moiety: 'DILTIAZEM', strengths: [['120', 'mg']], route: 'ORAL', uses });
+  const route = () =>
+    nlm((url) => {
+      if (url.includes('spls.json?rxcui=3443')) {
+        return url.includes(RX)
+          ? listing(
+              ['twice', 'DILTIAZEM HYDROCHLORIDE CAPSULE, EXTENDED RELEASE [SAFECOR]'],
+              ['once', 'DILTIAZEM HYDROCHLORIDE CAPSULE, EXTENDED RELEASE [APOTEX]']
+            )
+          : listing();
+      }
+      if (url.endsWith('/spls/twice.xml')) {
+        return { text: label('Diltiazem hydrochloride extended-release capsules (Twice-a-Day Dosage) are indicated for the treatment of hypertension.') };
+      }
+      if (url.endsWith('/spls/once.xml')) {
+        return { text: label('Diltiazem hydrochloride extended-release capsules are indicated for the treatment of hypertension and chronic stable angina.') };
+      }
+      return { status: 404 };
+    });
+  const capsule = (releaseToken: string | null) =>
+    findApprovedUses({
+      ...target('3443', 'diltiazem', { strengths: [{ value: 120, unit: 'mg' }], release: 'extended', releaseToken }),
+      form: 'CAPSULE',
+    } as UsesTarget);
+  route();
+  assert.deepEqual(await capsule(null), { status: 'productUnknown' });
+  route();
+  assert.match(usesOf(await capsule('cd')), /chronic stable angina/);
+});
+
+test("semaglutide tablets: its brand is printed, and that brand's label shown", async () => {
+  assert.deepEqual(await findApprovedUses(target('1991302', 'semaglutide', { strengths: [{ value: 4, unit: 'mg' }] })), {
+    status: 'productUnknown',
+  });
+  const DIABETES = 'OZEMPIC and RYBELSUS tablets are indicated as an adjunct to diet and exercise to improve glycemic control in adults with type 2 diabetes mellitus.';
+  const WEIGHT = 'WEGOVY is indicated to reduce excess body weight.';
+  const label = (uses: string) => product({ substance: 'SEMAGLUTIDE', moiety: 'SEMAGLUTIDE', strengths: [['4', 'mg']], route: 'ORAL', uses });
+  nlm((url) => {
+    if (url.includes('spls.json?rxcui=1991302')) {
+      return url.includes(RX)
+        ? listing(
+            ['wegovy', 'WEGOVY (SEMAGLUTIDE) INJECTION, SOLUTION WEGOVY (SEMAGLUTIDE) TABLET [NOVO]'],
+            ['novo', 'OZEMPIC (ORAL SEMAGLUTIDE) TABLET RYBELSUS (ORAL SEMAGLUTIDE) TABLET [NOVO]']
+          )
+        : listing();
+    }
+    if (url.endsWith('/spls/wegovy.xml')) return { text: label(WEIGHT) };
+    if (url.endsWith('/spls/novo.xml')) return { text: label(DIABETES) };
+    return { status: 404 };
+  });
+  const rybelsus = await findApprovedUses(target('1991302', 'semaglutide', { strengths: [{ value: 4, unit: 'mg' }], brand: ['rybelsus'] }));
+  assert.equal(usesOf(rybelsus), DIABETES);
+});
+
+test('no strength read where RxNorm makes several: refused, as a strength can decide the uses', async () => {
+  const HAIR = 'Finasteride tablets 1 mg are indicated for male pattern hair loss.';
+  const route = (made: string[]) =>
+    nlm((url) => {
+      if (url.includes('/rxcui/25025/related.json?tty=SCD')) return scds(...made);
+      if (url.includes('spls.json?rxcui=25025')) return url.includes(RX) ? listing(['hair', 'FINASTERIDE TABLET, FILM COATED [A]']) : listing();
+      if (url.endsWith('/spls/hair.xml')) {
+        return { text: product({ substance: 'FINASTERIDE', moiety: 'FINASTERIDE', strengths: [['1', 'mg']], route: 'ORAL', uses: HAIR }) };
+      }
+      return { status: 404 };
+    });
+  const asked = route(['finasteride 1 MG Oral Tablet', 'finasteride 5 MG Oral Tablet']);
+  assert.deepEqual(await findApprovedUses(target('25025', 'finasteride', {})), { status: 'strengthUnknown' });
+  assert.ok(!asked.some((url) => url.includes('dailymed') || url.includes('spls')), asked.join('\n'));
+  // Made at one strength: that is the bottle's.
+  route(['finasteride 1 MG Oral Tablet']);
+  assert.equal(usesOf(await findApprovedUses(target('25025', 'finasteride', {}))), HAIR);
+  // A strength printed: asked of RxNorm only for the release.
+  route(['finasteride 1 MG Oral Tablet', 'finasteride 5 MG Oral Tablet']);
+  assert.equal(usesOf(await findApprovedUses(target('25025', 'finasteride', { strengths: [{ value: 1, unit: 'mg' }] }))), HAIR);
+});
+
+test('the strengths made, in the form, salt and release printed', () => {
+  const drugs = [
+    'clonidine hydrochloride 0.1 MG Oral Tablet',
+    'clonidine hydrochloride 0.2 MG Oral Tablet',
+    '12 HR clonidine hydrochloride 0.1 MG Extended Release Oral Tablet',
+  ].map((name) => clinicalDrug(name)!);
+  const bottle = (release: 'extended' | 'immediate' | null) => ({ ingredients: 1, form: 'TABLET' as const, salts: [], release });
+  assert.equal(strengthsMade(drugs, bottle(null)).length, 2);
+  assert.deepEqual(strengthsMade(drugs, bottle('extended')), [[{ value: 0.1, unit: 'mg' }]]);
 });

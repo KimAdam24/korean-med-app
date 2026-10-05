@@ -198,6 +198,13 @@ export type ApprovedUsesLookup =
    * so the question offers only their markers. Nothing is asked of DailyMed.
    */
   | { readonly status: 'releaseUnknown'; readonly releases: readonly ('immediate' | Release)[] }
+  /**
+   * No strength was read, and RxNorm makes the medicine, in this form, at
+   * more than one: a medicine can be approved for different things at
+   * different strengths (finasteride 1 mg for hair loss, 5 mg for the
+   * prostate), so none is shown without it.
+   */
+  | { readonly status: 'strengthUnknown' }
   /** DailyMed or RxNav could not be reached, or answered with an error: trying again may work. */
   | { readonly status: 'unavailable' };
 
@@ -639,6 +646,25 @@ export function releasesMade(
   return [...new Set(made.map((drug) => drug.release))].sort();
 }
 
+/**
+ * The strengths RxNorm makes this medicine at, in the form, salt and release
+ * the bottle printed (any release, where none was): one list per clinical
+ * drug, a combination's in order.
+ */
+export function strengthsMade(
+  drugs: readonly ClinicalDrug[],
+  bottle: { ingredients: number; form: DoseForm; salts: readonly string[]; release: 'immediate' | Release | null }
+): Strength[][] {
+  const made = new Map<string, Strength[]>();
+  for (const drug of drugs) {
+    if (drug.ingredients !== bottle.ingredients || drug.form !== bottle.form) continue;
+    if (!bottle.salts.every((salt) => drug.words.includes(salt))) continue;
+    if (bottle.release !== null && drug.release !== bottle.release) continue;
+    made.set(drug.strengths.map((strength) => `${strength.value} ${strength.unit}`).join(' / '), [...drug.strengths]);
+  }
+  return [...made.values()];
+}
+
 /** What a label must be, besides approved, to be shown for this lookup. */
 type Proof =
   | { readonly kind: 'product'; readonly key: string }
@@ -652,6 +678,8 @@ type Proof =
       readonly releaseToken: string | null;
       /** By name: the label must be of a medicine taken by mouth. */
       readonly byMouth: boolean;
+      /** Only the labels a marker printed allows, in a brand's place (`brandRequired`). */
+      readonly allows?: (title: string, text: string) => boolean;
     };
 
 /**
@@ -660,9 +688,12 @@ type Proof =
  * brand. Refused unless the brand is printed, and then shown only that
  * brand's own label: every other ambiguity (salt, strength, route, release,
  * prescription or over the counter) refuses rather than guesses, and so does
- * this.
+ * this. Where a marker on the bottle tells the products apart as surely as
+ * the brand (cyclosporine MODIFIED; diltiazem CD), it stands in for it, and
+ * only labels of that product are shown.
  *
- * Found by reading every label of the ingredient (2026-10-05):
+ * Found by reading every label of the top 200 medicines (2026-10-05,
+ * docs/label-scan.md):
  *
  * - Tadalafil 20 mg tablets: CIALIS is for erectile dysfunction and benign
  *   prostatic hyperplasia, ADCIRCA and ALYQ for pulmonary arterial
@@ -675,39 +706,118 @@ type Proof =
  *   Not where the bottle says XL (depression and seasonal affective
  *   disorder), which no smoking-cessation label is; nor at 100 or 200 mg.
  *   ZYBAN itself has no label on DailyMed, and is not identified by RxNorm.
+ * - Nifedipine ER 30, 60 and 90 mg tablets: PROCARDIA XL's kind (75 labels)
+ *   for angina and blood pressure, ADALAT CC's (43) for blood pressure alone,
+ *   both titled "NIFEDIPINE TABLET, EXTENDED RELEASE".
+ * - Fluoxetine 10 and 20 mg tablets: one label, SARAFEM's use, for
+ *   premenstrual dysphoric disorder alone, among PROZAC's generics, for
+ *   depression, OCD, bulimia and panic; titled alike.
+ * - Semaglutide 1.5, 4 and 9 mg tablets: OZEMPIC and RYBELSUS tablets for
+ *   type 2 diabetes, WEGOVY tablets for weight. No generics: the brand is
+ *   printed.
+ * - Cyclosporine 25 and 100 mg capsules: SANDIMMUNE and its generics, for
+ *   transplants alone, and the "modified" kind (NEORAL, GENGRAF and theirs),
+ *   for rheumatoid arthritis and psoriasis as well, are not interchangeable,
+ *   and generics of both are titled "CYCLOSPORINE CAPSULE". The modified
+ *   kind's labels say "modified" in their text.
+ * - Diltiazem ER 120 mg capsules: taken once a day (59 labels), for blood
+ *   pressure and angina; twice a day (10), for blood pressure alone, titled
+ *   alike. Only the twice-a-day labels say "twice-a-day". A bottle's CD or
+ *   XR is a once-a-day product.
  */
 const BY_BRAND: readonly {
   readonly ingredient: string;
+  /** The form the products share: a bottle of another is not them. */
+  readonly form?: DoseForm;
+  /** The release the products share: a bottle printing another is not them. */
+  readonly release?: Release;
   readonly strengths: readonly Strength[];
   readonly brands: readonly string[];
   /** Release markers that, printed, rule the ambiguous products out. */
   readonly unlessReleaseToken?: readonly string[];
+  /** A word or marker printed that tells the products apart in the brand's place, and the labels it allows. */
+  readonly marker?: {
+    readonly words?: readonly string[];
+    readonly tokens?: readonly string[];
+    readonly allows: (title: string, text: string) => boolean;
+  };
 }[] = [
-  { ingredient: 'tadalafil', strengths: [{ value: 20, unit: 'mg' }], brands: ['cialis', 'adcirca', 'alyq'] },
-  { ingredient: 'bupropion', strengths: [{ value: 150, unit: 'mg' }], brands: ['wellbutrin', 'zyban'], unlessReleaseToken: ['xl'] },
+  { ingredient: 'tadalafil', strengths: mg(20), brands: ['cialis', 'adcirca', 'alyq'] },
+  { ingredient: 'bupropion', strengths: mg(150), brands: ['wellbutrin', 'zyban'], unlessReleaseToken: ['xl'] },
+  {
+    ingredient: 'nifedipine',
+    form: 'TABLET',
+    release: 'extended',
+    strengths: mg(30, 60, 90),
+    brands: ['procardia', 'adalat', 'afeditab', 'nifedical'],
+  },
+  { ingredient: 'fluoxetine', form: 'TABLET', strengths: mg(10, 20), brands: ['sarafem', 'prozac'] },
+  { ingredient: 'semaglutide', form: 'TABLET', strengths: mg(1.5, 4, 9), brands: ['ozempic', 'rybelsus', 'wegovy'] },
+  {
+    ingredient: 'cyclosporine',
+    form: 'CAPSULE',
+    strengths: mg(25, 100),
+    brands: ['sandimmune', 'neoral', 'gengraf'],
+    marker: {
+      words: ['modified'],
+      allows: (title, text) =>
+        /\b(?:NEORAL|GENGRAF)\b/i.test(title) ||
+        (/\bmodified\b/i.test(`${title} ${text}`) && !/\bnon-?modified\b/i.test(`${title} ${text}`)),
+    },
+  },
+  {
+    ingredient: 'diltiazem',
+    form: 'CAPSULE',
+    release: 'extended',
+    strengths: mg(120),
+    brands: ['cardizem', 'cartia', 'tiazac', 'taztia', 'dilt', 'tiadylt'],
+    marker: { tokens: ['cd', 'xr'], allows: (_title, text) => !/\btwice[- ]a[- ]day\b/i.test(text) },
+  },
 ];
+
+/** Strengths in milligrams. */
+function mg(...values: number[]): Strength[] {
+  return values.map((value) => ({ value, unit: 'mg' }));
+}
 
 /**
  * For a medicine told apart only by its brand: the brand whose label alone
- * may be shown; null where none is needed; 'refuse' where one is and none was
- * printed. Needed at the strength the products share, or where no strength
- * was read; not where a release marker printed rules them out.
+ * may be shown, or the labels a marker printed allows; null where neither is
+ * needed; 'refuse' where one is and neither was printed. Needed at a strength
+ * the products share, or where no strength was read; of the form and release
+ * they are, or where none was read; not where a release marker printed rules
+ * them out.
  */
-function brandRequired(
-  ingredients: readonly string[],
-  strengths: readonly Strength[],
-  brand: readonly string[],
-  releaseToken: string | null
-): string | null | 'refuse' {
+function brandRequired(target: {
+  ingredients: readonly string[];
+  form: DoseForm | null;
+  release: Release | 'immediate' | null;
+  strengths: readonly Strength[];
+  brand: readonly string[];
+  releaseToken: string | null;
+}): { readonly brand: string } | { readonly allows: (title: string, text: string) => boolean } | null | 'refuse' {
+  const { ingredients, strengths, brand, releaseToken } = target;
   const entry = BY_BRAND.find((one) => ingredients.length === 1 && nameWords(ingredients[0]).join(' ') === one.ingredient);
   if (!entry) return null;
+  if (entry.form && target.form && entry.form !== target.form) return null;
+  if (entry.release && target.release && entry.release !== target.release) return null;
   if (releaseToken !== null && entry.unlessReleaseToken?.includes(releaseToken)) return null;
   const masses = strengths.filter((strength) => strength.unit === 'mg');
   const shared =
     masses.length === 0 ||
     masses.some((strength) => entry.strengths.some((one) => one.unit === strength.unit && same(one.value, strength.value)));
   if (!shared) return null;
-  return entry.brands.find((one) => brand.includes(one)) ?? 'refuse';
+  const printed = entry.brands.find((one) => brand.includes(one));
+  if (printed) return { brand: printed };
+  const { marker } = entry;
+  if (
+    marker &&
+    ((marker.words ?? []).some((word) => brand.includes(word)) ||
+      (releaseToken !== null && (marker.tokens ?? []).includes(releaseToken)))
+  ) {
+    return { allows: marker.allows };
+  }
+  return 'refuse';
 }
 
 /** Routes of a medicine taken by mouth, of which a name's tablet or capsule is one. */
@@ -1019,7 +1129,9 @@ async function firstProven(
             proof.releaseToken !== null && releaseTokensIn(label.title.toUpperCase()).has(proof.releaseToken)
           ) &&
           // One medicine's label: not one text for two.
-          !read.mixed;
+          !read.mixed &&
+          // Of the product a marker printed says, where it stands for a brand.
+          (!proof.allows || proof.allows(label.title, text ?? ''));
     // Listed by DailyMed as this kind; and not saying otherwise itself.
     const ofKind = type === null || read.documentType === null || read.documentType === type;
     // Its text its uses: not a bullet, a fragment, a warning or a guide.
@@ -1115,20 +1227,33 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
     releaseToken = null,
     brand = [],
   } = target;
-  const onlyBrand = brandRequired(ingredients, strengths, brand, releaseToken);
-  if (onlyBrand === 'refuse') return { status: 'productUnknown' };
+  const told = brandRequired({ ingredients, form, release, strengths, brand, releaseToken });
+  if (told === 'refuse') return { status: 'productUnknown' };
+  const onlyBrand = told && 'brand' in told ? told.brand : null;
+  const allows = told && 'allows' in told ? told.allows : undefined;
 
-  // No release printed, nor said: which RxNorm makes at this strength. Two,
-  // and which this is decides its uses, so the user is asked; one, and it is
-  // the bottle's. Never guessed: labels released at once used to be tried
-  // first, and clonidine ER, for ADHD alone, was shown blood pressure.
+  // No strength read: which RxNorm makes. More than one, and it is not
+  // guessed; one, and it is the bottle's. No release printed, nor said: which
+  // RxNorm makes at this strength. Two, and which this is decides its uses,
+  // so the user is asked; one, and it is the bottle's. Never guessed: labels
+  // released at once used to be tried first, and clonidine ER, for ADHD
+  // alone, was shown blood pressure. Where RxNorm makes none of it, nothing
+  // is told from it.
   let wanted = release;
-  if (release === null && form !== null) {
+  let printed = strengths;
+  if ((release === null || strengths.length === 0) && form !== null) {
     const drugs = await clinicalDrugsOf(rxcui);
     if (!drugs.ok) return { status: 'unavailable' };
-    const releases = releasesMade(drugs.value, { ingredients: ingredients.length, form, salts, strengths });
-    if (releases.length > 1) return { status: 'releaseUnknown', releases };
-    if (releases.length === 1) wanted = releases[0];
+    if (strengths.length === 0) {
+      const made = strengthsMade(drugs.value, { ingredients: ingredients.length, form, salts, release });
+      if (made.length > 1) return { status: 'strengthUnknown' };
+      if (made.length === 1) printed = made[0];
+    }
+    if (release === null) {
+      const releases = releasesMade(drugs.value, { ingredients: ingredients.length, form, salts, strengths: printed });
+      if (releases.length > 1) return { status: 'releaseUnknown', releases };
+      if (releases.length === 1) wanted = releases[0];
+    }
   }
 
   return ofKind(labelKind, async (type) => {
@@ -1146,16 +1271,17 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
         onlyBrand,
         byPrintedBrand: true,
       }),
-      strengths
+      printed
     );
     const proof: Proof = {
       kind: 'ingredients',
       names: ingredients,
       salts,
-      strengths,
+      strengths: printed,
       release: wanted,
       releaseToken,
       byMouth: true,
+      allows,
     };
     return firstProven(labels, proof, type);
   });
