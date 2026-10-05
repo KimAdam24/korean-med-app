@@ -73,6 +73,20 @@ gives, for each version:
 and, between them, every bottle that lost its label, gained one, was shown
 another label, or was refused for another reason.
 
+Another label is not always other uses. To see whether the words shown
+changed, and how much, least alike first:
+
+```sh
+node --experimental-strip-types --no-warnings --max-old-space-size=8192 \
+  tools/label-scan/compare-texts.ts replay-<before>-to-<after>.json
+```
+
+A low share of words in common is where to look: it found the first version
+of the exact-product lookup showing GRALISE's generic, for nerve pain after
+shingles alone, for an immediate-release gabapentin bottle (RxNorm names it
+"Once-Daily gabapentin 600 MG Oral Tablet", which was read as released at
+once).
+
 ## What it does not
 
 - It assumes a clean reading: no damaged or cut-off text, the strength and
