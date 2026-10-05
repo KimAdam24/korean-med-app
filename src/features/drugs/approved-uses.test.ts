@@ -584,8 +584,15 @@ test('the release the user said: "none of these" is released at once, and an ext
 test('one release made at the strength: it is the bottle\'s, and a label of another is not', async () => {
   const ER_TEXT = 'Verapamil hydrochloride extended-release tablets are indicated for the treatment of hypertension.';
   const IR_TEXT = 'Verapamil hydrochloride tablets are indicated for angina, arrhythmias and essential hypertension.';
+  // As verapamil is made: released at once up to 120 mg, extended-release from 120.
   const label = (uses: string) =>
-    product({ substance: 'VERAPAMIL HYDROCHLORIDE', moiety: 'VERAPAMIL', strengths: [['120', 'mg'], ['240', 'mg']], route: 'ORAL', uses });
+    product({
+      substance: 'VERAPAMIL HYDROCHLORIDE',
+      moiety: 'VERAPAMIL',
+      strengths: uses === IR_TEXT ? [['80', 'mg'], ['120', 'mg']] : [['120', 'mg'], ['240', 'mg']],
+      route: 'ORAL',
+      uses,
+    });
   const route = (made: string[]) =>
     nlm((url) => {
       if (url.includes('/rxcui/11170/related.json?tty=SCD')) return scds(...made);
@@ -973,6 +980,12 @@ test('a label of a prodrug is not the medicine it becomes, though SPL names that
   assert.equal(sameIngredients([{ substance: 'CODEINE PHOSPHATE', moiety: 'CODEINE ANHYDROUS' }], ['codeine']), true);
   assert.equal(sameIngredients([{ substance: 'OLMESARTAN MEDOXOMIL', moiety: 'OLMESARTAN' }], ['olmesartan']), true);
   assert.equal(sameIngredients([{ substance: 'LISDEXAMFETAMINE DIMESYLATE', moiety: 'LISDEXAMFETAMINE' }], ['lisdexamfetamine']), true);
+  // And its solvent, as its water: atorvastatin's most common label.
+  assert.equal(
+    sameIngredients([{ substance: 'ATORVASTATIN CALCIUM PROPYLENE GLYCOL SOLVATE', moiety: 'ATORVASTATIN' }], ['atorvastatin']),
+    true
+  );
+  assert.equal(sameIngredients([{ substance: 'ISOSORBIDE DINITRATE', moiety: 'ISOSORBIDE' }], ['isosorbide']), false);
 });
 
 test('a marker in a title is its release: ENTOCORT EC for a budesonide bottle that says EC', async () => {
@@ -1284,4 +1297,50 @@ test('the strengths made, in the form, salt and release printed', () => {
   const bottle = (release: 'extended' | 'immediate' | null) => ({ ingredients: 1, form: 'TABLET' as const, salts: [], release });
   assert.equal(strengthsMade(drugs, bottle(null)).length, 2);
   assert.deepEqual(strengthsMade(drugs, bottle('extended')), [[{ value: 0.1, unit: 'mg' }]]);
+});
+
+test('the only release made at the strength: a label that names none is it; and RxNorm\'s "released at once" refuses no label', async () => {
+  const GRALISE = 'GRALISE is indicated for the management of postherpetic neuralgia.';
+  nlm((url) => {
+    if (url.includes('/rxcui/25480/related.json?tty=SCD')) return scds('24 HR gabapentin 450 MG Extended Release Oral Tablet');
+    if (url.includes('spls.json?rxcui=25480')) return url.includes(RX) ? listing(['gralise', 'GRALISE (GABAPENTIN) TABLET, FILM COATED [ALMATICA]']) : listing();
+    if (url.endsWith('/spls/gralise.xml')) {
+      return { text: product({ substance: 'GABAPENTIN', moiety: 'GABAPENTIN', strengths: [['450', 'mg']], route: 'ORAL', uses: GRALISE }) };
+    }
+    return { status: 404 };
+  });
+  const gralise = await findApprovedUses(target('25480', 'gabapentin', { strengths: [{ value: 450, unit: 'mg' }], brand: ['gralise'] }));
+  assert.equal(usesOf(gralise), GRALISE);
+
+  const COTEMPLA = 'COTEMPLA XR-ODT is indicated for the treatment of ADHD in patients 6 to 17 years of age.';
+  nlm((url) => {
+    if (url.includes('/rxcui/6901/related.json?tty=SCD')) return scds('methylphenidate 8.6 MG Disintegrating Oral Tablet');
+    if (url.includes('spls.json?rxcui=6901')) {
+      return url.includes(RX) ? listing(['cotempla', 'COTEMPLA XR-ODT (METHYLPHENIDATE) TABLET, ORALLY DISINTEGRATING [NEOS]']) : listing();
+    }
+    if (url.endsWith('/spls/cotempla.xml')) {
+      return { text: product({ substance: 'METHYLPHENIDATE', moiety: 'METHYLPHENIDATE', strengths: [['8.6', 'mg']], route: 'ORAL', uses: COTEMPLA }) };
+    }
+    return { status: 404 };
+  });
+  const cotempla = await findApprovedUses(target('6901', 'methylphenidate', { strengths: [{ value: 8.6, unit: 'mg' }], brand: ['cotempla'] }));
+  assert.equal(usesOf(cotempla), COTEMPLA);
+});
+
+test("no brand printed, where no label without one is found for the bottle: one named for its product", async () => {
+  const CHILDRENS = 'temporarily relieves these symptoms due to hay fever or other upper respiratory allergies';
+  const label = (value: string) =>
+    product({ substance: 'LORATADINE', moiety: 'LORATADINE', strengths: [[value, 'mg']], route: 'ORAL', uses: CHILDRENS }).replace('34391-3', '34390-5');
+  nlm((url) => {
+    if (url.includes('spls.json?rxcui=28889')) {
+      return url.includes(OTC)
+        ? listing(['ten', 'LORATADINE TABLET [X]'], ['kids', "CHILDRENS ALLERGY RELIEF (LORATADINE) TABLET, CHEWABLE [Y]"])
+        : listing();
+    }
+    if (url.endsWith('/spls/ten.xml')) return { text: label('10') };
+    if (url.endsWith('/spls/kids.xml')) return { text: label('5') };
+    return { status: 404 };
+  });
+  const five = await findApprovedUses(target('28889', 'loratadine', { strengths: [{ value: 5, unit: 'mg' }], labelKind: 'otc' }));
+  assert.equal(usesOf(five), CHILDRENS);
 });

@@ -502,15 +502,25 @@ export function sameIngredients(actives: readonly ActiveIngredient[], ingredient
 
 /**
  * Whether a substance is its moiety with only what carries it: a salt, an
- * ester, its water ("CODEINE PHOSPHATE" is codeine). Not a prodrug, which
- * SPL also names by the moiety it becomes: valacyclovir's labels give
- * acyclovir as their moiety, HORIZANT's gabapentin enacarbil gabapentin, and
- * each was accepted as the other medicine.
+ * ester, its water or another solvent ("CODEINE PHOSPHATE" is codeine,
+ * "ATORVASTATIN CALCIUM PROPYLENE GLYCOL SOLVATE" atorvastatin), named with
+ * every word of the moiety. Not a prodrug, which SPL also names by the
+ * moiety it becomes: valacyclovir's labels give acyclovir as their moiety,
+ * and were accepted as acyclovir. Nor where the words added make another
+ * medicine, approved for other things: HORIZANT's gabapentin enacarbil is
+ * not gabapentin, nor isosorbide mononitrate the dinitrate.
  */
 function carries(substance: string, moiety: string): boolean {
-  const own = new Set(nameWords(moiety));
-  return nameWords(substance).every((word) => own.has(word) || SALT_WORDS.has(word) || /hydrate$/.test(word));
+  const words = nameWords(substance);
+  // Its water aside: "CODEINE PHOSPHATE" is "CODEINE ANHYDROUS".
+  return (
+    nameWords(moiety).every((word) => words.includes(word) || /hydrate$|^anhydrous$/.test(word)) &&
+    !words.some((word) => ANOTHER_MEDICINE.has(word))
+  );
 }
+
+/** Words that, added to a moiety's name, make another medicine of it. */
+const ANOTHER_MEDICINE = new Set(['enacarbil', 'mononitrate', 'dinitrate']);
 
 type Fetched<T> = { readonly ok: true; readonly value: T } | { readonly ok: false };
 
@@ -675,6 +685,8 @@ type Proof =
       readonly strengths: readonly Strength[];
       /** The release the bottle printed or the user said: required of the label, by its title or its own text. */
       readonly release: Release | 'immediate' | null;
+      /** Whether `release` is only the one RxNorm makes at the strength, the bottle saying none. */
+      readonly releaseInferred: boolean;
       readonly releaseToken: string | null;
       /** By name: the label must be of a medicine taken by mouth. */
       readonly byMouth: boolean;
@@ -860,13 +872,23 @@ const releaseOf = (title: string): Release | null =>
 
 /**
  * Whether a label of this release can be the bottle's. The release the bottle
- * printed, the user said, or the only one RxNorm makes at its strength: a
- * label must say it is of it, by its title or its own text (or carry the
- * particular marker); and where it is released at once, a label must say it
- * is of none. Where nothing is known, any.
+ * printed or the user said: a label must say it is of it, by its title or
+ * its own text (or carry the particular marker); and where it is released at
+ * once, a label must say it is of none. The only release RxNorm makes at the
+ * strength, where neither was said: the strength is that product's alone, so
+ * a label naming no release may be it (GRALISE's labels say nowhere that it
+ * is extended-release), and one naming another is not, unless RxNorm's is
+ * "released at once", which it says of some that are not (COTEMPLA XR-ODT is
+ * a "Disintegrating Oral Tablet" to it). Where nothing is known, any.
  */
-function releaseFits(label: Release | null, wanted: Release | 'immediate' | null, markerTitled: boolean): boolean {
+function releaseFits(
+  label: Release | null,
+  wanted: Release | 'immediate' | null,
+  inferred: boolean,
+  markerTitled: boolean
+): boolean {
   if (wanted === null) return true;
+  if (inferred && (label === null || wanted === 'immediate')) return true;
   if (wanted === 'immediate') return label === null;
   return label === wanted || markerTitled;
 }
@@ -966,6 +988,8 @@ function likely(
     form: DoseForm | null;
     salts: readonly string[];
     release: Release | 'immediate' | null;
+    /** Whether `release` is only the one RxNorm makes at the strength (`releaseFits`). */
+    releaseInferred?: boolean;
     releaseToken: string | null;
     brand: readonly string[];
     /** A brand whose title alone may be shown (`brandRequired`). */
@@ -973,7 +997,7 @@ function likely(
     /** By name: a brand's own label only where that brand is printed. */
     byPrintedBrand?: boolean;
   }
-): LabelDocument[] {
+): { labels: LabelDocument[]; named: LabelDocument[] } {
   const formWord = want.form ? new RegExp(`\\b${want.form}`, 'i') : null;
   const fitting = listed.flatMap((label, index) => {
     const title = label.title.replace(/\[.*$/, '');
@@ -995,6 +1019,7 @@ function likely(
       releaseFits(
         labelRelease(title, ''),
         want.release,
+        want.releaseInferred ?? false,
         want.releaseToken !== null && tokens.has(want.releaseToken)
       ) &&
       // Another product's marker in the title ("(SR)" for an XL bottle).
@@ -1024,11 +1049,15 @@ function likely(
     ? fitting
     : want.brand.length > 0
       ? fitting.filter((label) => label.plain || label.printed)
-      : fitting.some((label) => label.plain)
-        ? fitting.filter((label) => label.plain)
-        : // Sold only under brands: its bottle printed the generic name.
-          fitting;
-  return scored.sort((a, b) => b.score - a.score || a.index - b.index).map(({ label }) => label);
+      : fitting.filter((label) => label.plain);
+  const best = (labels: typeof fitting) =>
+    [...labels].sort((a, b) => b.score - a.score || a.index - b.index).map(({ label }) => label);
+  return {
+    labels: best(scored),
+    // With no brand printed, those titled with one: tried only where no label
+    // without one is of the strength printed (`findApprovedUses`).
+    named: want.byPrintedBrand && want.brand.length === 0 ? best(fitting.filter((label) => !label.plain)) : [],
+  };
 }
 
 type Packaging = { data?: { products?: { active_ingredients?: { strength?: string }[] }[] } };
@@ -1126,6 +1155,7 @@ async function firstProven(
           releaseFits(
             labelRelease(label.title, text ?? ''),
             proof.release,
+            proof.releaseInferred,
             proof.releaseToken !== null && releaseTokensIn(label.title.toUpperCase()).has(proof.releaseToken)
           ) &&
           // One medicine's label: not one text for two.
@@ -1202,13 +1232,14 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
         release: null,
         releaseToken: null,
         brand: [],
-      });
+      }).labels;
       const proof: Proof = {
         kind: 'ingredients',
         names: ingredients.value,
         salts: [],
         strengths: [],
         release: null,
+        releaseInferred: false,
         releaseToken: null,
         byMouth: false,
       };
@@ -1240,6 +1271,7 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
   // alone, was shown blood pressure. Where RxNorm makes none of it, nothing
   // is told from it.
   let wanted = release;
+  let inferred = false;
   let printed = strengths;
   if ((release === null || strengths.length === 0) && form !== null) {
     const drugs = await clinicalDrugsOf(rxcui);
@@ -1252,7 +1284,10 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
     if (release === null) {
       const releases = releasesMade(drugs.value, { ingredients: ingredients.length, form, salts, strengths: printed });
       if (releases.length > 1) return { status: 'releaseUnknown', releases };
-      if (releases.length === 1) wanted = releases[0];
+      if (releases.length === 1) {
+        wanted = releases[0];
+        inferred = true;
+      }
     }
   }
 
@@ -1261,28 +1296,33 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
       `rxcui=${encodeURIComponent(rxcui)}&doctype=${DOCUMENT_TYPES[type]}&pagesize=100`
     );
     if (!listed.ok) return { status: 'unavailable' };
-    const labels = await ofStrength(
-      likely(listed.value, ingredients, {
-        form,
-        salts,
-        release: wanted,
-        releaseToken,
-        brand,
-        onlyBrand,
-        byPrintedBrand: true,
-      }),
-      printed
-    );
+    const ranked = likely(listed.value, ingredients, {
+      form,
+      salts,
+      release: wanted,
+      releaseInferred: inferred,
+      releaseToken,
+      brand,
+      onlyBrand,
+      byPrintedBrand: true,
+    });
     const proof: Proof = {
       kind: 'ingredients',
       names: ingredients,
       salts,
       strengths: printed,
       release: wanted,
+      releaseInferred: inferred,
       releaseToken,
       byMouth: true,
       allows,
     };
-    return firstProven(labels, proof, type);
+    // Labels titled with a brand the bottle did not print only where none
+    // without one is found for it: CHILDREN'S ALLERGY RELIEF's loratadine
+    // 5 mg, where every loratadine label without a product's name is of 10;
+    // PERCOCET's 2.5 mg, where the one generic's fails its salt.
+    const found = await firstProven(await ofStrength(ranked.labels, printed), proof, type);
+    if (found.status !== 'none' || ranked.named.length === 0) return found;
+    return firstProven(await ofStrength(ranked.named, printed), proof, type);
   });
 }
