@@ -98,11 +98,15 @@ const SPELLED_OUT: Readonly<Record<string, string>> = {
  * salt. Not the metals (sodium, potassium, calcium, magnesium, zinc), nor the
  * salts that are medicines with them (chloride, acetate, citrate, gluconate,
  * sulfate, phosphate, carbonate): "POTASSIUM CHLORIDE" and "CALCIUM ACETATE"
- * are medicines, and "chloride" or "acetate" alone would be another.
+ * are medicines, and "chloride" or "acetate" alone would be another. With
+ * them the esters that carry a medicine the same way ("OLMESARTAN MEDOXOMIL"
+ * is olmesartan, "TESTOSTERONE UNDECANOATE" testosterone): not a brand's
+ * word, nor another medicine's.
  */
 export const CARRIER_SALTS: ReadonlySet<string> = new Set([
   'hydrochloride', 'dihydrochloride', 'hydrobromide', 'besylate', 'maleate', 'succinate', 'tartrate', 'bitartrate',
-  'mesylate', 'fumarate', 'bisulfate', 'hyclate', 'monohydrate', 'dihydrate', 'trihydrate', 'anhydrous',
+  'mesylate', 'dimesylate', 'fumarate', 'bisulfate', 'hyclate', 'monohydrate', 'dihydrate', 'trihydrate', 'anhydrous',
+  'medoxomil', 'axetil', 'cilexetil', 'proxetil', 'pivoxil', 'undecanoate',
 ]);
 
 /**

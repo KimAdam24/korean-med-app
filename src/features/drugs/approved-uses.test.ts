@@ -19,6 +19,7 @@ import {
   readIndications,
   sameIngredients,
   sectionMarkup,
+  titledNames,
   type UsesTarget,
 } from './approved-uses.ts';
 
@@ -709,6 +710,89 @@ test('a brand printed: its own label is tried first, REVATIO before the one for 
   assert.ok(!asked.includes('/spls/first.xml'), asked.join('\n'));
 });
 
+// --- A brand's own label, only where that brand is printed ------------------
+
+test("a title's product names beyond its ingredients: a brand, a product's own name, none for a generic", () => {
+  assert.deepEqual(titledNames('GRALISE (GABAPENTIN) TABLET, FILM COATED [ALMATICA]', ['gabapentin']), [['gralise']]);
+  assert.deepEqual(titledNames('GABAPENTIN TABLET, FILM COATED [X]', ['gabapentin']), [[]]);
+  assert.deepEqual(titledNames('CETIRIZINE HYDROCHLORIDE (HIVES RELIEF) TABLET [X]', ['cetirizine']), [['hives', 'relief']]);
+  // Each product of a title of several, its own name.
+  assert.deepEqual(
+    titledNames('OZEMPIC (ORAL SEMAGLUTIDE) TABLET RYBELSUS (ORAL SEMAGLUTIDE) TABLET [NOVO]', ['semaglutide']),
+    [['ozempic'], ['rybelsus']]
+  );
+  // Release markers, salts and esters are not names.
+  assert.deepEqual(titledNames('BUPROPION HYDROCHLORIDE SR (BUPROPION HYDROCHLORIDE) TABLET, EXTENDED RELEASE [A]', ['bupropion']), [[]]);
+  assert.deepEqual(titledNames('OLMESARTAN MEDOXOMIL TABLET, FILM COATED [X]', ['olmesartan']), [[]]);
+});
+
+/** Gabapentin 600 mg: GRALISE (nerve pain after shingles alone) listed before a generic (epilepsy too). */
+function gabapentin(): string[] {
+  const GRALISE = 'GRALISE is indicated for the management of postherpetic neuralgia.';
+  const GENERIC = 'Gabapentin tablets are indicated for postherpetic neuralgia and as adjunctive therapy for partial onset seizures.';
+  const label = (uses: string) =>
+    product({ substance: 'GABAPENTIN', moiety: 'GABAPENTIN', strengths: [['600', 'mg']], route: 'ORAL', uses });
+  return nlm((url) => {
+    if (url.includes('spls.json?rxcui=25480')) {
+      return url.includes(RX)
+        ? listing(['gralise', 'GRALISE (GABAPENTIN) TABLET, FILM COATED [ALMATICA]'], ['generic', 'GABAPENTIN TABLET, FILM COATED [X]'])
+        : listing();
+    }
+    if (url.endsWith('/spls/gralise.xml')) return { text: label(GRALISE) };
+    if (url.endsWith('/spls/generic.xml')) return { text: label(GENERIC) };
+    return { status: 404 };
+  });
+}
+
+test("no brand printed: a generic's label, not a brand's own, which lists other uses at the same strength", async () => {
+  const asked = gabapentin();
+  const found = await findApprovedUses(target('25480', 'gabapentin', { strengths: [{ value: 600, unit: 'mg' }] }));
+  assert.match(usesOf(found), /partial onset seizures/);
+  assert.ok(!asked.includes('/spls/gralise.xml'), asked.join('\n'));
+});
+
+test("a brand printed: its own label, or a generic's, never another brand's", async () => {
+  gabapentin();
+  const gralise = await findApprovedUses(target('25480', 'gabapentin', { strengths: [{ value: 600, unit: 'mg' }], brand: ['gralise'] }));
+  assert.equal(usesOf(gralise), 'GRALISE is indicated for the management of postherpetic neuralgia.');
+
+  // ADVIL MIGRAINE is another product than ADVIL: not shown for an ADVIL bottle.
+  const MIGRAINE = 'treats migraine';
+  const ACHES = 'temporarily relieves minor aches and pains';
+  const asked = nlm((url) => {
+    if (url.includes('spls.json?rxcui=5640')) {
+      return url.includes(OTC)
+        ? listing(['migraine', 'ADVIL MIGRAINE (IBUPROFEN) CAPSULE, LIQUID FILLED [HALEON]'], ['advil', 'ADVIL (IBUPROFEN) CAPSULE, LIQUID FILLED [HALEON]'])
+        : listing();
+    }
+    const label = (uses: string) =>
+      product({ substance: 'IBUPROFEN', moiety: 'IBUPROFEN', strengths: [['200', 'mg']], route: 'ORAL', uses }).replace('34391-3', '34390-5');
+    if (url.endsWith('/spls/migraine.xml')) return { text: label(MIGRAINE) };
+    if (url.endsWith('/spls/advil.xml')) return { text: label(ACHES) };
+    return { status: 404 };
+  });
+  const advil = await findApprovedUses(
+    target('5640', 'ibuprofen', { brand: ['advil'], labelKind: 'otc', strengths: [{ value: 200, unit: 'mg' }], form: 'CAPSULE' })
+  );
+  assert.equal(usesOf(advil), ACHES);
+  assert.ok(!asked.includes('/spls/migraine.xml'), asked.join('\n'));
+});
+
+test('a brand of a title of several products is printed when one of them is', async () => {
+  const USES = 'OZEMPIC and RYBELSUS tablets are indicated as an adjunct to diet and exercise to improve glycemic control in adults with type 2 diabetes mellitus.';
+  nlm((url) => {
+    if (url.includes('spls.json?rxcui=1991302')) {
+      return url.includes(RX) ? listing(['novo', 'OZEMPIC (ORAL SEMAGLUTIDE) TABLET RYBELSUS (ORAL SEMAGLUTIDE) TABLET [NOVO]']) : listing();
+    }
+    if (url.endsWith('/spls/novo.xml')) {
+      return { text: product({ substance: 'SEMAGLUTIDE', moiety: 'SEMAGLUTIDE', strengths: [['7', 'mg']], route: 'ORAL', uses: USES }) };
+    }
+    return { status: 404 };
+  });
+  const found = await findApprovedUses(target('1991302', 'semaglutide', { brand: ['rybelsus'], strengths: [{ value: 7, unit: 'mg' }] }));
+  assert.equal(usesOf(found), USES);
+});
+
 test('the form from text not read whole: what it says the medicine is, never what it is not', () => {
   // Cut before "VAGINALLY": no tablet to swallow can be told from it.
   assert.equal(doseFormOfReading(['ESTRADIOL', '10 MCG'], ['INSERT 1 TABLET VAGIN']), null);
@@ -749,6 +833,7 @@ test("repackagers' labels of other strengths, listed first, are passed over by t
 const ED = 'CIALIS is indicated for the treatment of erectile dysfunction and benign prostatic hyperplasia.';
 const PAH = 'Tadalafil tablets are indicated for the treatment of pulmonary arterial hypertension.';
 const ADCIRCA = 'ADCIRCA is indicated for the treatment of pulmonary arterial hypertension.';
+const GENERIC_ED = 'Tadalafil tablets are indicated for the treatment of erectile dysfunction and benign prostatic hyperplasia.';
 
 /** Tadalafil's labels: a generic for pulmonary hypertension listed first, then the brands. */
 function tadalafil(): string[] {
@@ -760,11 +845,14 @@ function tadalafil(): string[] {
         ? listing(
             ['generic', 'TADALAFIL TABLET, FILM COATED [X]'],
             ['adcirca', 'ADCIRCA (TADALAFIL) TABLET [LILLY]'],
-            ['cialis', 'CIALIS (TADALAFIL) TABLET, FILM COATED [LILLY]']
+            ['cialis', 'CIALIS (TADALAFIL) TABLET, FILM COATED [LILLY]'],
+            // CIALIS's generic, at the strengths it alone has.
+            ['generic5', 'TADALAFIL TABLET, FILM COATED [Y]']
           )
         : listing();
     }
     if (url.endsWith('/spls/generic.xml')) return { text: label(PAH, [['20', 'mg']]) };
+    if (url.endsWith('/spls/generic5.xml')) return { text: label(GENERIC_ED, [['2.5', 'mg'], ['5', 'mg']]) };
     if (url.endsWith('/spls/adcirca.xml')) return { text: label(ADCIRCA, [['20', 'mg']]) };
     if (url.endsWith('/spls/cialis.xml')) return { text: label(ED, [['2.5', 'mg'], ['5', 'mg'], ['10', 'mg'], ['20', 'mg']]) };
     return { status: 404 };
@@ -791,8 +879,11 @@ test("tadalafil with its brand printed is shown that brand's own label, never a 
 
 test('tadalafil at a strength only one product has is chosen by its strength, as any other medicine', async () => {
   tadalafil();
+  // No brand printed: the generic's label, not CIALIS's own.
   const five = await findApprovedUses(tadalafilTarget([{ value: 5, unit: 'mg' }], []));
-  assert.equal(five.status === 'found' && five.uses.content.text, ED);
+  assert.equal(five.status === 'found' && five.uses.content.text, GENERIC_ED);
+  const cialis = await findApprovedUses(tadalafilTarget([{ value: 5, unit: 'mg' }], ['cialis']));
+  assert.equal(cialis.status === 'found' && cialis.uses.content.text, ED);
 });
 
 test("tadalafil with its brand printed, where that brand's label is not listed: none, not a generic of either kind", async () => {

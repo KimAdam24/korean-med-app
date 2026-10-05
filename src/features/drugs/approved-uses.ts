@@ -55,6 +55,10 @@
  *   once are tried first, since a pharmacy prints the release when there is
  *   one, but not required, since a label may leave out one that is always so
  *   (omeprazole is always delayed-release).
+ * - **A brand's own label only where that brand is printed** (`likely`):
+ *   GRALISE's label lists other uses than generic gabapentin's at the same
+ *   strength. A bottle with no brand is shown a generic's label, unless the
+ *   medicine is sold only under brands.
  * - **The kind of label read decides prescription or over-the-counter**
  *   (`labelKindOf`). A pharmacy's label: a prescription label, or an
  *   over-the-counter one only where there is no prescription one (a pharmacy
@@ -85,6 +89,7 @@ import {
   CARRIER_SALTS,
   SALT_WORDS,
   medicineWords,
+  printedBrandWords,
   same,
   strengthOf,
   type Release,
@@ -584,13 +589,71 @@ const releaseOf = (title: string): Release | null =>
       ? 'delayed'
       : null;
 
+/** The words of a title that say what form its products are, not what they are called. */
+const FORM_WORDS = new Set([
+  'tablet', 'tablets', 'capsule', 'capsules', 'film', 'coated', 'coat', 'sugar', 'liquid', 'filled', 'gelatin',
+  'chewable', 'orally', 'disintegrating', 'dispersible', 'effervescent', 'sublingual', 'buccal', 'soft', 'hard',
+  'pellets', 'beads', 'kit', 'extended', 'delayed', 'release', 'controlled', 'sustained', 'prolonged', 'injection',
+  'solution', 'suspension', 'powder', 'for', 'oral', 'concentrate', 'granule', 'granules', 'syrup', 'elixir',
+  'lozenge', 'troche', 'cream', 'ointment', 'gel', 'spray', 'aerosol', 'inhalation', 'patch', 'drops', 'ophthalmic',
+]);
+
+/**
+ * The names of a title's products other than their ingredients: one list of
+ * words for each product it titles ("WEGOVY (SEMAGLUTIDE) INJECTION, SOLUTION
+ * WEGOVY (SEMAGLUTIDE) TABLET" is WEGOVY twice), empty for a product titled by
+ * its ingredients alone ("ATORVASTATIN CALCIUM TABLET"). A brand, mostly
+ * (GRALISE, INDERAL XL); a product's own name sometimes ("CETIRIZINE
+ * HYDROCHLORIDE (HIVES RELIEF) TABLET"), which is a different product too.
+ */
+export function titledNames(title: string, ingredients: readonly string[]): string[][] {
+  const named: string[][] = [];
+  let product: string[] = [];
+  let inForm = false;
+  for (const [part] of title.replace(/\[.*$/, '').matchAll(/\([^)]*\)|[^\s(]+/g)) {
+    // What is in brackets belongs to the product before it ("(ORAL SEMAGLUTIDE)").
+    if (part.startsWith('(')) {
+      product.push(...nameWords(part));
+      continue;
+    }
+    for (const word of nameWords(part)) {
+      if (FORM_WORDS.has(word)) {
+        inForm = true;
+        continue;
+      }
+      // A word after a product's form starts the next product.
+      if (inForm) {
+        named.push(product);
+        product = [];
+        inForm = false;
+      }
+      product.push(word);
+    }
+  }
+  if (product.length > 0) named.push(product);
+  return named.map((words) => printedBrandWords(words.join(' '), ingredients).filter((word) => !FORM_WORDS.has(word)));
+}
+
 /**
  * Of the labels DailyMed lists for an RxNorm concept, those whose titles could
  * be this medicine's, best first. Titles name the medicine and its form
  * ("GLUMETZA (METFORMIN HYDROCHLORIDE) TABLET [...]"), so the few downloads
  * go on likely ones; each is still held to its own ingredient list after. A
  * title is only a way to choose, except for the release, which only the
- * title says.
+ * title says, and the brand.
+ *
+ * A brand's own label is this medicine's only where that brand is printed.
+ * At a strength its generics share, a brand's label can list other uses than
+ * theirs: GRALISE, gabapentin taken once a day, is for nerve pain after
+ * shingles alone, where the generic 600 mg tablet is for epilepsy too;
+ * INDERAL XL is for blood pressure, where propranolol ER is for angina and
+ * migraine as well; XARELTO's one label for every strength lists clots and
+ * atrial fibrillation for the 2.5 mg tablet, which is for neither. So a bottle
+ * that prints no brand is shown a label that names none, and one that prints a
+ * brand, that brand's or one naming none; never another brand's. Only where no
+ * label of the medicine is titled without a brand (sold only under brands, its
+ * bottle printing the generic name) is a brand's label shown without its
+ * brand printed.
  */
 function likely(
   listed: readonly LabelDocument[],
@@ -604,10 +667,12 @@ function likely(
     /** A brand whose title alone may be shown (`brandRequired`). */
     onlyBrand?: string | null;
     preferAtOnce: boolean;
+    /** By name: a brand's own label only where that brand is printed. */
+    byPrintedBrand?: boolean;
   }
 ): LabelDocument[] {
   const formWord = want.form ? new RegExp(`\\b${want.form}`, 'i') : null;
-  const scored = listed.flatMap((label, index) => {
+  const fitting = listed.flatMap((label, index) => {
     const title = label.title.replace(/\[.*$/, '');
     // Its words as printed, and spelled out as a name's are ("HCL").
     const words = new Set([...nameWords(title), ...medicineWords(title)]);
@@ -639,8 +704,27 @@ function likely(
       (want.brand.length > 0 && want.brand.every((word) => words.has(word)) ? 4 : 0) +
       (want.releaseToken !== null && tokens.has(want.releaseToken) ? 2 : 0) +
       (want.preferAtOnce && want.release === null && releaseOf(title) === null ? 1 : 0);
-    return [{ label, index, score }];
+    const named = titledNames(title, names);
+    return [
+      {
+        label,
+        index,
+        score,
+        // Titled by its ingredients alone, as a generic is.
+        plain: named.some((words) => words.length === 0),
+        // Titled with the brand printed, all its words.
+        printed: named.some((words) => words.length > 0 && words.every((word) => want.brand.includes(word))),
+      },
+    ];
   });
+  const scored = !want.byPrintedBrand
+    ? fitting
+    : want.brand.length > 0
+      ? fitting.filter((label) => label.plain || label.printed)
+      : fitting.some((label) => label.plain)
+        ? fitting.filter((label) => label.plain)
+        : // Sold only under brands: its bottle printed the generic name.
+          fitting;
   return scored.sort((a, b) => b.score - a.score || a.index - b.index).map(({ label }) => label);
 }
 
@@ -836,7 +920,16 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
     );
     if (!listed.ok) return { status: 'unavailable' };
     const labels = await ofStrength(
-      likely(listed.value, ingredients, { form, salts, release, releaseToken, brand, onlyBrand, preferAtOnce: true }),
+      likely(listed.value, ingredients, {
+        form,
+        salts,
+        release,
+        releaseToken,
+        brand,
+        onlyBrand,
+        preferAtOnce: true,
+        byPrintedBrand: true,
+      }),
       strengths
     );
     const proof: Proof = { kind: 'ingredients', names: ingredients, salts, strengths, releaseToken, byMouth: true };
