@@ -202,26 +202,58 @@ lack one the product has. Repackagers' labels lag most.
 6. **Out-of-date labels:** prefer the application holder's own label to a
    repackager's.
 
-## What would still be shown
+## What was built (2026-10-05)
 
-The app's choice replayed over the scanned labels, for a clean reading of a
-typical pharmacy bottle of every product of these medicines (1,084 products):
-the generic name, salt, strength and form, the release marker where there is
-one, the brand only where every label of the product is the brand's. Rule 5
-changes nothing here; it acts only where the strength is not read.
+All of 1 to 5, as decided: 1 for nifedipine ER, fluoxetine tablets,
+semaglutide tablets, cyclosporine (MODIFIED stands in for the brand) and
+diltiazem ER 120 mg (CD or XR stands in); 4 wherever RxNorm makes two
+releases at the strength, asking the user which marker the bottle shows
+rather than refusing; and the CONTROLLED-RELEASE title first. Two things
+differ from the plan, both found by replaying every bottle below:
+
+- 2 shows a label named for a product without that name printed where no
+  label without one is found for the bottle: every loratadine 5 mg label is
+  a CHILDREN'S something, and PERCOCET's 2.5 mg had only one generic, which
+  fails its salt. Where a generic's label is found, as it is for GRALISE,
+  INDERAL XL, XARELTO 2.5 mg and the rest of 2, the brand's own is not
+  shown.
+- 3's prodrug check lets a substance be its moiety with any counter-ion or
+  solvent (atorvastatin's labels are of "ATORVASTATIN CALCIUM PROPYLENE
+  GLYCOL SOLVATE"), keeping apart only a prodrug named otherwise
+  (valacyclovir), gabapentin enacarbil and the isosorbide nitrates.
+
+Not built: a check for another medicine's uses that names neither medicine
+(2 labels); none was found that did not also refuse amitriptyline's own
+label, which names no medicine. Nor for sildenafil's one label of 20 and
+50 mg with 20 mg's uses.
+
+## What is still shown
+
+The app's own lookup, today's and the new, replayed against DailyMed and
+RxNav as the scan read them, for a clean reading of a typical pharmacy
+bottle of every product of these medicines (1,078 products): the generic
+name, salt, strength and form, the release marker where there is one, the
+brand only where every label of the product is the brand's. Where the new
+lookup asks the release marker, the user answers as the bottle is.
 
 | | Most common bottle shows a label | All bottles |
 | --- | --- | --- |
-| Today | 158 of 195 | 972 of 1,084 |
-| With 1 to 3 | 155 | 957 |
-| And 4, where the scan found the release changes the uses | 150 | 935 |
-| And 4, wherever two releases share a strength | 141 | 875 |
+| Before | 158 of 195 | 973 of 1,078 |
+| Built | 155 of 195: 142 at once, 13 after the question | 962 of 1,078: 65 after the question |
+
+The 13 asked first: metformin, oxycodone, glipizide, lamotrigine,
+alprazolam, clonidine, naproxen, prednisolone, levetiracetam, oxybutynin,
+verapamil, lovastatin, tacrolimus. The 3 lost are 1's nifedipine ER,
+diltiazem ER and cyclosporine, refused without the brand (the model prints
+no MODIFIED or CD, which real bottles may). Of all bottles, 13 found before
+are not now: 8 of 1's; the DIRECT RX label of amlodipine with
+amlodipine/benazepril, rightly; an isosorbide bottle the nitrates' split
+refuses; and 3 whose brand is printed but whose own label is past the 100
+DailyMed lists first, where before another product's label was shown.
 
 33 of the 195 have no approved tablet or capsule label and show nothing by
 name either way (inhalers, insulins, injections, creams, drops, unapproved
 supplements; and lithium and valproate, whose labels name them lithium
-carbonate, divalproex sodium or valproic acid, which do not match). A few losses are the
-model being cautious where a real bottle prints more (XL on bupropion,
-MODIFIED on cyclosporine).
+carbonate, divalproex sodium or valproic acid, which do not match).
 
 Scan scripts and data: the session scratchpad (`scan/`), not kept in the repo.

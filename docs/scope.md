@@ -120,9 +120,17 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
   - a salt printed ("SUCC", "TARTRATE", "MAG") must be in the label's own
     active ingredient;
   - a release printed (ER, XL, SR, CD: extended; DR, EC: delayed) must be in
-    the label's title. With none printed, a label released at once is tried
-    first, not required: omeprazole is always delayed-release, whether or not
-    the bottle says so;
+    the label's title, or its own text. With none printed, RxNorm's clinical
+    drugs say which releases are made at the strength (2026-10-05): one, and
+    a label of another is refused (omeprazole is always delayed-release);
+    two, and the user is asked which marker the bottle shows beside the name
+    (`uses.releaseQuestion`: ER, XL, SR, CD, XR, CR, LA, or DR, EC; a tap
+    each, or "none of these", released at once). The answer is taken as a
+    printed marker would be, kept with the medicine as `releaseMarker`
+    (marked `typed`, the user's word), and forgotten when the name is
+    edited. Labels released at once used to be tried first, a guess: an
+    extended-release bottle whose marker went unread was shown the uses of
+    the one released at once (clonidine ER, for ADHD alone, blood pressure);
   - a pharmacy's label (its Rx number, refills, quantity, prescriber, fill or
     discard date, "generic for", or "Rx only") is shown the prescription
     label, or the over-the-counter one where there is none, since a pharmacy
@@ -166,6 +174,26 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
   label read; a first look at 40 of them had missed these).
   Still not told apart: an over-the-counter strength dispensed by a pharmacy
   where a prescription label gives the same strength.
+- **What a scan of every top-200 label found** (2026-10-05,
+  docs/label-scan.md), each now refused rather than shown:
+  - five more products only the brand tells apart (nifedipine ER, fluoxetine
+    tablets, semaglutide tablets, cyclosporine, diltiazem ER 120 mg), refused
+    without it; MODIFIED, and diltiazem's CD or XR, stand in for the brand;
+  - a brand's own label for a bottle that does not print the brand (GRALISE,
+    INDERAL XL, XARELTO 2.5 mg list other uses than their generics at the same
+    strength), unless no label without a brand is found for the bottle
+    (CHILDREN'S ALLERGY RELIEF's loratadine 5 mg);
+  - a label whose text is not uses (a bullet, a fragment, a boxed warning, a
+    guide, directions, pharmacology), whose tablets are of two medicines, or
+    whose title or text is of another release; and one of a prodrug (valacyclovir
+    for acyclovir, gabapentin enacarbil for gabapentin);
+  - no strength read, where RxNorm makes more than one (`uses.strengthUnknown`).
+  Replayed over every product of those medicines, a clean reading of the most
+  common bottle shows a label for 155 of the 195 that identify (142 at once,
+  13 after the release question), against 158 before; the three lost are the
+  products only the brand tells apart.
+  Not caught: a label with another medicine's uses that names neither (2
+  labels), and sildenafil's one label for 20 mg and 50 mg with 20 mg's uses.
 - **Looked up once a session.** What a lookup found is kept while the app is
   unlocked, so opening fill-in or a medicine's page again does not ask again
   or send the name again; forgotten on lock and on erase, and never kept
