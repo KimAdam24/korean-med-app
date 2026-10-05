@@ -1,7 +1,11 @@
 {
   "status": "DRAFT, UNREVIEWED. Korean drafted by the implementation (Claude) for the copy batch, so the reviewer reads and corrects rather than writes. Not imported by the app, and nothing here reaches it until the reviewer has signed off each string; see README.md.",
-  "drafted": "2026-09-25; follow-up drafted 2026-09-28; release question drafted 2026-10-05",
+  "drafted": "2026-09-25; follow-up drafted 2026-09-28; release question and the Korean-name message drafted 2026-10-05",
   "strings": {
+    "uses.nameHangul": {
+      "ko": "약병에 적힌 대로 약 이름을 영어로 입력해 주세요. 약은 영어 이름으로만 찾을 수 있어요. 이름에 한글이 있으면 이름의 일부만 찾게 되는데, 일부만으로는 다른 약이 찾아질 수 있어요.",
+      "note": "약병에 적힌 대로 약 이름을 입력해 주세요 as her nameEntry.prompt, with 영어로 added."
+    },
     "uses.strengthUnknown": {
       "ko": "약병에서 용량을 읽지 못했어요. 같은 약도 용량에 따라 효능이 다를 수 있어서, 용량 없이는 보여 드리지 않아요.",
       "note": "용량 for strength, as on her result screen."

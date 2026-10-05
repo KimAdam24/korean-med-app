@@ -10,10 +10,9 @@
  * which allows no break beside it and shows nothing, and lines break only at
  * the spaces. What a screen reader is given stays the text as written.
  */
-export const WORD_JOINER = '\u2060';
+import { HANGUL } from './hangul.ts';
 
-/** Hangul: syllables, jamo, compatibility jamo. */
-const HANGUL = /[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF]/;
+export const WORD_JOINER = '\u2060';
 
 /**
  * The text with a WORD JOINER between each two characters of a word with

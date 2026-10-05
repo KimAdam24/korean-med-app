@@ -40,7 +40,7 @@ export const FILES = {
 } as const;
 
 export type Top = { rank: number; name: string }[];
-export type Drug = { rank: number; name: string; status: 'identified' | 'unidentified' | 'unavailable'; rxcui?: string; ingredients?: string[]; matched?: string };
+export type Drug = { rank: number; name: string; status: 'identified' | 'unidentified' | 'unavailable' | 'hangul'; rxcui?: string; ingredients?: string[]; matched?: string };
 export type Entry = { setid: string; title: string; version: number | null };
 /** By RxNorm code, then kind. */
 export type Lists = Record<string, Partial<Record<Kind, Entry[]>>>;

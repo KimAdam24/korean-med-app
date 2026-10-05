@@ -32,8 +32,11 @@
  * ## What this sends
  *
  * The name as read, to RxNav (NLM), over HTTPS, with nothing else: no
- * identifier, no list, no photo. `privacy.lookup` says so to the user.
+ * identifier, no list, no photo. `privacy.lookup` says so to the user. A name
+ * with Korean in it is not sent at all.
  */
+
+import { hasHangul } from '../../i18n/hangul.ts';
 
 const RXNAV_BASE = 'https://rxnav.nlm.nih.gov/REST';
 const REQUEST_TIMEOUT_MS = 8000;
@@ -55,7 +58,14 @@ export type NameIdentification =
   /** Nothing matched, or not certainly enough to say. */
   | { readonly status: 'unidentified' }
   /** RxNav could not be reached: trying again may work. */
-  | { readonly status: 'unavailable' };
+  | { readonly status: 'unavailable' }
+  /**
+   * The name has Korean in it, as one typed by a Korean speaker will: not
+   * looked up at all. RxNorm's names are English, and the Korean left out
+   * would leave a part of the name ("비타민 D2" asked as "d2") looked up as
+   * though it were the whole, which a cut-off name never is.
+   */
+  | { readonly status: 'hangul' };
 
 /**
  * Words that say what form a medicine comes in, how it is released, or how
@@ -296,6 +306,8 @@ type Related = {
 
 /** Identifies the medicine a printed name names. Never throws. */
 export async function identifyByName(name: string): Promise<NameIdentification> {
+  // Nothing asked of a name with Korean in it: what would be asked is a part.
+  if (hasHangul(name)) return { status: 'hangul' };
   const printed = medicineWords(name);
   if (printed.length === 0) return { status: 'unidentified' };
 

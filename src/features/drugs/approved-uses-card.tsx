@@ -61,6 +61,7 @@ export type UsesSource =
 type State =
   | { readonly kind: 'looking' }
   | { readonly kind: 'unidentified' }
+  | { readonly kind: 'hangul' }
   | { readonly kind: 'none' }
   | { readonly kind: 'formUnknown' }
   | { readonly kind: 'kindUnknown' }
@@ -163,6 +164,11 @@ export function ApprovedUsesCard({
           if (identified.status === 'unidentified') {
             told.current?.(null);
             return keep({ kind: 'unidentified' }, null);
+          }
+          // Korean in the name: nothing was asked, and the user is told why.
+          if (identified.status === 'hangul') {
+            told.current?.(null);
+            return keep({ kind: 'hangul' }, null);
           }
           match = identified.match;
         }
@@ -305,7 +311,9 @@ export function ApprovedUsesCard({
         <>
           <BilingualText
             text={
-              state.kind === 'unidentified'
+              state.kind === 'hangul'
+                ? Strings.uses.nameHangul
+                : state.kind === 'unidentified'
                 ? // Why, and what to do: a name not read whole is to be typed
                   // or retaken; a typed one that matched nothing, checked.
                   unreadable

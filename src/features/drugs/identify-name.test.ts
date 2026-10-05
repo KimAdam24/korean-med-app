@@ -251,6 +251,18 @@ test('a combination typed with "and" is the combination', async () => {
   assert.equal(found.status === 'identified' && found.match.rxcui, '214618');
 });
 
+test('a name with any Korean in it asks nothing: its English part alone is part of a name, not the name', async () => {
+  // Answers ready for every part of it, so that only the rule keeps them unasked.
+  const asked = rxNav({
+    'approximateTerm.json': approximate(['4018', 'vitamin D2', '1']),
+    'rxcui/4018/related.json': related([['4018', 'ergocalciferol']]),
+  });
+  for (const name of ['비타민 D2', 'VITAMIN D2 비타민', '타이레놀', 'METFORMIN ㅁ', 'ᄋTYLENOL']) {
+    assert.deepEqual(await identifyByName(name), { status: 'hangul' }, name);
+  }
+  assert.deepEqual(asked, []);
+});
+
 test('nothing to name the medicine by asks nothing', async () => {
   const asked = rxNav({});
   assert.deepEqual(await identifyByName('500 MG TABLET'), { status: 'unidentified' });

@@ -541,6 +541,10 @@ export const Strings = {
     nameNotWhole: { ko: '약 이름을 다 읽지 못해서 아직 찾아볼 수 없어요. 약병에 적힌 대로 약 이름을 입력해 주시거나, 사진을 다시 찍어 주세요.', en: 'The medicine\'s name was not read whole, so it cannot be looked up yet. Type it as the bottle shows it, or take another photo.' },
     identifiedTypedAs: { ko: '입력하신 이름으로 찾은 약: {name}', en: 'Identified from the name you typed as: {name}' },
     typedUnidentified: { ko: '입력하신 이름과 똑같은 약이 없어요. 한 단어씩 약병에 적힌 것과 비교해 보세요.', en: 'No medicine has exactly the name typed. Check each word against the bottle.' },
+    nameHangul: untranslated(
+      "Type the medicine's name in English letters, as the bottle shows it. Medicines are looked up by their English names only: with Korean in it, only part of the name could be looked up, and part of a name can find a different medicine.",
+      "In place of the label's text, when the name typed (or read) has Korean letters in it: nothing is looked up. Users will often type a medicine's name in Korean; the bottle prints it in English, and only the English name can be looked up."
+    ),
   },
 
   /**

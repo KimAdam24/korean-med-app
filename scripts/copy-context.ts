@@ -229,6 +229,12 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     where: 'The same box, in place of the text.',
     when: 'When a typed name matches no medicine word for word, as a misspelling does.',
   },
+  'uses.nameHangul': {
+    section: USES,
+    where: "The same box, in place of the text. On the result screen the box to type the name in (nameEntry.prompt) is just above; on a medicine's page, the 고치기 (Edit) button.",
+    when: 'When the name typed has any Korean in it, as it will when someone types the name of their medicine as they know it: nothing is looked up then, not even the English part.',
+    notes: "It should say why, not only refuse: the bottle prints the name in English, and only the English name can be looked up; part of a name can find another medicine. Beside it are her 입력하신 이름과 똑같은 약이 없어요. (uses.typedUnidentified) and 약병에 적힌 대로 약 이름을 입력해 주세요 (nameEntry.prompt).",
+  },
   'uses.retry': {
     section: USES,
     where: 'The same box: a button under uses.unavailable.',

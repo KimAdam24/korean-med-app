@@ -611,6 +611,24 @@ describe('typing the name from the bottle, where the reading could not give it',
     await screen.findByText(INDICATION);
   });
 
+  it('a name with Korean in it sends no request at all, and says to type it in English letters as the bottle shows it', async () => {
+    const asked = nlm();
+    await openPickedPhoto(nameAtTheEdge('VITAMIN D'));
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
+    const before = asked.length;
+
+    // Its English part alone would be asked as "d2": part of a name, as if whole.
+    typeName('비타민 D2');
+    await screen.findByText(Strings.uses.nameHangul.ko);
+    expect(asked.slice(before)).toEqual([]);
+    expect(screen.queryByText(INDICATION)).toBeNull();
+    // Kept as typed, to be corrected.
+    expect(screen.getByDisplayValue('비타민 D2')).toBeTruthy();
+
+    typeName('VITAMIN D2');
+    await screen.findByText(INDICATION);
+  });
+
   it('a label with no name read at all: typed in, it can be looked up and added', async () => {
     nlm();
     await openPickedPhoto(['1.25MG(50,000 UNIT)', 'Take 1 capsule by mouth every 7 days', 'QTY: 4']);
@@ -751,8 +769,8 @@ describe('typing the name from the bottle, where the reading could not give it',
 });
 
 describe('the word joiners Korean is drawn with, on Android', () => {
-  /** Whatever it is, as text: a request, a record, a notification. */
-  const joined = (value: unknown) => JSON.stringify(value).includes('\u2060') || JSON.stringify(value).includes('\u2060');
+  /** Whatever it is, as text: a request, a record, a notification. In an address it would be percent-encoded. */
+  const joined = (value: unknown) => JSON.stringify(value).includes('\u2060') || /%E2%81%A0/i.test(JSON.stringify(value));
 
   it('reach nothing stored, sent, scheduled or compared: they are drawn, and only drawn', async () => {
     const original = Platform.OS;
@@ -765,15 +783,12 @@ describe('the word joiners Korean is drawn with, on Android', () => {
       // medicine saved: every way a reading becomes a record and a lookup.
       await openPickedPhoto(nameAtTheEdge('VITAMIN D'));
       await screen.findByText(Strings.uses.nameNotWhole.ko);
-      // Typed with Korean in it, where a joiner would go if one could: looked
-      // up (its Latin words; identification leaves the Korean out), and kept
-      // in the box as typed.
+      // Typed with Korean in it, where a joiner would go if one could: kept in
+      // the box as typed (and not looked up: nothing with Korean in it is).
       const input = () => screen.getByLabelText(Strings.nameEntry.inputLabel.ko);
-      const lookups = () => sent.mock.calls.filter(([url]) => String(url).includes('approximateTerm')).length;
-      const before = lookups();
       fireEvent.changeText(input(), '비타민 D2');
       press(Strings.nameEntry.submit.ko);
-      await waitFor(() => expect(lookups()).toBeGreaterThan(before));
+      await screen.findByText(Strings.uses.nameHangul.ko);
       expect(input().props.value).toBe('비타민 D2');
       fireEvent.changeText(input(), 'VITAMIN D2');
       press(Strings.nameEntry.submit.ko);
@@ -796,6 +811,7 @@ describe('the word joiners Korean is drawn with, on Android', () => {
       fireEvent.changeText(screen.getByDisplayValue('VITAMIN D2'), 'VITAMIN D2 비타민');
       press(Strings.medications.save.ko);
       await screen.findByText('VITAMIN D2 비타민');
+      await screen.findByText(Strings.uses.nameHangul.ko);
       // Saved as typed.
       const edited = await loadProfile();
       expect(edited.status === 'ok' && edited.value.medications[0].name).toBe('VITAMIN D2 비타민');
