@@ -19,6 +19,8 @@ export type Bilingual = {
   readonly en: string;
   /** An English placeholder with no Korean yet. See `untranslated`. */
   readonly pendingKo?: true;
+  /** Korean completed by AI, shown before her review. See `aiKorean`. */
+  readonly koBy?: 'ai';
   /** For the translator: where the text appears and anything that constrains it. */
   readonly note?: string;
 };
@@ -35,6 +37,19 @@ export type Bilingual = {
  */
 export function untranslated(en: string, note?: string): Bilingual {
   return note ? { ko: en, en, pendingKo: true, note } : { ko: en, en, pendingKo: true };
+}
+
+/**
+ * Korean completed by AI, and on screen before the native reader has seen it,
+ * at the owner's direction.
+ *
+ * Shown like reviewed Korean, but still hers to review: `npm run copy:pending
+ * -- --export` puts it in her next batch, this Korean as the draft she
+ * corrects. Once she has, her wording replaces the call. Never a safety
+ * string: those are hers to write (`copy-export.test.ts`).
+ */
+export function aiKorean(ko: string, en: string, note?: string): Bilingual {
+  return note ? { ko, en, koBy: 'ai', note } : { ko, en, koBy: 'ai' };
 }
 
 export const Strings = {
@@ -541,7 +556,8 @@ export const Strings = {
     nameNotWhole: { ko: '약 이름을 다 읽지 못해서 아직 찾아볼 수 없어요. 약병에 적힌 대로 약 이름을 입력해 주시거나, 사진을 다시 찍어 주세요.', en: 'The medicine\'s name was not read whole, so it cannot be looked up yet. Type it as the bottle shows it, or take another photo.' },
     identifiedTypedAs: { ko: '입력하신 이름으로 찾은 약: {name}', en: 'Identified from the name you typed as: {name}' },
     typedUnidentified: { ko: '입력하신 이름과 똑같은 약이 없어요. 한 단어씩 약병에 적힌 것과 비교해 보세요.', en: 'No medicine has exactly the name typed. Check each word against the bottle.' },
-    nameHangul: untranslated(
+    nameHangul: aiKorean(
+      '약병에 적힌 대로 약 이름을 영어로 입력해 주세요. 약은 영어 이름으로만 찾을 수 있어요. 한글이 섞여 있으면 이름의 일부만으로 찾게 되어, 다른 약이 나올 수 있어요.',
       "Type the medicine's name in English letters, as the bottle shows it. Medicines are looked up by their English names only: with Korean in it, only part of the name could be looked up, and part of a name can find a different medicine.",
       "In place of the label's text, when the name typed (or read) has Korean letters in it: nothing is looked up. Users will often type a medicine's name in Korean; the bottle prints it in English, and only the English name can be looked up."
     ),

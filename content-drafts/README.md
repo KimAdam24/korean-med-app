@@ -33,6 +33,13 @@ uncertain and the reviewer should expect to rewrite rather than approve.
 3. The review record — who, when, which revision — goes in the commit message,
    so provenance survives in `git log` rather than in someone's memory.
 
+**Korean completed by AI.** At the owner's direction, a string of the app's
+own wording can go in before she has reviewed it: written with `aiKorean()`
+rather than `untranslated()` in `src/i18n/strings.ts`, and shown in that
+Korean. It still goes to her. The export puts it in her next batch, with that
+Korean as the draft, and her wording replaces it like any other. Never a
+safety string: `scripts/copy-export.test.ts` fails if one is.
+
 ## Files
 
 | File | Covers | Blocks |

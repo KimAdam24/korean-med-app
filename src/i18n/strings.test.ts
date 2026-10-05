@@ -4,8 +4,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { allCopy, pendingCopy, pendingCopyTable } from './pending.ts';
-import { Strings, fillTemplate, untranslated } from './strings.ts';
+import { aiCopy, allCopy, pendingCopy, pendingCopyTable, reviewBatch } from './pending.ts';
+import { Strings, aiKorean, fillTemplate, untranslated } from './strings.ts';
 
 const HANGUL = /[가-힣]/;
 
@@ -45,6 +45,24 @@ test('the batch lists placeholders with their notes, and nothing else', () => {
   assert.match(markdown, /\| `group\.waiting` \| Not now \| Button; keep it short\. \| \|/);
 });
 
+test('Korean completed by AI is shown as written, and goes to her next batch with it as the draft', () => {
+  const table = {
+    done: { ko: '확인', en: 'Done' },
+    group: {
+      waiting: untranslated('Not now'),
+      ai: aiKorean('영어로 입력해 주세요', 'Type it in English', 'Under the box.'),
+    },
+  };
+  assert.equal(table.group.ai.ko, '영어로 입력해 주세요');
+  assert.equal(table.group.ai.pendingKo, undefined);
+  // Not a placeholder: it has its Korean.
+  assert.deepEqual(pendingCopy(table), [{ key: 'group.waiting', en: 'Not now' }]);
+  assert.doesNotMatch(pendingCopyTable(table), /group\.ai/);
+  const ai = { key: 'group.ai', en: 'Type it in English', note: 'Under the box.', ko: '영어로 입력해 주세요' };
+  assert.deepEqual(aiCopy(table), [ai]);
+  assert.deepEqual(reviewBatch(table), [{ key: 'group.waiting', en: 'Not now' }, ai]);
+});
+
 test("the iPhone's camera question in app.json is the privacy string, as it stands", async () => {
   // Set in app.json, which cannot import it: this keeps the two the same, in
   // English while the string is pending, and in Korean once it is signed off.
@@ -61,7 +79,8 @@ test("her reviewed Korean is in the app as she wrote it, and the English she rev
   // The returned sheets are the record (docs/reviews). A reviewed string that
   // has drifted from hers, by a slip or a rewording, would show words she
   // never approved; one changed on purpose goes back to her as pending
-  // (`untranslated`), and is not checked here until she has seen it again.
+  // (`untranslated`, or `aiKorean`), and is not checked here until she has
+  // seen it again.
   const { readFileSync, readdirSync } = await import('node:fs');
   const dir = new URL('../../docs/reviews/', import.meta.url);
   const parse = (text: string) => {
@@ -100,7 +119,7 @@ test("her reviewed Korean is in the app as she wrote it, and the English she rev
     }
     return rows;
   };
-  type Text = { ko: string; en: string; pendingKo?: boolean };
+  type Text = { ko: string; en: string; pendingKo?: boolean; koBy?: string };
   const at = (key: string) =>
     key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], Strings) as
       | Text
@@ -113,7 +132,7 @@ test("her reviewed Korean is in the app as she wrote it, and the English she rev
     const F = header.indexOf('Her final Korean');
     for (const row of rows.filter((r) => r.length > K && r[K])) {
       const text = at(row[K]);
-      if (!text || typeof text.ko !== 'string' || text.pendingKo) continue;
+      if (!text || typeof text.ko !== 'string' || text.pendingKo || text.koBy) continue;
       assert.equal(text.ko, row[F], `${file}: ${row[K]} Korean`);
       assert.equal(text.en, row[E], `${file}: ${row[K]} English`);
       checked++;

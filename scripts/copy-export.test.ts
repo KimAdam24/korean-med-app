@@ -5,10 +5,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { pendingCopy } from '../src/i18n/pending.ts';
+import { aiCopy, pendingCopy, reviewBatch } from '../src/i18n/pending.ts';
 import { Strings } from '../src/i18n/strings.ts';
 import { COPY_CONTEXT, SECTIONS } from './copy-context.ts';
-import { HEADER, exportCsv, exportRows, heldBack, missingContext, missingDrafts, type CopyDrafts } from './copy-export.ts';
+import { AI_DRAFT, HEADER, exportCsv, exportRows, heldBack, missingContext, missingDrafts, type CopyDrafts } from './copy-export.ts';
 
 const DRAFTS: CopyDrafts = JSON.parse(
   readFileSync(new URL('../content-drafts/copy-batch.draft.json', import.meta.url), 'utf8')
@@ -27,9 +27,9 @@ const SOME_PENDING = ['reminders.statusSet', 'uses.none', 'fillIn.keepStart', 'p
   (key) => ({ key, en: `English of ${key}` })
 );
 
-test('every string awaiting Korean says where it appears and when', () => {
+test('every string awaiting Korean, or her review of it, says where it appears and when', () => {
   // The translator does not have the app; a string with no context is a guess.
-  assert.deepEqual(missingContext(pendingCopy(Strings)), []);
+  assert.deepEqual(missingContext(reviewBatch(Strings)), []);
 });
 
 test('context is kept only for strings that exist', () => {
@@ -41,7 +41,8 @@ test('context is kept only for strings that exist', () => {
 });
 
 test('every string awaiting Korean has a draft, or a reason it was left for her', () => {
-  assert.deepEqual(missingDrafts(pendingCopy(Strings), DRAFTS), []);
+  // Korean completed by AI is its own draft.
+  assert.deepEqual(missingDrafts(reviewBatch(Strings), DRAFTS), []);
   for (const [key, entry] of Object.entries(DRAFTS.strings)) {
     assert.ok(!(entry.ko && entry.why), `${key} has both a draft and a reason for none`);
   }
@@ -49,8 +50,8 @@ test('every string awaiting Korean has a draft, or a reason it was left for her'
 
 test('a draft is Korean, and keeps exactly the placeholders of its English', () => {
   // A dropped {n} would show the reader a sentence with the number missing.
-  for (const { key, en } of pendingCopy(Strings)) {
-    const draft = DRAFTS.strings[key]?.ko;
+  for (const { key, en, ko } of reviewBatch(Strings)) {
+    const draft = ko ?? DRAFTS.strings[key]?.ko;
     if (!draft) continue;
     // A pure pattern, like "{h}:{mm} {period}", has no words to be Korean.
     const words = en.replace(/\{[^}]+\}/g, '').replace(/[^A-Za-z]/g, '');
@@ -60,13 +61,14 @@ test('a draft is Korean, and keeps exactly the placeholders of its English', () 
 });
 
 test('drafts are kept only for strings still awaiting Korean', () => {
-  // Once a string is signed off and in the table, its draft is history.
+  // Once a string is signed off and in the table, its draft is history. One
+  // shown in Korean completed by AI has that for its draft, and no other.
   const pending = new Set(pendingCopy(Strings).map(({ key }) => key));
   assert.deepEqual(Object.keys(DRAFTS.strings).filter((key) => !pending.has(key)), []);
 });
 
 test('the export is every pending string once, grouped by section in order', () => {
-  for (const pending of [pendingCopy(Strings), SOME_PENDING]) {
+  for (const pending of [reviewBatch(Strings), SOME_PENDING]) {
     const rows = exportRows(pending);
     // All but those of a hidden feature.
     assert.equal(rows.length, pending.length - heldBack(pending).length);
@@ -87,6 +89,7 @@ test('the CSV survives quotes, commas and Korean, opens in Excel, and says what 
     [
       { copy: { key: 'x.y', en: 'Open "Alarms & reminders", then return', note: 'A note' }, context },
       { copy: { key: 'x.z', en: 'Reminders cannot sound' }, context },
+      { copy: { key: 'x.w', en: 'Type it in English', ko: '영어로 입력해 주세요' }, context },
     ],
     {
       strings: {
@@ -96,7 +99,7 @@ test('the CSV survives quotes, commas and Korean, opens in Excel, and says what 
     }
   );
   assert.ok(csv.startsWith('﻿'));
-  const [header, drafted, blank] = csv.slice(1).trimEnd().split('\r\n');
+  const [header, drafted, blank, ai] = csv.slice(1).trimEnd().split('\r\n');
   assert.equal(header, HEADER.join(','));
   assert.equal(
     drafted,
@@ -105,6 +108,8 @@ test('the CSV survives quotes, commas and Korean, opens in Excel, and says what 
   );
   // Left blank, with the reason; the formula points at its own row.
   assert.ok(blank.startsWith(`2,${section},Here,Now,Reminders cannot sound,다시 찍기 is beside it,,A safety warning.,,"=IF(I3=`));
+  // The Korean completed by AI is the draft, and said to be.
+  assert.ok(ai.startsWith(`3,${section},Here,Now,Type it in English,"다시 찍기 is beside it About the draft: ${AI_DRAFT}",영어로 입력해 주세요,,,"=IF(I4=`));
 });
 
 test("a hidden feature's strings are held back from the export, and return with it", () => {
@@ -120,12 +125,13 @@ test("a hidden feature's strings are held back from the export, and return with 
   assert.equal(exportRows(pending, shown).length, pending.length);
 });
 
-test('the safety strings go to her undrafted, each with the reason, whenever they are pending', () => {
+test('the safety strings go to her undrafted, each with the reason, whenever they are pending, and never in Korean completed by AI', () => {
   // The heading and disclaimer over a label's uses, and the warnings that
   // reminders will not sound: unreviewed Korean is worse than English here.
   // All written by her (2026-09-28 and 2026-10-04); should one change and be
   // pending again, it goes back to her undrafted.
   const pending = new Set(pendingCopy(Strings).map(({ key }) => key));
+  const ai = new Set(aiCopy(Strings).map(({ key }) => key));
   for (const key of [
     'uses.title',
     'uses.disclaimer',
@@ -136,6 +142,7 @@ test('the safety strings go to her undrafted, each with the reason, whenever the
     'reminders.statusCategoryOff',
   ]) {
     assert.ok(key in COPY_CONTEXT, key);
+    assert.ok(!ai.has(key), `${key}: a safety string, in Korean completed by AI`);
     if (!pending.has(key)) continue;
     assert.equal(DRAFTS.strings[key]?.ko, undefined, key);
     assert.match(DRAFTS.strings[key]?.why ?? '', /^Safety string/, key);

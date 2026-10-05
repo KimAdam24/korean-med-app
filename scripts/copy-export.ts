@@ -4,12 +4,14 @@ import { COPY_CONTEXT, SECTIONS, type CopyContext } from './copy-context.ts';
 
 /**
  * The translation batch as a spreadsheet: one row per string awaiting Korean,
- * with where it appears and when, in the order `copy-context` gives — the
+ * or awaiting her review of the Korean completed by AI, with where it appears
+ * and when, in the order `copy-context` gives — the
  * strings on screen today first. For a translator who will not have the app
  * in front of her.
  *
  * Beside the English, an unreviewed draft of the Korean
- * (`content-drafts/copy-batch.draft.json`), so her job is reading and
+ * (`content-drafts/copy-batch.draft.json`, or the AI's Korean already on
+ * screen), so her job is reading and
  * correcting rather than writing; blank, with the reason, for the safety
  * warnings she writes herself. Then a column for her final wording, and one
  * that says, once she has filled it in, whether she changed the draft.
@@ -43,10 +45,14 @@ export function missingContext(pending: readonly PendingCopy[]): string[] {
   return pending.filter(({ key }) => !(key in COPY_CONTEXT)).map(({ key }) => key);
 }
 
-/** Pending strings with neither a draft nor a reason for leaving it blank. */
+/**
+ * Pending strings with neither a draft nor a reason for leaving it blank. Korean
+ * completed by AI is its own draft.
+ */
 export function missingDrafts(pending: readonly PendingCopy[], drafts: CopyDrafts): string[] {
   return pending
-    .filter(({ key }) => {
+    .filter(({ key, ko }) => {
+      if (ko) return false;
       const entry = drafts.strings[key];
       return !entry || (!entry.ko?.trim() && !entry.why?.trim());
     })
@@ -93,20 +99,25 @@ export const changedFormula = (row: number, draft: string, final: string) =>
 /** Column letters, for the formula: draft G, final I. */
 const changed = (row: number) => changedFormula(row, 'G', 'I');
 
+/** Said of a draft that is the Korean completed by AI. */
+export const AI_DRAFT = 'Completed by AI, and in the app as it is until she has reviewed it.';
+
 export function exportCsv(rows: readonly ExportRow[], drafts: CopyDrafts): string {
   const lines = [
     HEADER.join(','),
     ...rows.map(({ copy, context }, index) => {
       const draft = drafts.strings[copy.key] ?? {};
+      const ko = copy.ko ?? draft.ko;
+      const about = copy.ko ? AI_DRAFT : draft.note;
       return [
         String(index + 1),
         context.section,
         context.where,
         context.when,
         copy.en,
-        [copy.note, context.notes, draft.note && `About the draft: ${draft.note}`].filter(Boolean).join(' '),
-        draft.ko ?? '',
-        draft.ko ? '' : (draft.why ?? ''),
+        [copy.note, context.notes, about && `About the draft: ${about}`].filter(Boolean).join(' '),
+        ko ?? '',
+        ko ? '' : (draft.why ?? ''),
         '',
         // Row 1 is the header.
         changed(index + 2),

@@ -5,6 +5,8 @@ export type PendingCopy = {
   readonly key: string;
   readonly en: string;
   readonly note?: string;
+  /** The Korean on screen, completed by AI (`aiKorean`): her draft to correct. */
+  readonly ko?: string;
 };
 
 const isBilingual = (value: unknown): value is Bilingual =>
@@ -28,6 +30,18 @@ export function pendingCopy(table: object): PendingCopy[] {
   return allCopy(table)
     .filter(({ text }) => text.pendingKo)
     .map(({ key, text }) => (text.note ? { key, en: text.en, note: text.note } : { key, en: text.en }));
+}
+
+/** Every string shown in Korean completed by AI, which she has not reviewed. */
+export function aiCopy(table: object): PendingCopy[] {
+  return allCopy(table)
+    .filter(({ text }) => text.koBy === 'ai')
+    .map(({ key, text }) => (text.note ? { key, en: text.en, note: text.note, ko: text.ko } : { key, en: text.en, ko: text.ko }));
+}
+
+/** Her next batch: the placeholders, and the Korean completed by AI. */
+export function reviewBatch(table: object): PendingCopy[] {
+  return [...pendingCopy(table), ...aiCopy(table)];
 }
 
 /** The batch as a Markdown table, for handing to the translator as-is. */
