@@ -187,13 +187,21 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
     guide, directions, pharmacology), whose tablets are of two medicines, or
     whose title or text is of another release; and one of a prodrug (valacyclovir
     for acyclovir, gabapentin enacarbil for gabapentin);
-  - no strength read, where RxNorm makes more than one (`uses.strengthUnknown`).
+  - no strength read, where RxNorm makes more than one (`uses.strengthUnknown`);
+  - a label giving strengths of two products made at none of each other's
+    (sildenafil 20 mg and 50 mg on one DIRECT RX label, with the 20 mg's
+    pulmonary hypertension).
+  And no list is cut short: every page of DailyMed's list is read, where only
+  the first hundred labels were (a bottle printing GABARONE never found its
+  own label, 177th). Still a window: of a list's likely labels, only the
+  first 24 are screened by their packaging for the strength printed, which
+  hides a label from 33 of 1,067 bottles (docs/label-scan.md).
   Replayed over every product of those medicines, a clean reading of the most
   common bottle shows a label for 155 of the 195 that identify (142 at once,
   13 after the release question), against 158 before; the three lost are the
   products only the brand tells apart.
   Not caught: a label with another medicine's uses that names neither (2
-  labels), and sildenafil's one label for 20 mg and 50 mg with 20 mg's uses.
+  labels).
 - **Looked up once a session.** What a lookup found is kept while the app is
   unlocked, so opening fill-in or a medicine's page again does not ask again
   or send the name again; forgotten on lock and on erase, and never kept

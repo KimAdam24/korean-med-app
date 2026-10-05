@@ -222,10 +222,16 @@ differ from the plan, both found by replaying every bottle below:
   GLYCOL SOLVATE"), keeping apart only a prodrug named otherwise
   (valacyclovir), gabapentin enacarbil and the isosorbide nitrates.
 
+Then, after the replay below: every page of DailyMed's list is read, not
+the first hundred (GABARONE's own label is 177th of gabapentin's); and a
+label giving strengths of two products made at none of each other's
+(sildenafil 20 mg, REVATIO's, and 25 to 100 mg, VIAGRA's; finasteride 1
+and 5 mg) is refused as a label of two products: DIRECT RX's sildenafil 20
+and 50 mg, with REVATIO's uses, the only one.
+
 Not built: a check for another medicine's uses that names neither medicine
 (2 labels); none was found that did not also refuse amitriptyline's own
-label, which names no medicine. Nor for sildenafil's one label of 20 and
-50 mg with 20 mg's uses.
+label, which names no medicine. Left so, as decided.
 
 ## What is still shown
 
@@ -240,6 +246,7 @@ lookup asks the release marker, the user answers as the bottle is.
 | --- | --- | --- |
 | Before | 158 of 195 | 973 of 1,078 |
 | Built | 155 of 195: 142 at once, 13 after the question | 962 of 1,078: 65 after the question |
+| And every page read | 155 of 195, as above | 1,006 of 1,078 |
 
 The 13 asked first: metformin, oxycodone, glipizide, lamotrigine,
 alprazolam, clonidine, naproxen, prednisolone, levetiracetam, oxybutynin,
@@ -249,11 +256,21 @@ no MODIFIED or CD, which real bottles may). Of all bottles, 13 found before
 are not now: 8 of 1's; the DIRECT RX label of amlodipine with
 amlodipine/benazepril, rightly; an isosorbide bottle the nitrates' split
 refuses; and 3 whose brand is printed but whose own label is past the 100
-DailyMed lists first, where before another product's label was shown.
+DailyMed lists first, where before another product's label was shown. With
+every page read, those 3 find their own, and 40 more bottles a label.
+
+One window is left: of a list's likely labels, only the first 24 are
+screened by their packaging for the strength printed. Screening all of them
+finds a label for 33 more of 1,067 bottles, at up to 263 packaging requests
+for one in a hundred lookups. Asking DailyMed for the exact product's list
+first (its clinical drug: strength, form, release), whose labels need no
+screening, is built and tested but not measured, and so not committed: the
+scan's data went with the session that held it.
 
 33 of the 195 have no approved tablet or capsule label and show nothing by
 name either way (inhalers, insulins, injections, creams, drops, unapproved
 supplements; and lithium and valproate, whose labels name them lithium
 carbonate, divalproex sodium or valproic acid, which do not match).
 
-Scan scripts and data: the session scratchpad (`scan/`), not kept in the repo.
+Scan scripts and data: the session's scratch directory, not kept in the repo,
+and no longer there.
