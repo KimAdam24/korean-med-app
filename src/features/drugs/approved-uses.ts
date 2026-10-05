@@ -632,6 +632,8 @@ export type ClinicalDrug = {
   readonly strengths: readonly Strength[];
   readonly form: DoseForm;
   readonly release: 'immediate' | Release;
+  /** Swallowed as it is: not chewed, dissolved in the mouth or in water, or held under the tongue. */
+  readonly plain: boolean;
 };
 
 /**
@@ -652,11 +654,20 @@ export function clinicalDrug(name: string, rxcui: string | null = null): Clinica
   return {
     rxcui,
     ingredients: parts.length,
-    // Without the "24 HR" before the first.
-    words: parts.flatMap(([, words]) => nameWords(words)).filter((word) => !/^\d/.test(word) && word !== 'hr'),
+    // Without the "24 HR" or "Once-Daily" before the first.
+    words: parts.flatMap(([, words]) => nameWords(words)).filter((word) => !/^\d/.test(word) && !['hr', 'once', 'daily'].includes(word)),
     strengths,
     form,
-    release: /\bExtended Release\b/i.test(doseForm) ? 'extended' : /\bDelayed Release\b/i.test(doseForm) ? 'delayed' : 'immediate',
+    // Released over time, by its form or by how often it is taken: GRALISE's
+    // kind is "Once-Daily gabapentin 600 MG Oral Tablet" to RxNorm, a product
+    // apart from "gabapentin 600 MG Oral Tablet", approved for less.
+    release:
+      /\bExtended Release\b/i.test(doseForm) || /^\s*(?:\d+\s*HR|Once-Daily)\b/i.test(name)
+        ? 'extended'
+        : /\bDelayed Release\b/i.test(doseForm)
+          ? 'delayed'
+          : 'immediate',
+    plain: /^\s*(?:(?:Extended|Delayed) Release )?Oral (?:Tablet|Capsule)\s*$/i.test(doseForm),
   };
 }
 
@@ -691,14 +702,22 @@ export function productsMade(
     release?: 'immediate' | Release | null;
   }
 ): ClinicalDrug[] {
-  return drugs.filter(
-    (drug) =>
-      drug.ingredients === bottle.ingredients &&
-      drug.form === bottle.form &&
-      bottle.salts.every((salt) => drug.words.includes(salt)) &&
-      givesStrengths(drug.strengths, bottle.strengths) &&
-      bottle.strengths.some((printed) => drug.strengths.some((strength) => strength.unit === printed.unit && same(strength.value, printed.value))) &&
-      (bottle.release == null || drug.release === bottle.release)
+  return (
+    drugs
+      .filter(
+        (drug) =>
+          drug.ingredients === bottle.ingredients &&
+          drug.form === bottle.form &&
+          bottle.salts.every((salt) => drug.words.includes(salt)) &&
+          givesStrengths(drug.strengths, bottle.strengths) &&
+          bottle.strengths.some((printed) => drug.strengths.some((strength) => strength.unit === printed.unit && same(strength.value, printed.value))) &&
+          (bottle.release == null || drug.release === bottle.release)
+      )
+      // A tablet swallowed as it is first: a bottle's "TAB" is one far more
+      // often than one chewed, dissolved or held under the tongue, whose
+      // labels can be for others (levetiracetam tablets for suspension, from
+      // four years of age and 20 kg; the tablet, from a month of age).
+      .sort((a, b) => Number(b.plain) - Number(a.plain))
   );
 }
 

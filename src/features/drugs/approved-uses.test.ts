@@ -512,7 +512,14 @@ test("RxNorm's clinical drugs read: ingredients, strengths, form, release", () =
     strengths: [{ value: 500, unit: 'mg' }],
     form: 'TABLET',
     release: 'extended',
+    plain: true,
   });
+  // GRALISE's kind, to RxNorm: taken once a day, a product apart.
+  assert.equal(clinicalDrug('Once-Daily gabapentin 600 MG Oral Tablet')?.release, 'extended');
+  assert.deepEqual(clinicalDrug('Once-Daily gabapentin 600 MG Oral Tablet')?.words, ['gabapentin']);
+  // Not swallowed as it is.
+  assert.equal(clinicalDrug('levetiracetam 500 MG Tablet for Oral Suspension')?.plain, false);
+  assert.equal(clinicalDrug('mirtazapine 15 MG Disintegrating Oral Tablet')?.plain, false);
   assert.deepEqual(clinicalDrug('hydrochlorothiazide 12.5 MG / lisinopril 10 MG Oral Tablet')?.strengths, [
     { value: 12.5, unit: 'mg' },
     { value: 10, unit: 'mg' },
