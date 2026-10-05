@@ -391,6 +391,34 @@ describe('what a medicine is approved to treat', () => {
   });
 });
 
+describe('looked up once', () => {
+  it('leaving the reading for fill-in and coming back does not ask RxNav or DailyMed again', async () => {
+    const asked = nlm();
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+    await screen.findByText(INDICATION);
+    const before = asked.length;
+    expect(before).toBeGreaterThan(0);
+
+    press(Strings.fillIn.start.ko);
+    await screen.findByText(Strings.fillIn.title.ko);
+    press(Strings.medications.cancel.ko);
+    await screen.findByText(INDICATION);
+    // The same answer, and not one more request for it: the name not sent again.
+    expect(asked.length).toBe(before);
+  });
+
+  it('"could not be reached" is not kept: trying again asks again', async () => {
+    const offline = nlm({ online: false });
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+    await screen.findByText(Strings.uses.unavailable.ko);
+    expect(offline.length).toBeGreaterThan(0);
+    const online = nlm();
+    press(Strings.uses.retry.ko);
+    await screen.findByText(INDICATION);
+    expect(online.length).toBeGreaterThan(0);
+  });
+});
+
 describe('prescription or over the counter', () => {
   it("a pharmacy's label is saved as one, and its page asks only for prescription labels", async () => {
     const asked = nlm();

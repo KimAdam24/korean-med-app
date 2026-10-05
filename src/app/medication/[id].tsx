@@ -334,6 +334,8 @@ export default function MedicationScreen() {
             : doseFormOf(record.name, record.dosage, record.instructions),
         ...(record.nameMatch ? { known: record.nameMatch } : {}),
         labelKind: record.labelKind ?? null,
+        // Saved only where it was read whole, or as the user wrote it.
+        strength: record.dosage ?? null,
       };
 
   return (

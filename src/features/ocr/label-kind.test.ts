@@ -17,6 +17,10 @@ test("a pharmacy's prescription label, by its own marks", () => {
   }
 });
 
+test("a pharmacy's label that prints the prescriber's purpose is still a pharmacy's", () => {
+  assert.equal(labelKindOf(read('FAMOTIDINE 20MG TAB', 'RX# 6012345', 'QTY: 60', 'PURPOSE: ACID REFLUX')), 'prescription');
+});
+
 test("an over-the-counter package, by its Drug Facts, whatever sticker is on it", () => {
   assert.equal(labelKindOf(read('Esomeprazole Magnesium Delayed-Release Capsules 20 mg', 'Drug Facts')), 'otc');
   assert.equal(labelKindOf(read('Active ingredient (in each capsule)', 'Purpose')), 'otc');
@@ -27,7 +31,8 @@ test('neither, where nothing says: not guessed', () => {
   assert.equal(labelKindOf(read('ESOMEPRAZOLE MAG DR 40MG', 'TAKE 1 CAPSULE BY MOUTH DAILY')), null);
   // A store brand's "compare to" is on the box, not a pharmacy's label.
   assert.equal(labelKindOf(read('Compare to Nexium 24HR active ingredient')), null);
-  // Nor a drug name that starts like a mark.
+  // Nor a drug name that starts like a mark, nor a generic maker's.
   assert.equal(labelKindOf(read('DRISDOL 50000 UNIT')), null);
+  assert.equal(labelKindOf(read("Dr. Reddy's Laboratories Limited")), null);
   assert.equal(labelKindOf(undefined), null);
 });

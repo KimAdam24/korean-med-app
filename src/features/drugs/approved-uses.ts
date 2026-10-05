@@ -81,7 +81,15 @@ import { attribute, type AttributedGuidance } from '../guidance/attribution.ts';
 import { Strings } from '../../i18n/strings.ts';
 import type { LabelKind } from '../ocr/label-kind.ts';
 import { DAILYMED_BASE, REQUEST_TIMEOUT_MS, labelMarkupToText, type LabelDocument } from './dailymed.ts';
-import type { Release } from './identify-name.ts';
+import {
+  CARRIER_SALTS,
+  SALT_WORDS,
+  medicineWords,
+  same,
+  strengthOf,
+  type Release,
+  type Strength,
+} from './identify-name.ts';
 
 /** LOINC's code for a label's Indications and Usage section. */
 export const INDICATIONS_SECTION = '34067-9';
@@ -118,6 +126,10 @@ export type LabelIndications = {
   readonly section: string | null;
   /** What kind of label the document says it is; null where it says neither. */
   readonly documentType: DocumentType | null;
+  /** Each product's strength, per tablet or capsule, from its active ingredients' quantities. */
+  readonly strengths: readonly Strength[];
+  /** The routes its products are given by, e.g. "ORAL", "VAGINAL". */
+  readonly routes: readonly string[];
 };
 
 export type ApprovedUses = {
@@ -166,6 +178,12 @@ export type UsesTarget =
       readonly release?: Release | null;
       /** The kind of label read (`labelKindOf`): prescription or over-the-counter. */
       readonly labelKind?: LabelKind | null;
+      /** The strengths the reading printed (`printedStrengths`), required of the label where it gives one alike. */
+      readonly strengths?: readonly Strength[];
+      /** The particular release marker printed (`printedReleaseToken`): "XL", "SR"... */
+      readonly releaseToken?: string | null;
+      /** The brand's words printed (`printedBrandWords`): a label titled with them is tried first. */
+      readonly brand?: readonly string[];
     };
 
 export type DoseForm = 'TABLET' | 'CAPSULE';
@@ -187,8 +205,33 @@ const NOT_SWALLOWED =
  * names neither, or both, or says the medicine is not swallowed: a name is
  * then not enough to choose a label by.
  */
+/** Words that say a medicine is swallowed. */
+const BY_MOUTH_WORDS = /\b(?:by\s+mouth|orally|swallow(?:ed)?)\b/i;
+
+/**
+ * The dose form a reading names, where some of its text was not read whole
+ * (cut at the label's edge, or damaged). Text read whole is used as it is.
+ * Text not read whole can still say what a medicine is ("by mouth"; "drops"),
+ * but not what it is not: "INSERT 1 TABLET VAGIN", cut before "VAGINALLY",
+ * used to pass for a tablet to swallow, and was shown the oral label. So it
+ * is used only where it says the medicine is swallowed, or that it is not.
+ */
+export function doseFormOfReading(
+  whole: readonly (string | undefined)[],
+  notWhole: readonly (string | undefined)[]
+): DoseForm | null {
+  const usable = notWhole.filter(
+    (text): text is string => !!text && (BY_MOUTH_WORDS.test(text) || NOT_SWALLOWED.test(text))
+  );
+  return doseFormOf(...whole, ...usable);
+}
+
 export function doseFormOf(...texts: readonly (string | undefined)[]): DoseForm | null {
-  const all = texts.filter(Boolean).join(' ');
+  // A "Liqui-Gel" is a capsule, not a gel put on the skin.
+  const all = texts
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\bliqu(?:i|id)[- ]?gels?\b/gi, 'capsule');
   if (NOT_SWALLOWED.test(all)) return null;
   const capsule = /\b(?:cap(?:sule)?s?|softgels?)\b/i.test(all);
   const tablet = /\b(?:tab(?:let)?s?|caplets?)\b/i.test(all);
@@ -266,6 +309,23 @@ export function readIndications(xml: string): LabelIndications {
     if (!actives.has(key)) actives.set(key, { substance, moiety });
   }
 
+  // Strengths per tablet or capsule (a denominator of one unit), of every
+  // product: "<numerator unit="mg" value="5"/>".
+  const strengths: Strength[] = [];
+  for (const [, body] of xml.matchAll(/<ingredient\s+classCode="ACTI[BMR]"[^>]*>([\s\S]*?)<\/ingredient>/g)) {
+    const numerator = /<numerator\b([^>]*)>/.exec(body)?.[1] ?? '';
+    const denominator = /<denominator\b([^>]*)>/.exec(body)?.[1] ?? '';
+    const attribute = (tag: string, name: string) => new RegExp(`\\b${name}="([^"]*)"`).exec(tag)?.[1];
+    if (attribute(denominator, 'unit') !== '1' || attribute(denominator, 'value') !== '1') continue;
+    const strength = strengthOf(Number(attribute(numerator, 'value')), attribute(numerator, 'unit') ?? '');
+    if (strength && !strengths.some((s) => s.unit === strength.unit && same(s.value, strength.value))) {
+      strengths.push(strength);
+    }
+  }
+  const routes = [
+    ...new Set([...xml.matchAll(/<routeCode\b[^>]*displayName="([^"]+)"/g)].map(([, route]) => route.trim().toUpperCase())),
+  ];
+
   const products = new Set<string>();
   for (const [tag] of xml.matchAll(/<code\b[^>]*>/g)) {
     if (!tag.includes(`codeSystem="${NDC_SYSTEM}"`)) continue;
@@ -295,6 +355,8 @@ export function readIndications(xml: string): LabelIndications {
     summary,
     section: body ? labelMarkupToText(body) : null,
     documentType,
+    strengths,
+    routes,
   };
 }
 
@@ -309,32 +371,60 @@ const nameWords = (name: string) =>
     .split(/[^a-z0-9]+/)
     .filter((word) => word.length > 0 && word !== 'usp');
 
+/** Metals a salt of a medicine is made with: "LEVOTHYROXINE SODIUM" is levothyroxine. */
+const CATIONS = new Set(['sodium', 'potassium', 'calcium', 'magnesium', 'zinc', 'lithium', 'aluminum']);
+
+/**
+ * Whether a label's name for an active ingredient is this ingredient's: its
+ * words exactly, or with nothing more than what carries it. A salt that
+ * carries a medicine, its water ("TRIHYDRATE") and, for a medicine that is
+ * not itself a salt, a metal: "METFORMIN HYDROCHLORIDE" is metformin,
+ * "LEVOTHYROXINE SODIUM" levothyroxine. But not a word that makes it another
+ * medicine: "CALCIUM ACETATE" is not calcium, nor "ATORVASTATIN CALCIUM".
+ */
+function names(label: string, ingredient: string): boolean {
+  const wanted = new Set(nameWords(ingredient));
+  const has = nameWords(label);
+  if (wanted.size === 0 || ![...wanted].every((word) => has.includes(word))) return false;
+  const medicine = [...wanted].some((word) => !SALT_WORDS.has(word));
+  return has
+    .filter((word) => !wanted.has(word))
+    .every((word) => CARRIER_SALTS.has(word) || /hydrate$/.test(word) || (medicine && CATIONS.has(word)));
+}
+
 /**
  * Whether a label's active ingredients are exactly these, by name: as many of
- * them, and each named in one of them, as its substance ("METFORMIN
- * HYDROCHLORIDE") or its moiety ("METFORMIN"). A name RxNorm and the label
- * spell differently ("vitamin B 12", "CYANOCOBALAMIN") does not match, and
- * its label is not shown: no answer rather than someone else's.
+ * them, and each named by one of them, as its moiety ("METFORMIN") or its
+ * substance ("METFORMIN HYDROCHLORIDE"), exactly (`names`). A name RxNorm and
+ * the label spell differently ("vitamin B 12", "CYANOCOBALAMIN") does not
+ * match, and its label is not shown: no answer rather than someone else's.
+ * It used to be enough that the label's name contained the ingredient's
+ * words, and a calcium supplement was shown calcium acetate's label, for
+ * kidney failure.
  */
 export function sameIngredients(actives: readonly ActiveIngredient[], ingredients: readonly string[]): boolean {
   if (ingredients.length === 0 || actives.length !== ingredients.length) return false;
-  return ingredients.every((ingredient) => {
-    const wanted = nameWords(ingredient);
-    return actives.some((active) =>
-      [active.substance, active.moiety].some((name) => {
-        if (!name) return false;
-        const has = new Set(nameWords(name));
-        return wanted.every((word) => has.has(word));
-      })
-    );
-  });
+  return ingredients.every((ingredient) =>
+    actives.some((active) => [active.moiety, active.substance].some((name) => name !== null && names(name, ingredient)))
+  );
 }
 
 type Fetched<T> = { readonly ok: true; readonly value: T } | { readonly ok: false };
 
-async function get<T>(url: string, read: (response: Response) => Promise<T>): Promise<Fetched<T>> {
+/**
+ * A label's XML, often 200 to 500 KB, gets longer than a listing: on a slow
+ * connection the eight seconds that are plenty for a listing ran out partway
+ * through a label, which then showed as "could not be reached", every time.
+ */
+const LABEL_TIMEOUT_MS = 30000;
+
+async function get<T>(
+  url: string,
+  read: (response: Response) => Promise<T>,
+  timeoutMs = REQUEST_TIMEOUT_MS
+): Promise<Fetched<T>> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) return { ok: false };
@@ -384,7 +474,37 @@ async function ingredientsOf(rxcui: string): Promise<Fetched<string[]>> {
 /** What a label must be, besides approved, to be shown for this lookup. */
 type Proof =
   | { readonly kind: 'product'; readonly key: string }
-  | { readonly kind: 'ingredients'; readonly names: readonly string[]; readonly salts: readonly string[] };
+  | {
+      readonly kind: 'ingredients';
+      readonly names: readonly string[];
+      readonly salts: readonly string[];
+      readonly strengths: readonly Strength[];
+      readonly releaseToken: string | null;
+      /** By name: the label must be of a medicine taken by mouth. */
+      readonly byMouth: boolean;
+    };
+
+/** Routes of a medicine taken by mouth, of which a name's tablet or capsule is one. */
+const BY_MOUTH = new Set(['ORAL', 'SUBLINGUAL', 'BUCCAL']);
+
+/** The particular release markers ("XL", "SR") a title or label text names. */
+const releaseTokensIn = (text: string) =>
+  new Set([...text.matchAll(/\b(XL|SR|XR|CR|LA|CD)\b/g)].map(([token]) => token.toLowerCase()));
+
+/**
+ * Whether a label gives each strength printed: where it gives strengths in
+ * the same measure (a mass, units, mEq), one of them must be it. Finasteride
+ * 5 mg is for the prostate, its 1 mg label for hair loss; sildenafil 20 mg for
+ * pulmonary hypertension, its 25 to 100 mg label for erectile dysfunction. A
+ * label giving none in that measure ("10 MEQ" printed, "750 mg" labelled)
+ * cannot be told apart by it, and is not refused for it.
+ */
+function givesStrengths(label: readonly Strength[], printed: readonly Strength[]): boolean {
+  return printed.every((wanted) => {
+    const comparable = label.filter((strength) => strength.unit === wanted.unit);
+    return comparable.length === 0 || comparable.some((strength) => same(strength.value, wanted.value));
+  });
+}
 
 type Outcome = Extract<ApprovedUsesLookup, { status: 'found' | 'none' | 'unavailable' }>;
 
@@ -403,28 +523,94 @@ const releaseOf = (title: string): Release | null =>
 function likely(
   listed: readonly LabelDocument[],
   names: readonly string[],
-  want: { form: DoseForm | null; salts: readonly string[]; release: Release | null; preferAtOnce: boolean }
+  want: {
+    form: DoseForm | null;
+    salts: readonly string[];
+    release: Release | null;
+    releaseToken: string | null;
+    brand: readonly string[];
+    preferAtOnce: boolean;
+  }
 ): LabelDocument[] {
   const formWord = want.form ? new RegExp(`\\b${want.form}`, 'i') : null;
   const scored = listed.flatMap((label, index) => {
     const title = label.title.replace(/\[.*$/, '');
-    const words = new Set(nameWords(title));
+    // Its words as printed, and spelled out as a name's are ("HCL").
+    const words = new Set([...nameWords(title), ...medicineWords(title)]);
+    const tokens = releaseTokensIn(title.toUpperCase());
     const fits =
       (formWord === null || formWord.test(title)) &&
       names.every((name) => nameWords(name).every((word) => words.has(word))) &&
       // One ingredient's list also holds its combinations ("PIOGLITAZONE AND
-      // METFORMIN ..."), which would only fail the count after a download.
-      (names.length > 1 || !words.has('and')) &&
-      (want.release === null || releaseOf(title) === want.release);
+      // METFORMIN ...", "AMLODIPINE / VALSARTAN"), which would only fail the
+      // count after a download. A slash only before a tablet's or capsule's
+      // form, by name: a barcode's fallback may be "SOLUTION/ DROPS".
+      (names.length > 1 ||
+        (!words.has('and') && !(formWord !== null && /\//.test(title.replace(/\b(TABLET|CAPSULE)\b.*$/i, ''))))) &&
+      (want.release === null || releaseOf(title) === want.release) &&
+      // Another product's marker in the title ("(SR)" for an XL bottle).
+      (want.releaseToken === null || tokens.size === 0 || tokens.has(want.releaseToken));
     if (!fits) return [];
-    // First the titles that name the salt printed; then, where no release was
-    // printed, those released at once.
+    // First the titles that name the salt printed, the brand, the marker;
+    // then, where no release was printed, those released at once.
     const score =
-      (want.salts.every((salt) => words.has(salt)) ? 2 : 0) +
+      (want.salts.length > 0 && want.salts.every((salt) => words.has(salt)) ? 4 : 0) +
+      (want.brand.length > 0 && want.brand.every((word) => words.has(word)) ? 4 : 0) +
+      (want.releaseToken !== null && tokens.has(want.releaseToken) ? 2 : 0) +
       (want.preferAtOnce && want.release === null && releaseOf(title) === null ? 1 : 0);
     return [{ label, index, score }];
   });
   return scored.sort((a, b) => b.score - a.score || a.index - b.index).map(({ label }) => label);
+}
+
+type Packaging = { data?: { products?: { active_ingredients?: { strength?: string }[] }[] } };
+
+/**
+ * A label's strengths as DailyMed's packaging summary gives them ("20 mg"):
+ * a kilobyte, against the hundreds of a label's XML. Null where it could not
+ * be read, so the label is left to its XML to judge.
+ */
+async function packagedStrengths(setId: string): Promise<Strength[] | null> {
+  const got = await get(`${DAILYMED_BASE}/spls/${encodeURIComponent(setId)}/packaging.json`, (response) =>
+    response.json() as Promise<Packaging>
+  );
+  if (!got.ok) return null;
+  const strengths: Strength[] = [];
+  for (const product of got.value.data?.products ?? []) {
+    for (const ingredient of product.active_ingredients ?? []) {
+      // "20 mg", not a concentration ("100 mg/5 mL").
+      const amount = /^\s*([\d.,]+)\s*([^\s/]+)\s*$/.exec(ingredient.strength ?? '');
+      const strength = amount ? strengthOf(Number(amount[1].replace(/,/g, '')), amount[2]) : null;
+      if (strength) strengths.push(strength);
+    }
+  }
+  return strengths;
+}
+
+/** How many labels' packaging is read, at most, looking for the strength printed; and how many at once. */
+const SCREENED = 24;
+const AT_ONCE = 6;
+
+/**
+ * The labels that give the strength printed, in their order. Most labels in
+ * a list are repackagers', each of one strength (RemedyRepack's atorvastatin
+ * 10 mg, its 40 mg...), so the few label downloads went on the wrong
+ * strengths, and nothing was found for a 20 mg bottle. Their packaging is
+ * read first, a few at a time, until enough labels give it.
+ */
+async function ofStrength(labels: readonly LabelDocument[], printed: readonly Strength[]): Promise<LabelDocument[]> {
+  if (printed.length === 0) return [...labels];
+  const kept: LabelDocument[] = [];
+  const screened = labels.slice(0, SCREENED);
+  for (let at = 0; at < screened.length && kept.length < LABELS_TRIED; at += AT_ONCE) {
+    const batch = screened.slice(at, at + AT_ONCE);
+    const strengths = await Promise.all(batch.map((label) => packagedStrengths(label.setId)));
+    batch.forEach((label, index) => {
+      const given = strengths[index];
+      if (given === null || givesStrengths(given, printed)) kept.push(label);
+    });
+  }
+  return kept;
 }
 
 /** The first of these labels that proves it is this medicine's, of this kind; or why none did. */
@@ -435,8 +621,10 @@ async function firstProven(
 ): Promise<Outcome> {
   let failed = false;
   for (const label of labels.slice(0, LABELS_TRIED)) {
-    const xml = await get(`${DAILYMED_BASE}/spls/${encodeURIComponent(label.setId)}.xml`, (response) =>
-      response.text()
+    const xml = await get(
+      `${DAILYMED_BASE}/spls/${encodeURIComponent(label.setId)}.xml`,
+      (response) => response.text(),
+      LABEL_TIMEOUT_MS
     );
     if (!xml.ok) {
       failed = true;
@@ -445,15 +633,28 @@ async function firstProven(
 
     const read = readIndications(xml.value);
     const approved = read.approvals.length > 0 && read.approvals.every((category) => APPROVED.test(category));
+    const text = read.summary ?? read.section;
     const thisMedicine =
       proof.kind === 'product'
         ? read.products.includes(proof.key)
         : sameIngredients(read.actives, proof.names) &&
           // The salt printed, in the label's own active ingredient.
-          proof.salts.every((salt) => read.actives.some((active) => nameWords(active.substance).includes(salt)));
+          proof.salts.every((salt) =>
+            read.actives.some((active) => new Set([...nameWords(active.substance), ...medicineWords(active.substance)]).has(salt))
+          ) &&
+          // The strength printed, among its products'.
+          givesStrengths(read.strengths, proof.strengths) &&
+          // Taken by mouth, as a name's tablet or capsule is: not a tablet
+          // put in the vagina ("YUVAFEM (ESTRADIOL) TABLET").
+          (!proof.byMouth || read.routes.length === 0 || read.routes.some((route) => BY_MOUTH.has(route))) &&
+          // Not another product's marker ("(SR)" for an XL bottle), in its
+          // title or its own words.
+          (proof.releaseToken === null ||
+            ((tokens) => tokens.size === 0 || tokens.has(proof.releaseToken!))(
+              releaseTokensIn(`${label.title} ${text ?? ''}`)
+            ));
     // Listed by DailyMed as this kind; and not saying otherwise itself.
     const ofKind = type === null || read.documentType === null || read.documentType === type;
-    const text = read.summary ?? read.section;
     if (!approved || !thisMedicine || !ofKind || !text) continue;
 
     return {
@@ -482,10 +683,14 @@ async function ofKind(
   attempt: (type: DocumentType) => Promise<Outcome>
 ): Promise<ApprovedUsesLookup> {
   if (kind === 'otc') return attempt('otc');
-  const prescription = await attempt('prescription');
+  if (kind === 'prescription') {
+    const prescription = await attempt('prescription');
+    if (prescription.status === 'unavailable') return prescription;
+    return prescription.status === 'found' ? prescription : attempt('otc');
+  }
+  // Neither read: both are needed to tell, so both are asked at once.
+  const [prescription, otc] = await Promise.all([attempt('prescription'), attempt('otc')]);
   if (prescription.status === 'unavailable') return prescription;
-  if (kind === 'prescription') return prescription.status === 'found' ? prescription : attempt('otc');
-  const otc = await attempt('otc');
   if (otc.status === 'unavailable') return otc;
   if (prescription.status === 'found' && otc.status === 'found') return { status: 'kindUnknown' };
   return prescription.status === 'found' ? prescription : otc;
@@ -511,18 +716,47 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
     return ofKind(null, async (type) => {
       const listed = await labelsAt(`rxcui=${encodeURIComponent(target.rxcui)}&doctype=${DOCUMENT_TYPES[type]}`);
       if (!listed.ok) return { status: 'unavailable' };
-      const labels = likely(listed.value, ingredients.value, { form: null, salts: [], release: null, preferAtOnce: false });
-      return firstProven(labels, { kind: 'ingredients', names: ingredients.value, salts: [] }, type);
+      const labels = likely(listed.value, ingredients.value, {
+        form: null,
+        salts: [],
+        release: null,
+        releaseToken: null,
+        brand: [],
+        preferAtOnce: false,
+      });
+      const proof: Proof = {
+        kind: 'ingredients',
+        names: ingredients.value,
+        salts: [],
+        strengths: [],
+        releaseToken: null,
+        byMouth: false,
+      };
+      return firstProven(labels, proof, type);
     });
   }
 
-  const { rxcui, ingredients, form, salts = [], release = null, labelKind = null } = target;
+  const {
+    rxcui,
+    ingredients,
+    form,
+    salts = [],
+    release = null,
+    labelKind = null,
+    strengths = [],
+    releaseToken = null,
+    brand = [],
+  } = target;
   return ofKind(labelKind, async (type) => {
     const listed = await labelsAt(
       `rxcui=${encodeURIComponent(rxcui)}&doctype=${DOCUMENT_TYPES[type]}&pagesize=100`
     );
     if (!listed.ok) return { status: 'unavailable' };
-    const labels = likely(listed.value, ingredients, { form, salts, release, preferAtOnce: true });
-    return firstProven(labels, { kind: 'ingredients', names: ingredients, salts }, type);
+    const labels = await ofStrength(
+      likely(listed.value, ingredients, { form, salts, release, releaseToken, brand, preferAtOnce: true }),
+      strengths
+    );
+    const proof: Proof = { kind: 'ingredients', names: ingredients, salts, strengths, releaseToken, byMouth: true };
+    return firstProven(labels, proof, type);
   });
 }

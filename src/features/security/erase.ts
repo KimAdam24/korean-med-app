@@ -1,3 +1,4 @@
+import { forgetLookups } from '@/features/drugs/lookup-memory';
 import { clearProfile } from '@/features/medications/medication-store';
 import { cancelAllReminders } from '@/features/reminders/scheduler';
 
@@ -17,6 +18,7 @@ import { clearPin } from './pin';
  */
 export async function eraseEverything(): Promise<void> {
   await cancelAllReminders().catch(() => undefined);
+  forgetLookups();
   await clearProfile();
   await clearPin();
 }

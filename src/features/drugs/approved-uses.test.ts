@@ -13,6 +13,7 @@ import { afterEach, test } from 'node:test';
 import {
   dailyMedPackageCodes,
   doseFormOf,
+  doseFormOfReading,
   findApprovedUses,
   productKey,
   readIndications,
@@ -176,6 +177,9 @@ test('the dose form a reading names, or none when it names neither or both', () 
   assert.equal(doseFormOf('TAKE 1 SOFTGEL BY MOUTH DAILY'), 'CAPSULE');
   assert.equal(doseFormOf('TAKE 2 CAPLETS'), 'TABLET');
   assert.equal(doseFormOf('LISINOPRIL 10MG TAB', '10 MG'), 'TABLET');
+  // A Liqui-Gel is a capsule, not a gel.
+  assert.equal(doseFormOf('TAKE 2 LIQUI-GELS BY MOUTH'), 'CAPSULE');
+  assert.equal(doseFormOf('IBUPROFEN 200MG LIQUID GELS'), 'CAPSULE');
   // "Package insert" is not an insertion.
   assert.equal(doseFormOf('TAKE 1 TABLET DAILY. SEE PACKAGE INSERT'), 'TABLET');
 });
@@ -561,4 +565,153 @@ test('a label DailyMed lists as prescription, but which says it is over-the-coun
     return { status: 404 };
   });
   assert.equal(usesOf(await findApprovedUses(esomeprazoleTarget('prescription'))), 'none');
+});
+
+// --- Exactly this medicine: ingredient, strength, route, release ------------
+
+test("a label's ingredient must be exactly the medicine's: calcium is not calcium acetate", () => {
+  const acetate = [{ substance: 'CALCIUM ACETATE', moiety: 'CALCIUM CATION' }];
+  assert.equal(sameIngredients(acetate, ['calcium']), false);
+  assert.equal(sameIngredients([{ substance: 'ATORVASTATIN CALCIUM', moiety: null }], ['calcium']), false);
+  assert.equal(sameIngredients(acetate, ['calcium acetate']), true);
+  // What only carries a medicine, or its water, or a metal it is a salt with.
+  assert.equal(sameIngredients([{ substance: 'METFORMIN HYDROCHLORIDE', moiety: null }], ['metformin']), true);
+  assert.equal(sameIngredients([{ substance: 'LEVOTHYROXINE SODIUM ANHYDROUS', moiety: null }], ['levothyroxine']), true);
+  assert.equal(sameIngredients([{ substance: 'ATORVASTATIN CALCIUM TRIHYDRATE', moiety: 'ATORVASTATIN' }], ['atorvastatin']), true);
+});
+
+/** A label of one tablet, with its strengths, route and own words. */
+const product = (opts: { substance: string; moiety: string; strengths: [string, string][]; route?: string; uses: string; title?: string }) => `<document>
+  <code code="34391-3" codeSystem="2.16.840.1.113883.6.1"/>${approval('ANDA')}
+  ${opts.strengths
+    .map(
+      ([value, unit]) => `<manufacturedProduct><manufacturedMaterial>
+    <ingredient classCode="ACTIB"><quantity><numerator unit="${unit}" value="${value}"/><denominator unit="1" value="1"/></quantity>
+      <ingredientSubstance><name>${opts.substance}</name><activeMoiety><activeMoiety><name>${opts.moiety}</name></activeMoiety></activeMoiety></ingredientSubstance></ingredient>
+  </manufacturedMaterial>${opts.route ? `<consumedIn><substanceAdministration><routeCode displayName="${opts.route}"/></substanceAdministration></consumedIn>` : ''}</manufacturedProduct>`
+    )
+    .join('')}
+  <component><section><code code="34067-9"/><title>INDICATIONS AND USAGE</title>
+    <text><paragraph>${opts.uses}</paragraph></text></section></component>
+</document>`;
+
+test("a label's strengths and routes, as its products give them", () => {
+  const read = readIndications(
+    product({ substance: 'LEVOTHYROXINE SODIUM', moiety: 'LEVOTHYROXINE', strengths: [['0.05', 'mg'], ['88', 'ug']], route: 'ORAL', uses: 'x' })
+  );
+  assert.deepEqual(read.strengths, [{ value: 0.05, unit: 'mg' }, { value: 0.088, unit: 'mg' }]);
+  assert.deepEqual(read.routes, ['ORAL']);
+});
+
+/** Two labels of one ingredient, the wrong one listed first, as DailyMed lists them. */
+function twoLabels(rxcui: string, first: [string, string], second: [string, string]): string[] {
+  return nlm((url) => {
+    if (url.includes(`spls.json?rxcui=${rxcui}`)) {
+      return url.includes(RX) ? listing(['first', first[0]], ['second', second[0]]) : listing();
+    }
+    if (url.endsWith('/spls/first.xml')) return { text: first[1] };
+    if (url.endsWith('/spls/second.xml')) return { text: second[1] };
+    return { status: 404 };
+  });
+}
+const target = (rxcui: string, ingredient: string, extra: Partial<Extract<UsesTarget, { kind: 'ingredients' }>>): UsesTarget => ({
+  kind: 'ingredients',
+  rxcui,
+  ingredients: [ingredient],
+  form: 'TABLET',
+  labelKind: 'prescription',
+  ...extra,
+});
+
+test('the strength printed: finasteride 5 mg is not shown the 1 mg label, for hair loss', async () => {
+  const HAIR = 'Finasteride tablets 1 mg are indicated for male pattern hair loss.';
+  const PROSTATE = 'Finasteride tablets 5 mg are indicated for symptomatic benign prostatic hyperplasia.';
+  twoLabels(
+    '25025',
+    ['FINASTERIDE TABLET, FILM COATED [A]', product({ substance: 'FINASTERIDE', moiety: 'FINASTERIDE', strengths: [['1', 'mg']], route: 'ORAL', uses: HAIR })],
+    ['FINASTERIDE TABLET, FILM COATED [B]', product({ substance: 'FINASTERIDE', moiety: 'FINASTERIDE', strengths: [['5', 'mg']], route: 'ORAL', uses: PROSTATE })]
+  );
+  const five = await findApprovedUses(target('25025', 'finasteride', { strengths: [{ value: 5, unit: 'mg' }] }));
+  assert.equal(five.status === 'found' && five.uses.content.text, PROSTATE);
+  // Printed in micrograms, compared in milligrams.
+  const one = await findApprovedUses(target('25025', 'finasteride', { strengths: [{ value: 1, unit: 'mg' }] }));
+  assert.equal(one.status === 'found' && one.uses.content.text, HAIR);
+  // A strength in a measure the label does not give is no reason to refuse it.
+  const meq = await findApprovedUses(target('25025', 'finasteride', { strengths: [{ value: 10, unit: 'meq' }] }));
+  assert.equal(meq.status === 'found' && meq.uses.content.text, HAIR);
+});
+
+test('a medicine taken by mouth is not shown a tablet put in the vagina', async () => {
+  const VAGINAL = 'Estradiol vaginal inserts are indicated for atrophic vaginitis due to menopause.';
+  const ORAL = 'Estradiol tablets are indicated for moderate to severe vasomotor symptoms.';
+  twoLabels(
+    '4083',
+    ['YUVAFEM (ESTRADIOL) TABLET [A]', product({ substance: 'ESTRADIOL', moiety: 'ESTRADIOL', strengths: [['10', 'ug']], route: 'VAGINAL', uses: VAGINAL })],
+    ['ESTRADIOL TABLET [B]', product({ substance: 'ESTRADIOL', moiety: 'ESTRADIOL', strengths: [['1', 'mg']], route: 'ORAL', uses: ORAL })]
+  );
+  const found = await findApprovedUses(target('4083', 'estradiol', {}));
+  assert.equal(found.status === 'found' && found.uses.content.text, ORAL);
+});
+
+test("another product's release marker, in the title or the label's own words, is not taken: bupropion XL is not SR", async () => {
+  const SR = 'Bupropion hydrochloride extended-release tablets (SR) are indicated for major depressive disorder.';
+  const XL = 'Bupropion hydrochloride extended-release tablets (XL) are indicated for MDD and seasonal affective disorder.';
+  const label = (uses: string) => product({ substance: 'BUPROPION HYDROCHLORIDE', moiety: 'BUPROPION', strengths: [['150', 'mg']], route: 'ORAL', uses });
+  twoLabels(
+    '42347',
+    ['BUPROPION HYDROCHLORIDE TABLET, FILM COATED, EXTENDED RELEASE [A]', label(SR)],
+    ['BUPROPION HYDROCHLORIDE TABLET, FILM COATED, EXTENDED RELEASE [B]', label(XL)]
+  );
+  const xl = await findApprovedUses(target('42347', 'bupropion', { release: 'extended', releaseToken: 'xl' }));
+  assert.equal(xl.status === 'found' && xl.uses.content.text, XL);
+  const sr = await findApprovedUses(target('42347', 'bupropion', { release: 'extended', releaseToken: 'sr' }));
+  assert.equal(sr.status === 'found' && sr.uses.content.text, SR);
+});
+
+test('a brand printed: its own label is tried first, REVATIO before the one for erectile dysfunction', async () => {
+  const ED = 'Sildenafil tablets are indicated for the treatment of erectile dysfunction.';
+  const PAH = 'REVATIO is indicated for the treatment of pulmonary arterial hypertension.';
+  const asked = twoLabels(
+    '136411',
+    ['SILDENAFIL TABLET, FILM COATED [A]', product({ substance: 'SILDENAFIL CITRATE', moiety: 'SILDENAFIL', strengths: [['20', 'mg']], route: 'ORAL', uses: ED })],
+    ['REVATIO (SILDENAFIL) TABLET, FILM COATED [VIATRIS]', product({ substance: 'SILDENAFIL CITRATE', moiety: 'SILDENAFIL', strengths: [['20', 'mg']], route: 'ORAL', uses: PAH })]
+  );
+  const found = await findApprovedUses(target('136411', 'sildenafil', { brand: ['revatio'] }));
+  assert.equal(found.status === 'found' && found.uses.content.text, PAH);
+  assert.ok(!asked.includes('/spls/first.xml'), asked.join('\n'));
+});
+
+test('the form from text not read whole: what it says the medicine is, never what it is not', () => {
+  // Cut before "VAGINALLY": no tablet to swallow can be told from it.
+  assert.equal(doseFormOfReading(['ESTRADIOL', '10 MCG'], ['INSERT 1 TABLET VAGIN']), null);
+  // Cut at the edge, but saying "by mouth": the vial's capsule.
+  assert.equal(doseFormOfReading(['VITAMIN D2', '1.25 MG (50,000 UNIT)'], ['Take 1 capsule (b units) by mouth eve days']), 'CAPSULE');
+  // Cut, but saying it is not swallowed: refused all the same.
+  assert.equal(doseFormOfReading(['TIMOLOL 0.5% TAB'], ['INSTILL 1 DROP IN EACH EY']), null);
+});
+
+test("repackagers' labels of other strengths, listed first, are passed over by their packaging, not downloaded", async () => {
+  const USES = 'Atorvastatin calcium tablets are indicated to reduce the risk of myocardial infarction.';
+  const strengths: Record<string, string> = { a: '10 mg', b: '10 mg', c: '40 mg', d: '40 mg', e: '80 mg', f: '20 mg' };
+  const asked = nlm((url) => {
+    if (url.includes('spls.json?rxcui=83367')) {
+      return url.includes(RX)
+        ? listing(...Object.keys(strengths).map((id): [string, string] => [id, `ATORVASTATIN CALCIUM TABLET, FILM COATED [${id}]`]))
+        : listing();
+    }
+    const packaging = /\/spls\/(\w)\/packaging\.json$/.exec(url);
+    if (packaging) {
+      return { json: { data: { products: [{ active_ingredients: [{ strength: strengths[packaging[1]], name: 'ATORVASTATIN CALCIUM' }] }] } } };
+    }
+    if (url.endsWith('/spls/f.xml')) {
+      return {
+        text: product({ substance: 'ATORVASTATIN CALCIUM TRIHYDRATE', moiety: 'ATORVASTATIN', strengths: [['20', 'mg']], route: 'ORAL', uses: USES }),
+      };
+    }
+    return { status: 404 };
+  });
+  const found = await findApprovedUses(target('83367', 'atorvastatin', { strengths: [{ value: 20, unit: 'mg' }] }));
+  assert.equal(found.status === 'found' && found.uses.content.text, USES);
+  // Only the label of the strength printed was downloaded.
+  assert.deepEqual(asked.filter((url) => url.endsWith('.xml')), ['/spls/f.xml']);
 });

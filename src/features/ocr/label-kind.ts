@@ -14,7 +14,9 @@ import type { RecognizedTextLine } from './types.ts';
  *   A pharmacy can dispense an over-the-counter medicine on prescription too,
  *   so this prefers the prescription label rather than requiring one.
  * - `otc`: the package's Drug Facts. That is the manufacturer's own, and wins
- *   over a pharmacy sticker on the same box.
+ *   over a pharmacy sticker on the same box. "Active ingredient" or "Purpose"
+ *   alone count only where no pharmacy's mark was read: some pharmacies print
+ *   the prescriber's purpose ("PURPOSE: ACID REFLUX") on their own label.
  * - `null`: neither found, as when the lines that say were not read.
  *
  * "Compare to", printed on a store brand's box, is not a pharmacy's mark.
@@ -27,18 +29,21 @@ const PRESCRIPTION = [
   /^\s*[AQO]TY\b/i,
   /^\s*(GENERIC( EQUIVALENT)? (FOR|TO)|SUBSTITUTED? FOR|SUBST?\.? FOR)\b/i,
   /^\s*(PRESCRIBER|PRESCRIBED BY)\b/i,
-  /^\s*DR\.?\s+[A-Z]/i,
+  // A prescriber, not the generic maker "Dr. Reddy's".
+  /^\s*DR\.?\s+(?!REDDY)[A-Z]/i,
   /^\s*(DATE\s+)?FILLED\b/i,
   /^\s*DISCARD\s+(AFTER|BY|DATE)\b/i,
   /\bRX\s+ONLY\b/i,
 ];
 
-const OTC = [/\bDRUG\s+FACTS\b/i, /^\s*ACTIVE\s+INGREDIENTS?\b/i, /^\s*PURPOSES?\b/i];
+const DRUG_FACTS = /\bDRUG\s+FACTS\b/i;
+const OTC_PANEL = [/^\s*ACTIVE\s+INGREDIENTS?\b/i, /^\s*PURPOSES?\b/i];
 
 export function labelKindOf(lines: readonly RecognizedTextLine[] | undefined): LabelKind | null {
   if (!lines) return null;
   const texts = lines.map((line) => line.text);
-  if (texts.some((text) => OTC.some((pattern) => pattern.test(text)))) return 'otc';
+  if (texts.some((text) => DRUG_FACTS.test(text))) return 'otc';
   if (texts.some((text) => PRESCRIPTION.some((pattern) => pattern.test(text)))) return 'prescription';
+  if (texts.some((text) => OTC_PANEL.some((pattern) => pattern.test(text)))) return 'otc';
   return null;
 }

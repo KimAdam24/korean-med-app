@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
 
+import { forgetLookups } from '@/features/drugs/lookup-memory';
 import { Strings } from '@/i18n/strings';
 
 import {
@@ -239,6 +240,12 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
 
   const markUnlocked = useCallback(() => setStatus('unlocked'), []);
   const lock = useCallback(() => setStatus('locked'), []);
+
+  // Whatever the medicines' lookups found is forgotten whenever the app is
+  // not unlocked: nothing about them stays in memory behind the lock.
+  useEffect(() => {
+    if (status !== 'unlocked') forgetLookups();
+  }, [status]);
 
   const value = useMemo(
     () => ({

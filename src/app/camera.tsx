@@ -28,7 +28,7 @@ import {
   PhotoNotDiscardedError,
   withTransientCapture,
 } from '@/features/capture/transient-capture';
-import { doseFormOf } from '@/features/drugs/approved-uses';
+import { doseFormOfReading, type DoseForm } from '@/features/drugs/approved-uses';
 import { ApprovedUsesCard, type UsesSource } from '@/features/drugs/approved-uses-card';
 import type { NameMatch } from '@/features/drugs/identify-name';
 import { interpretBarcode } from '@/features/drugs/ndc';
@@ -446,7 +446,8 @@ export default function CameraScreen() {
       truncation: EdgeTruncation | null | undefined,
       match: NameMatch | null,
       nameSource: 'read' | 'typed',
-      labelKind: LabelKind | null
+      labelKind: LabelKind | null,
+      form: DoseForm | null
     ) => {
       const toSave = medicationFromReading(fields, truncation, nameSource === 'typed');
       if (!toSave) return;
@@ -455,10 +456,9 @@ export default function CameraScreen() {
       setPhase({ kind: 'saving' });
       try {
         // With what its name was identified as, so its page looks up the same
-        // label without asking RxNorm again.
-        // And with the form that chose its label, which the saved fields may not
-        // name any more (withheld directions are not saved).
-        const form = doseFormOf(fields.name?.text, fields.dosage?.text, fields.instructions?.text);
+        // label without asking RxNorm again; and with the form that chose its
+        // label, as the screen chose it, which the saved fields may not name
+        // any more (withheld directions are not saved).
         await addMedication({
           ...toSave.record,
           // Read from the label, or typed by the user: different evidence.
@@ -922,7 +922,8 @@ function ReadingResult({
     truncation: EdgeTruncation | null | undefined,
     match: NameMatch | null,
     nameSource: 'read' | 'typed',
-    labelKind: LabelKind | null
+    labelKind: LabelKind | null,
+    form: DoseForm | null
   ) => void;
   onRetake: () => void;
   /** Absent where the sweep is not available: iOS, until its Swift is built. */
@@ -946,11 +947,27 @@ function ReadingResult({
   // A pharmacy's label, or a package's Drug Facts, by the lines read: which of
   // the ingredient's FDA labels, prescription or over-the-counter, applies.
   const labelKind = labelKindOf(lines);
+  /**
+   * Whether a field was read whole: not damaged, and not cut at the label's
+   * edge. Only text read whole can say what the medicine is not (see
+   * `doseFormOfReading`); and only a strength read whole is required of its
+   * label.
+   */
+  const isWhole = (kind: 'dosage' | 'instructions') => {
+    const text = fields[kind]?.text;
+    return !!text && assessField(kind, text).level !== 'damaged' && !isCutAtEdge(truncation, kind);
+  };
+  const lookupName = typedName ?? readableName(fields, truncation);
+  const fieldKinds = ['dosage', 'instructions'] as const;
   const usesSource: UsesSource = {
     kind: 'name',
-    name: typedName ?? readableName(fields, truncation),
-    form: doseFormOf(named.name?.text, fields.dosage?.text, fields.instructions?.text),
+    name: lookupName,
+    form: doseFormOfReading(
+      [lookupName ?? undefined, ...fieldKinds.filter(isWhole).map((kind) => fields[kind]?.text)],
+      fieldKinds.filter((kind) => !isWhole(kind)).map((kind) => fields[kind]?.text)
+    ),
     labelKind,
+    strength: isWhole('dosage') ? (fields.dosage?.text ?? null) : null,
     ...(typedName ? { typed: true } : {}),
   };
   // What the name was identified as, if it was: saved with the medicine. Held
@@ -1119,7 +1136,7 @@ function ReadingResult({
       ) : null}
       <BigButton
         label={Strings.medications.saveFromLabel}
-        onPress={() => onSave(named, namedTruncation, match, typedName ? 'typed' : 'read', labelKind)}
+        onPress={() => onSave(named, namedTruncation, match, typedName ? 'typed' : 'read', labelKind, usesSource.form)}
         tone={degraded ? 'secondary' : 'primary'}
       />
     </View>

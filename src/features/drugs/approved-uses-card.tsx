@@ -13,7 +13,16 @@ import { Strings, fillTemplate } from '@/i18n/strings';
 import type { LabelKind } from '@/features/ocr/label-kind';
 
 import { findApprovedUses, type ApprovedUses, type DoseForm, type UsesTarget } from './approved-uses';
-import { identifyByName, printedRelease, printedSalts, type NameMatch } from './identify-name';
+import {
+  identifyByName,
+  printedBrandWords,
+  printedRelease,
+  printedReleaseToken,
+  printedSalts,
+  printedStrengths,
+  type NameMatch,
+} from './identify-name';
+import { recallLookup, rememberLookup } from './lookup-memory';
 
 /** What to show the approved uses of. */
 export type UsesSource =
@@ -26,7 +35,9 @@ export type UsesSource =
    * the bottle, which the card says too, since it is the user's word and not
    * the label's. `known` is a match already made, as when a saved medicine
    * carries one. `labelKind` is what kind of label was read, where it is
-   * known: a pharmacy's, or an over-the-counter package's.
+   * known: a pharmacy's, or an over-the-counter package's. `strength` is the
+   * strength line, where it was read whole: a label must give the strength
+   * it prints.
    */
   | {
       readonly kind: 'name';
@@ -35,6 +46,7 @@ export type UsesSource =
       readonly typed?: boolean;
       readonly known?: NameMatch;
       readonly labelKind?: LabelKind | null;
+      readonly strength?: string | null;
     };
 
 type State =
@@ -98,6 +110,19 @@ export function ApprovedUsesCard({
       if (live) setResult({ request, state: next });
     };
 
+    // Asked before, this session: the same answer, without asking again.
+    type Kept = { readonly state: State; readonly match: NameMatch | null };
+    const kept = recallLookup<Kept>(key);
+    if (kept) {
+      if (current.kind === 'name') told.current?.(kept.match);
+      settle(kept.state);
+      return;
+    }
+    const keep = (next: State, match: NameMatch | null) => {
+      if (next.kind !== 'unavailable') rememberLookup(key, { state: next, match } satisfies Kept);
+      settle(next);
+    };
+
     void (async () => {
       let target: UsesTarget;
       let match: NameMatch | undefined;
@@ -112,7 +137,7 @@ export function ApprovedUsesCard({
           if (identified.status === 'unavailable') return settle({ kind: 'unavailable' });
           if (identified.status === 'unidentified') {
             told.current?.(null);
-            return settle({ kind: 'unidentified' });
+            return keep({ kind: 'unidentified' }, null);
           }
           match = identified.match;
         }
@@ -122,16 +147,20 @@ export function ApprovedUsesCard({
           rxcui: match.rxcui,
           ingredients: match.ingredients,
           form: current.form,
-          // The salt and release the name printed, and the kind of label read:
-          // which of the ingredient's labels is this medicine's.
+          // What the bottle printed, and the kind of label read: which of the
+          // ingredient's labels is this medicine's.
           salts: printedSalts(current.name!, match.ingredients),
           release: printedRelease(current.name!),
+          releaseToken: printedReleaseToken(current.name!),
+          brand: printedBrandWords(current.name!, match.ingredients),
+          strengths: printedStrengths(current.strength),
           labelKind: current.labelKind ?? null,
         };
       }
 
       const found = await findApprovedUses(target);
-      settle(found.status === 'found' ? { kind: 'found', uses: found.uses, match } : { kind: found.status });
+      if (!live) return;
+      keep(found.status === 'found' ? { kind: 'found', uses: found.uses, match } : { kind: found.status }, match ?? null);
     })();
 
     return () => {
