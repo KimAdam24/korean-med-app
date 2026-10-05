@@ -76,8 +76,8 @@ Then, in order:
 2. **Unlock with your PIN.** Secure storage and the phone lock work.
 3. **Home has the gallery picker and no file probe.** "Choose a photo from
    your phone" opens the phone's photos: the gallery ships in release since
-   2026-09-28, with its label and the privacy line under it in English until
-   the `privacy.*` strings are signed off. The file probe at the bottom of a
+   2026-09-28, with its label and the privacy line under it in Korean since
+   the `privacy.*` strings were reviewed (2026-10-04). The file probe at the bottom of a
    development build is tooling, and must not be there.
 4. **The camera opens**, with no yellow "DEV: replay a sweep" button. Press the
    shutter: the emulator's synthetic frame goes through the OCR module. "We

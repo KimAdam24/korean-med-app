@@ -74,7 +74,7 @@ src/i18n/strings.ts       all user-facing copy, Korean-first
 | Gallery photos                          | Built, in release since 2026-09-28                |
 | Fill-in, curve message                  | Built, on again since 2026-10-02 (`docs/scope.md`) |
 | Sweep                                   | **Hidden** (`src/features/scope.ts`); the full app is on `archive/full-app-2026-09-28` |
-| First-launch introduction               | Built — reviewed, but for two lines in English until reviewed (`privacy.onboardingPhotos`, `privacy.lookup`) |
+| First-launch introduction               | Built — reviewed                                  |
 | Dose reminders                          | Built — not yet rung on a device; see `docs/reminders.md` |
 | Reading aloud (TTS)                     | Not started — constraints in `docs/tts-feasibility.md` |
 

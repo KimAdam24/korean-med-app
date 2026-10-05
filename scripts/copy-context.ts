@@ -62,7 +62,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   'privacy.home': {
     section: PRIVACY,
     where: 'The home screen: the small line with a lock beside it, at the bottom.',
-    when: 'Always. Shown now, in English until reviewed.',
+    when: 'Always.',
     notes:
       'The current line promises photos are deleted after reading: true of the camera, untrue of a photo she already has, which the app must never delete. The promise underneath is the same for both: the photo is never kept and never sent; only the words are used. "Nor sent" is new and deliberate. Two sentences, or one?',
   },
@@ -83,7 +83,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   'privacy.choosePhoto': {
     section: PRIVACY,
     where: 'The home screen: a row in the list under the 약 사진 찍기 (Take a photo of your medicine) button, between 내 약 보기 (See my medicines) and 설정 (Settings).',
-    when: 'Always: the gallery picker is in the app, in English until reviewed.',
+    when: 'Always.',
     notes: 'Opens her photos, to read a label from a photo she already took. Her photos are never changed or deleted.',
   },
   'privacy.onboardingPhotos': {

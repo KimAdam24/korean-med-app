@@ -18,7 +18,8 @@ deleted.
    under a heading that says what it is and that it is in English, with the
    label named, and a note that the medicine may be prescribed for other
    reasons and that this is the FDA-approved indication, not the doctor's
-   reason. The heading and note are safety copy, English until reviewed.
+   reason. The heading and note are safety copy, never drafted: written by
+   the reviewer herself (2026-10-04).
 4. **The strength and directions, as read**, with every withholding rule as it
    was: a field damaged or cut off at the label's edge is never shown as if it
    were whole.
@@ -191,8 +192,8 @@ typed or edited, that name; for a barcode whose package DailyMed does not
 list, its RxNorm code once more, to check a label's ingredients against; and
 for every medicine shown (by name, a tablet or capsule), requests to
 DailyMed for its label. All to NLM, over HTTPS, with no identifier, and never
-the list or a photo. The introduction says so (`privacy.lookup`, English until
-reviewed).
+the list or a photo. The introduction says so (`privacy.lookup`, reviewed
+2026-10-04).
 
 One gap remains, and the copy does not promise past it: the name sent is
 whatever the reading took for the medicine's name. The parser can, rarely, take

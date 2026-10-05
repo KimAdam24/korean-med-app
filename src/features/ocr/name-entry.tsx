@@ -53,9 +53,6 @@ export function NameEntry({
         value={value}
         onChangeText={setValue}
         accessibilityLabel={Strings.nameEntry.inputLabel.ko}
-        // Its label is English until reviewed, and what is typed is a drug name
-        // in Latin letters: an English voice for both, until then.
-        accessibilityLanguage={Strings.nameEntry.inputLabel.pendingKo ? 'en-US' : 'ko-KR'}
         autoCorrect={false}
         spellCheck={false}
         autoComplete="off"

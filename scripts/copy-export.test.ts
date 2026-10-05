@@ -16,6 +16,17 @@ const DRAFTS: CopyDrafts = JSON.parse(
 const HANGUL = /[가-힣]/;
 const placeholders = (text: string) => [...text.matchAll(/\{[^}]+\}/g)].map(([match]) => match).sort();
 
+/**
+ * Strings as they stand when pending, for the tests of the export itself:
+ * what is pending in the app comes and goes with each review, and an export
+ * of nothing would test nothing. Given out of their context's order, and
+ * from several sections, with one of a hidden feature's (fill-in) and one of
+ * a feature not built yet (Korean drug names).
+ */
+const SOME_PENDING = ['reminders.statusSet', 'uses.none', 'fillIn.keepStart', 'privacy.home', 'guidance.perMfds'].map(
+  (key) => ({ key, en: `English of ${key}` })
+);
+
 test('every string awaiting Korean says where it appears and when', () => {
   // The translator does not have the app; a string with no context is a guess.
   assert.deepEqual(missingContext(pendingCopy(Strings)), []);
@@ -55,16 +66,17 @@ test('drafts are kept only for strings still awaiting Korean', () => {
 });
 
 test('the export is every pending string once, grouped by section in order', () => {
-  const pending = pendingCopy(Strings);
-  const rows = exportRows(pending);
-  // All but those of a hidden feature.
-  assert.equal(rows.length, pending.length - heldBack(pending).length);
-  assert.equal(new Set(rows.map((row) => row.copy.key)).size, rows.length);
-  const sections = rows.map((row) => SECTIONS.indexOf(row.context.section));
-  assert.deepEqual(sections, [...sections].sort((a, b) => a - b));
-  // Led by the first pending string in the context's own order.
-  const keys = new Set(pending.map(({ key }) => key));
-  assert.equal(rows[0].copy.key, Object.keys(COPY_CONTEXT).find((key) => keys.has(key)));
+  for (const pending of [pendingCopy(Strings), SOME_PENDING]) {
+    const rows = exportRows(pending);
+    // All but those of a hidden feature.
+    assert.equal(rows.length, pending.length - heldBack(pending).length);
+    assert.equal(new Set(rows.map((row) => row.copy.key)).size, rows.length);
+    const sections = rows.map((row) => SECTIONS.indexOf(row.context.section));
+    assert.deepEqual(sections, [...sections].sort((a, b) => a - b));
+  }
+  // Led by the first in the context's own order, whatever order they came in.
+  const keys = new Set(SOME_PENDING.map(({ key }) => key));
+  assert.equal(exportRows(SOME_PENDING)[0].copy.key, Object.keys(COPY_CONTEXT).find((key) => keys.has(key)));
 });
 
 test('the CSV survives quotes, commas and Korean, opens in Excel, and says what she changed', () => {
@@ -96,7 +108,7 @@ test('the CSV survives quotes, commas and Korean, opens in Excel, and says what 
 });
 
 test("a hidden feature's strings are held back from the export, and return with it", () => {
-  const pending = pendingCopy(Strings);
+  const pending = SOME_PENDING;
   const hidden = { sweep: false, fillIn: false, curveMessage: false, koreanDrugNames: false };
   const held = heldBack(pending, hidden);
   assert.ok(held.includes('fillIn.keepStart'));
@@ -108,10 +120,22 @@ test("a hidden feature's strings are held back from the export, and return with 
   assert.equal(exportRows(pending, shown).length, pending.length);
 });
 
-test('the safety strings go to her undrafted, each with the reason', () => {
-  // The heading and disclaimer over a label's uses, and the warning that
+test('the safety strings go to her undrafted, each with the reason, whenever they are pending', () => {
+  // The heading and disclaimer over a label's uses, and the warnings that
   // reminders will not sound: unreviewed Korean is worse than English here.
-  for (const key of ['uses.title', 'uses.disclaimer', 'reminders.statusSilent']) {
+  // All written by her (2026-09-28 and 2026-10-04); should one change and be
+  // pending again, it goes back to her undrafted.
+  const pending = new Set(pendingCopy(Strings).map(({ key }) => key));
+  for (const key of [
+    'uses.title',
+    'uses.disclaimer',
+    'reminders.statusSilent',
+    'reminders.statusDnd',
+    'reminders.statusDndNow',
+    'reminders.statusFocus',
+  ]) {
+    assert.ok(key in COPY_CONTEXT, key);
+    if (!pending.has(key)) continue;
     assert.equal(DRAFTS.strings[key]?.ko, undefined, key);
     assert.match(DRAFTS.strings[key]?.why ?? '', /^Safety string/, key);
   }

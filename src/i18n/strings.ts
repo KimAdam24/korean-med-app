@@ -54,8 +54,6 @@ export const Strings = {
   /**
    * The first launch, before the lock: what the app does, where the data lives,
    * and the camera permission asked for with its reason rather than cold.
-   *
-   * All English placeholders for now; see `untranslated`.
    */
   onboarding: {
     step: { ko: '{total}단계 중 {n}단계', en: 'Step {n} of {total}' },
@@ -81,36 +79,21 @@ export const Strings = {
   /**
    * The privacy promise, rewritten so it is true of a photo from the user's
    * own gallery as well as of the camera's, and the gallery picker's label.
-   * In the app since 2026-09-28, in English until reviewed, since the gallery
-   * ships in release: `privacy.home` in place of `home.privacy`, `pickedPhoto`
-   * in place of "the photo has been deleted" under a reading of a chosen
-   * photo, `onboardingPhotos` and `lookup` in the introduction. After
-   * sign-off, each `untranslated()` becomes her Korean, and `cameraPermission`
-   * is copied into app.json's expo-camera `cameraPermission` (a test keeps
-   * the two alike), since the iPhone shows it in its own dialog.
+   * In the app since 2026-09-28, since the gallery ships in release, and
+   * reviewed 2026-10-04: `privacy.home` in place of `home.privacy`,
+   * `pickedPhoto` in place of "the photo has been deleted" under a reading of
+   * a chosen photo, `onboardingPhotos` and `lookup` in the introduction.
+   * `cameraPermission` is copied into app.json's expo-camera
+   * `cameraPermission` (a test keeps the two alike), since the iPhone shows
+   * it in its own dialog.
    */
   privacy: {
-    home: untranslated(
-      'Photos are never saved, and never sent anywhere. Only the writing on them is used; the photo is not kept.',
-      'Replaces the home screen line 사진은 저장하지 않아요. 글씨를 읽은 뒤 바로 지워요., which is untrue of a photo she picks from her own gallery.'
-    ),
-    pickedPhoto: untranslated(
-      'The photo you chose is left as it is. Only the writing is read, and your photo is not deleted.',
-      'Under a reading of a photo chosen from the gallery, instead of 사진은 지웠어요 (The photo has been deleted).'
-    ),
-    cameraPermission: untranslated(
-      'The camera is used to read the writing on your medicine bottle. Photos are not saved or sent.',
-      "The iPhone's own camera question. Not shown on Android, which words its camera question itself."
-    ),
-    choosePhoto: untranslated('Choose a photo from your phone', 'Home screen button that opens her photos.'),
-    onboardingPhotos: untranslated(
-      'Photos are used only to read the label. A photo taken in the app is deleted straight after; a photo you choose from your phone is left as it is.',
-      'First-launch introduction, the "your list stays on this phone" step. Replaces 사진은 글씨를 읽는 데만 쓰고, 읽은 뒤 바로 지워요., which is untrue of a photo she picks from her own gallery.'
-    ),
-    lookup: untranslated(
-      "To identify a medicine and find its FDA label, the app sends the U.S. National Library of Medicine the medicine's barcode number, or its name as read from the label or typed in. It never sends your list or your photos.",
-      'First-launch introduction, the same step. Replaces 바코드로 약을 찾을 때는 바코드 번호만 보내요..., which no longer covers everything sent: a medicine read from a photo is now looked up by its name, and its FDA label fetched.'
-    ),
+    home: { ko: '앱은 사진을 저장하지도, 다른 곳으로 보내지도 않아요. 사진 속 글씨만 읽어요.', en: 'Photos are never saved, and never sent anywhere. Only the writing on them is used; the photo is not kept.' },
+    pickedPhoto: { ko: '고르신 사진은 지우지 않고 휴대폰에 그대로 뒀어요. 사진 속 글씨만 읽었어요.', en: 'The photo you chose is left as it is. Only the writing is read, and your photo is not deleted.' },
+    cameraPermission: { ko: '약병의 글씨를 읽기 위해 카메라를 사용합니다. 사진은 저장하거나 다른 곳으로 보내지 않습니다.', en: 'The camera is used to read the writing on your medicine bottle. Photos are not saved or sent.' },
+    choosePhoto: { ko: '휴대폰에 있는 사진 고르기', en: 'Choose a photo from your phone' },
+    onboardingPhotos: { ko: '사진은 글씨를 읽는 데만 써요. 앱에서 찍은 사진은 읽은 뒤 바로 지우고, 휴대폰에서 고르신 사진은 지우지 않고 그대로 둬요.', en: 'Photos are used only to read the label. A photo taken in the app is deleted straight after; a photo you choose from your phone is left as it is.' },
+    lookup: { ko: '어떤 약인지 확인하고 FDA 허가사항을 찾을 때는, 바코드 번호나 약 이름(약병에서 읽었거나 직접 입력하신 이름)을 미국 국립의학도서관에 보내요. 약 목록이나 사진은 보내지 않아요.', en: "To identify a medicine and find its FDA label, the app sends the U.S. National Library of Medicine the medicine's barcode number, or its name as read from the label or typed in. It never sends your list or your photos." },
   },
 
   permission: {
@@ -301,7 +284,6 @@ export const Strings = {
      * A label that curves round the bottle, so the ends of its longest lines
      * are out of the camera's sight. Replaces the "try somewhere brighter"
      * advice, which is wrong here: more light does not bring the words round.
-     * English placeholders; see `untranslated`.
      */
     curved: {
       title: { ko: '약병이 둥글어서 글씨 일부가 가려졌어요', en: 'The label curves round the bottle' },
@@ -419,10 +401,7 @@ export const Strings = {
     addedOn: { ko: '등록한 날', en: 'Added' },
     source: { ko: '등록 방법', en: 'How it was added' },
     sourceScan: { ko: '바코드로 찾음', en: 'Found by barcode' },
-    sourcePhoto: untranslated(
-      'Read from a photo of the label',
-      "A medicine's page, under 등록 방법 (How it was added), for a medicine read from a photo. Beside 바코드로 찾음 (Found by barcode) and 직접 입력함 (Entered by hand); the first used to show, untruly, for photos too."
-    ),
+    sourcePhoto: { ko: '사진으로 읽음', en: 'Read from a photo of the label' },
     sourceManual: { ko: '직접 입력함', en: 'Entered by hand' },
 
     /**
@@ -518,63 +497,24 @@ export const Strings = {
   /**
    * What a medicine's FDA label says it is approved to treat, shown verbatim in
    * the label's English (`features/drugs/approved-uses`). `title` and
-   * `disclaimer` are safety copy: they are not drafted in Korean, and show in
-   * English until the reviewer writes and signs off her own.
+   * `disclaimer` are safety copy: never drafted, written by the reviewer
+   * herself (2026-10-04). A change to either goes back to her undrafted.
    */
   uses: {
-    title: untranslated(
-      'What it is approved to treat, from its U.S. FDA label (in English)',
-      'SAFETY STRING: not drafted. The heading above the English text of a medicine\'s FDA label, saying what the text is and that it is in English. Under it, in English, the label\'s own words.'
-    ),
-    disclaimer: untranslated(
-      "A medicine may be prescribed for reasons other than those listed here. This is the indication the FDA approved, not your doctor's reason for prescribing it to you.",
-      'SAFETY STRING: not drafted. Always shown with the label\'s text, above it, so it is read first. It must not be softened into reassurance: their own medicine may be prescribed for something not listed (a vitamin D2 label lists rickets and hypoparathyroidism, not low vitamin D).'
-    ),
-    identifiedAs: untranslated(
-      'Identified from its label as: {name}',
-      'Above the label\'s text, for a medicine read from a photo. {name} is its ingredient as RxNorm names it, in English, e.g. ergocalciferol; for a combination, its ingredients joined by " / ".'
-    ),
-    fromLabel: untranslated(
-      'From this label on DailyMed (U.S. National Library of Medicine): {title}',
-      'Under the label\'s text: which label it came from. {title} is the label\'s name, in English, e.g. ERGOCALCIFEROL CAPSULE [TORRENT PHARMACEUTICALS LIMITED].'
-    ),
-    looking: untranslated('Looking up its FDA label…', 'While the label is fetched: a moment, usually.'),
-    unidentified: untranslated(
-      'This medicine could not be identified from what was read on its label, so what it is approved to treat is not shown.',
-      'In place of the label\'s text, when the medicine\'s name was not read clearly enough to be sure which medicine it is.'
-    ),
-    none: untranslated(
-      'No FDA-approved label was found for this medicine, so what it is approved to treat is not shown.',
-      'In place of the label\'s text, when the medicine is known but has no current FDA-approved label, as with some vitamins sold without approval.'
-    ),
-    formUnknown: untranslated(
-      'What it is approved to treat is shown only for tablets and capsules, and this label does not say that it is one. Eye drops, inhalers and other forms have labels of their own, with other uses.',
-      "In place of the label's text, when the medicine is known by its name but its label does not say it is a tablet or a capsule: it may be eye drops, an inhaler, a patch or an injection, whose labels list other uses than its tablets' do, or the words saying which were not read."
-    ),
-    kindUnknown: untranslated(
-      'This medicine has a prescription label and an over-the-counter label, which list different uses, and what was read of the bottle does not show which it is.',
-      "In place of the label's text, when the medicine is sold both on prescription and over the counter, with different approved uses, and neither a pharmacy's label nor a Drug Facts panel was read."
-    ),
-    unavailable: untranslated(
-      'Its FDA label could not be reached just now. Check the connection, or try again in a while.',
-      'In place of the label\'s text, when there is no connection, or the service does not answer. Under it, the button uses.retry.'
-    ),
-    retry: untranslated(
-      'Look up the FDA label again',
-      "Button under uses.unavailable. Not 다시 시도하기 (Try again): the medicine's page has that button for reminders already, and two buttons alike would not say which is which."
-    ),
-    nameNotWhole: untranslated(
-      'The medicine\'s name was not read whole, so it cannot be looked up yet. Type it as the bottle shows it, or take another photo.',
-      "In place of the label's text, when the name runs off the edge of the label, was not read clearly, or was not found."
-    ),
-    identifiedTypedAs: untranslated(
-      'Identified from the name you typed as: {name}',
-      'Like uses.identifiedAs, but for a name the user typed from the bottle. {name} is its ingredient as RxNorm names it, in English.'
-    ),
-    typedUnidentified: untranslated(
-      'No medicine has exactly the name typed. Check each word against the bottle.',
-      'In place of the label\'s text, when a typed name matches no medicine word for word. A misspelling is not corrected: it matches nothing.'
-    ),
+    title: { ko: '미국 FDA가 허가한 효능 (허가사항 영어 원문)', en: 'What it is approved to treat, from its U.S. FDA label (in English)' },
+    disclaimer: { ko: '이 약은 아래에 적힌 것과 다른 이유로도 처방될 수 있어요. 아래 내용은 FDA가 허가한 효능일 뿐, 의사 선생님이 이 약을 처방하신 이유를 알려 주는 것이 아니에요.', en: "A medicine may be prescribed for reasons other than those listed here. This is the indication the FDA approved, not your doctor's reason for prescribing it to you." },
+    identifiedAs: { ko: '약병 글씨로 찾은 약: {name}', en: 'Identified from its label as: {name}' },
+    fromLabel: { ko: '미국 국립의학도서관 DailyMed에 있는 다음 허가사항에서 가져왔어요: {title}', en: 'From this label on DailyMed (U.S. National Library of Medicine): {title}' },
+    looking: { ko: 'FDA 허가사항을 찾고 있어요…', en: 'Looking up its FDA label…' },
+    unidentified: { ko: '약병에서 읽은 글씨로는 어떤 약인지 알 수 없어서, 허가받은 효능을 보여 드리지 못해요.', en: 'This medicine could not be identified from what was read on its label, so what it is approved to treat is not shown.' },
+    none: { ko: '이 약의 FDA 허가사항을 찾지 못해서, 허가받은 효능을 보여 드리지 못해요.', en: 'No FDA-approved label was found for this medicine, so what it is approved to treat is not shown.' },
+    formUnknown: { ko: '허가받은 효능은 알약이나 캡슐일 때만 보여 드려요. 약병에서 읽은 내용에는 알약이나 캡슐이라는 말이 없어요. 안약, 흡입기 등 다른 형태의 약은 허가사항이 따로 있고, 효능도 달라요.', en: 'What it is approved to treat is shown only for tablets and capsules, and this label does not say that it is one. Eye drops, inhalers and other forms have labels of their own, with other uses.' },
+    kindUnknown: { ko: '이 약은 처방약 허가사항과 일반의약품 허가사항이 따로 있고, 효능이 서로 달라요. 약병에서 읽은 내용으로는 어느 쪽인지 알 수 없어요.', en: 'This medicine has a prescription label and an over-the-counter label, which list different uses, and what was read of the bottle does not show which it is.' },
+    unavailable: { ko: '지금은 FDA 허가사항을 불러오지 못했어요. 인터넷 연결을 확인해 주시거나, 잠시 뒤에 다시 시도해 주세요.', en: 'Its FDA label could not be reached just now. Check the connection, or try again in a while.' },
+    retry: { ko: 'FDA 허가사항 다시 찾기', en: 'Look up the FDA label again' },
+    nameNotWhole: { ko: '약 이름을 다 읽지 못해서 아직 찾아볼 수 없어요. 약병에 적힌 대로 약 이름을 입력해 주시거나, 사진을 다시 찍어 주세요.', en: 'The medicine\'s name was not read whole, so it cannot be looked up yet. Type it as the bottle shows it, or take another photo.' },
+    identifiedTypedAs: { ko: '입력하신 이름으로 찾은 약: {name}', en: 'Identified from the name you typed as: {name}' },
+    typedUnidentified: { ko: '입력하신 이름과 똑같은 약이 없어요. 한 단어씩 약병에 적힌 것과 비교해 보세요.', en: 'No medicine has exactly the name typed. Check each word against the bottle.' },
   },
 
   /**
@@ -583,19 +523,10 @@ export const Strings = {
    * misspelling matches nothing (`uses.typedUnidentified`).
    */
   nameEntry: {
-    prompt: untranslated(
-      "Type the medicine's name as the bottle shows it, to look it up.",
-      'Result screen, under the medicine name, when the name was cut off, not read clearly, or not found. Above a typing box, prefilled with what was read.'
-    ),
-    inputLabel: untranslated(
-      "Medicine name, as the bottle shows it",
-      'Heard only with the screen reader: the name of the typing box.'
-    ),
-    submit: untranslated('Look it up', 'Button under the typing box.'),
-    typedNote: untranslated(
-      'Typed by you from the bottle',
-      'Under the medicine name, once the user has typed it, so it is clear the name came from them and not from the photo.'
-    ),
+    prompt: { ko: '약을 찾아보려면 약병에 적힌 대로 약 이름을 입력해 주세요.', en: "Type the medicine's name as the bottle shows it, to look it up." },
+    inputLabel: { ko: '약병에 적힌 약 이름', en: "Medicine name, as the bottle shows it" },
+    submit: { ko: '찾아보기', en: 'Look it up' },
+    typedNote: { ko: '약병을 보고 직접 입력하신 이름이에요', en: 'Typed by you from the bottle' },
   },
 
   guidance: {
@@ -607,10 +538,7 @@ export const Strings = {
       "Korean name per 식약처 (Korea's Ministry of Food and Drug Safety)",
       "Under a medicine's English name, beside its Korean ingredient name, which comes from 식약처's own data."
     ),
-    perReviewedPhrases: untranslated(
-      'Korean from reviewed phrases. The English above is what the pharmacy printed.',
-      "Under the directions, beside their Korean, which is built only from phrases she has approved."
-    ),
+    perReviewedPhrases: { ko: '검토를 거친 문구로 옮긴 한국어예요. 위의 영어가 약국에서 인쇄한 원문이에요.', en: 'Korean from reviewed phrases. The English above is what the pharmacy printed.' },
     /**
      * Attached wherever guidance is shown. The app quotes sources; it does not
      * advise, and the copy should not let that blur.
@@ -653,7 +581,7 @@ export const Strings = {
 
   /**
    * Reading a label while the bottle turns, and filling in by hand what no
-   * reading could recover. English placeholders; see `untranslated`.
+   * reading could recover.
    */
   sweep: {
     start: { ko: '약병을 돌리면서 읽기', en: 'Read it while turning the bottle' },
@@ -681,29 +609,19 @@ export const Strings = {
     confirmNo: { ko: '다시 고치기', en: 'Change it' },
     stillIncomplete: { ko: '아직 빠진 부분이 있어요. 칸마다 약병과 다시 비교해 주세요.', en: 'That still does not read in full. Please check each box against the bottle.' },
     filledNote: { ko: '일부는 약병을 보고 직접 입력하신 내용이에요.', en: 'You filled in part of this from the bottle.' },
-    keepStart: untranslated(
-      'The camera saw how this word starts: "{read}". Keep those letters, and type the rest from the bottle.',
-      'After Check, when an answer drops the start of a word cut off at the edge, e.g. 7 typed over eve (of every). {read} is the letters the camera saw.'
-    ),
-    preview: untranslated('It will read:', 'Above the directions as they stand while the reader types, her words marked.'),
-    repeatedAfter: untranslated(
-      '"{words}" is already there, right after the box. Type only what is missing.',
-      'After Check, when an answer repeats the words that follow its box, e.g. "(50,000 units)" typed where "units)" already follows. {words} is those words.'
-    ),
-    repeatedBefore: untranslated(
-      '"{words}" is already there, just before the box. Type only what is missing.',
-      'The same, for words typed again that already come just before the box.'
-    ),
-    keepEnd: untranslated(
-      'The camera saw how this word ends: "{read}". Keep those letters, and type the start from the bottle.',
-      'The same, for a word cut off at the start of a line. {read} is the letters the camera saw, e.g. ke (of Take).'
-    ),
+    keepStart: { ko: '카메라가 이 단어의 앞부분을 읽었어요: "{read}". 이 글자는 그대로 두고, 나머지를 약병을 보고 입력해 주세요.', en: 'The camera saw how this word starts: "{read}". Keep those letters, and type the rest from the bottle.' },
+    preview: { ko: '미리 보기:', en: 'It will read:' },
+    repeatedAfter: { ko: '칸 바로 뒤에 이미 적혀 있는 글자예요: "{words}". 빠진 부분만 입력해 주세요.', en: '"{words}" is already there, right after the box. Type only what is missing.' },
+    repeatedBefore: { ko: '칸 바로 앞에 이미 적혀 있는 글자예요: "{words}". 빠진 부분만 입력해 주세요.', en: '"{words}" is already there, just before the box. Type only what is missing.' },
+    keepEnd: { ko: '카메라가 이 단어의 뒷부분을 읽었어요: "{read}". 이 글자는 그대로 두고, 앞부분을 약병을 보고 입력해 주세요.', en: 'The camera saw how this word ends: "{read}". Keep those letters, and type the start from the bottle.' },
   },
 
   /**
    * Dose reminders. The notification itself never names the medicine: it is
    * shown on the lock screen, and stored in the phone's scheduler outside the
-   * encrypted vault. English placeholders for now; see `untranslated`.
+   * encrypted vault. The warnings that they will not sound (`statusSilent`,
+   * `statusDnd`, `statusDndNow`, `statusFocus`) are safety copy, written by
+   * the reviewer herself; a change to one goes back to her undrafted.
    */
   reminders: {
     title: { ko: '복용 알림', en: 'Reminders' },
@@ -732,35 +650,14 @@ export const Strings = {
     statusLate: { ko: "복용 알림이 늦게 울릴 수 있어요. 제시간에 울리게 하려면 이 앱의 '알람 및 리마인더'를 허용해 주세요.", en: 'Reminders may arrive late. To make them come on time, allow "Alarms & reminders" for this app.' },
     statusBlocked: { ko: '복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요.', en: 'Reminders cannot sound: notifications are turned off for this app.' },
     statusUnverified: { ko: '휴대폰에서 복용 알림이 설정됐는지 확인되지 않았어요. 다시 시도해 주세요.', en: 'Your phone did not confirm your reminders. Please try again.' },
-    statusSilent: untranslated(
-      "Reminders will come without a sound: their sound is turned off in this app's notification settings.",
-      "SAFETY STRING: not drafted. A medicine's page, and the home screen, when the phone's own settings have the reminders' sound off. Under it, 설정 열기 (Open settings)."
-    ),
-    statusSet: untranslated(
-      'Reminders are set. The next one is at {time}.',
-      "A medicine's page, under its reminder times, in place of 알림이 켜져 있어요. 다음 알림 시간: {time} (Reminders are on...) when the app cannot tell that Do Not Disturb will let them sound. Under it, a warning saying so."
-    ),
-    statusSetNoNext: untranslated('Reminders are set.', 'As reminders.statusSet, where the phone gave no next time.'),
-    statusDnd: untranslated(
-      'Reminders will not sound while Do Not Disturb is on, and the phone does not tell this app when it will be on.',
-      "SAFETY STRING: not drafted. Android, a medicine's page, under reminders.statusSet: the reminders are not let through Do Not Disturb. Under it, the button reminders.letThroughDnd."
-    ),
-    statusDndNow: untranslated(
-      'Do Not Disturb is on now, so reminders will not sound until it is turned off.',
-      "SAFETY STRING: not drafted. Android, a medicine's page and the home screen, while Do Not Disturb is on and would silence the reminders."
-    ),
-    statusFocus: untranslated(
-      'Reminders will not sound while a Focus, such as Do Not Disturb or Sleep, is on, unless this app is allowed in it. The phone does not tell this app.',
-      "SAFETY STRING: not drafted. iPhone, a medicine's page, under reminders.statusSet. There is no button: the app cannot open the Focus settings."
-    ),
-    letThroughDnd: untranslated(
-      'Let reminders sound during Do Not Disturb',
-      'Button under reminders.statusDnd. Shows reminders.letThroughExplain before anything opens.'
-    ),
-    letThroughExplain: untranslated(
-      'On the next screen, turn on the switch called "Override Do Not Disturb" (on some phones, "Ignore Do Not Disturb"). Medicine reminders will then sound even when Do Not Disturb is on. Calls and other apps stay silenced.',
-      "Shown after reminders.letThroughDnd is pressed, before the phone's settings open. Under it, 계속하기 (Continue) and 나중에 할게요 (Not now)."
-    ),
+    statusSilent: { ko: '복용 알림이 소리 없이 와요. 이 앱의 알림 설정에서 알림 소리가 꺼져 있어요.', en: "Reminders will come without a sound: their sound is turned off in this app's notification settings." },
+    statusSet: { ko: '알림이 설정돼 있어요. 다음 알림 시간: {time}', en: 'Reminders are set. The next one is at {time}.' },
+    statusSetNoNext: { ko: '알림이 설정돼 있어요.', en: 'Reminders are set.' },
+    statusDnd: { ko: '방해 금지 모드가 켜져 있는 동안에는 복용 알림이 울리지 않아요. 방해 금지 모드가 언제 켜지는지 휴대폰이 이 앱에 알려 주지 않아요.', en: 'Reminders will not sound while Do Not Disturb is on, and the phone does not tell this app when it will be on.' },
+    statusDndNow: { ko: '지금 방해 금지 모드가 켜져 있어서, 끌 때까지 복용 알림이 울리지 않아요.', en: 'Do Not Disturb is on now, so reminders will not sound until it is turned off.' },
+    statusFocus: { ko: '방해 금지 모드나 수면 같은 집중 모드가 켜져 있을 때, 그 집중 모드에서 이 앱을 허용하지 않았다면 복용 알림이 울리지 않아요. 집중 모드가 켜져 있는지 휴대폰이 이 앱에 알려 주지 않아요.', en: 'Reminders will not sound while a Focus, such as Do Not Disturb or Sleep, is on, unless this app is allowed in it. The phone does not tell this app.' },
+    letThroughDnd: { ko: '방해 금지 모드에서도 복용 알림이 울리게 하기', en: 'Let reminders sound during Do Not Disturb' },
+    letThroughExplain: { ko: "다음 화면에서 '방해 금지 모드 무시' 스위치를 켜 주세요. 휴대폰에 따라 이름이 조금 다를 수 있어요. 그러면 방해 금지 모드가 켜져 있어도 복용 알림은 울려요. 전화나 다른 앱의 알림은 계속 울리지 않아요.", en: 'On the next screen, turn on the switch called "Override Do Not Disturb" (on some phones, "Ignore Do Not Disturb"). Medicine reminders will then sound even when Do Not Disturb is on. Calls and other apps stay silenced.' },
     allow: { ko: '알림 허용하기', en: 'Allow notifications' },
     openAlarmSettings: { ko: "'알람 및 리마인더' 열기", en: 'Open "Alarms & reminders"' },
     homeWarning: { ko: '지금은 복용 알림이 울릴 수 없어요.', en: 'Your medicine reminders cannot sound right now.' },
@@ -780,14 +677,8 @@ export const Strings = {
       ko: '사진을 찍지 못했어요. 다시 해 볼까요?',
       en: 'The photo could not be taken. Shall we try again?',
     },
-    cameraUnavailable: untranslated(
-      'The camera could not start.',
-      'Camera screen, when the camera itself would not open. No photo was taken. Beside it: 다시 시도하기 (Try again).'
-    ),
-    cameraStillUnavailable: untranslated(
-      'The camera still could not start. Please close this, and try again later or restart your phone.',
-      'Camera screen, when the camera failed to open a second time. Only 닫기 (Close) is offered.'
-    ),
+    cameraUnavailable: { ko: '카메라를 켜지 못했어요.', en: 'The camera could not start.' },
+    cameraStillUnavailable: { ko: '이번에도 카메라를 켜지 못했어요. 이 화면을 닫고, 나중에 다시 시도해 주시거나 휴대폰을 껐다가 다시 켜 주세요.', en: 'The camera still could not start. Please close this, and try again later or restart your phone.' },
     unreadable: {
       ko: '글씨를 읽지 못했어요. 밝은 곳에서 다시 찍어 주세요.',
       en: 'We could not read the writing. Please try again somewhere brighter.',

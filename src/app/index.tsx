@@ -83,10 +83,10 @@ export default function HomeScreen() {
         <CardDivider inset />
 
         {/*
-          The gallery: how a caregiver adds bottles. Its label and the privacy
-          line below are English until reviewed (`privacy.*`): the old Korean
-          line promised that photos are deleted after reading, which is untrue
-          of a photo the user already owns, and it could not ship beside this.
+          The gallery: how a caregiver adds bottles. The privacy line below was
+          rewritten for it (`privacy.*`, reviewed 2026-10-04): the old one
+          promised that photos are deleted after reading, which is untrue of a
+          photo the user already owns, and it could not ship beside this.
         */}
         <ListRow icon="photo" title={Strings.privacy.choosePhoto} onPress={pickAndRead} />
         <CardDivider inset />
