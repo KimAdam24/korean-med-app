@@ -224,6 +224,10 @@ function nlm(route: Route): string[] {
     if (answer !== 'offline' && answer.status === 404 && url.includes('related.json?tty=SCD')) {
       answer = { json: { relatedGroup: { conceptGroup: [] } } };
     }
+    // DailyMed's list for a code a test does not list: no labels.
+    if (answer !== 'offline' && answer.status === 404 && url.includes('/spls.json?')) {
+      answer = { json: { data: [] } };
+    }
     if (answer === 'offline') throw new TypeError('Network request failed');
     const status = answer.status ?? 200;
     return {
@@ -501,7 +505,8 @@ const scds = (...names: string[]) => ({
 });
 
 test("RxNorm's clinical drugs read: ingredients, strengths, form, release", () => {
-  assert.deepEqual(clinicalDrug('24 HR metformin hydrochloride 500 MG Extended Release Oral Tablet'), {
+  assert.deepEqual(clinicalDrug('24 HR metformin hydrochloride 500 MG Extended Release Oral Tablet', '860975'), {
+    rxcui: '860975',
     ingredients: 1,
     words: ['metformin', 'hydrochloride'],
     strengths: [{ value: 500, unit: 'mg' }],
@@ -572,8 +577,10 @@ test('the release the user said: "none of these" is released at once, and an ext
   assert.match(usesOf(none), /treatment of hypertension/);
   // The label titled as a tablet said in its own words it is extended-release.
   assert.ok(asked.includes('/spls/er.xml'));
-  // Nor is RxNorm asked: the user said.
-  assert.ok(!asked.some((url) => url.includes('tty=SCD')));
+  // RxNorm was asked only which product it is, to list its labels first:
+  // the clinical drug released at once, the user said.
+  assert.ok(asked.some((url) => url.includes('/spls.json?rxcui=0&')), asked.join('\n'));
+  assert.ok(!asked.some((url) => url.includes('/spls.json?rxcui=1&')), asked.join('\n'));
 
   clonidine();
   const er = await findApprovedUses(clonidineTarget({ release: 'extended' }));
@@ -1403,4 +1410,30 @@ test("every page of a list: a brand's own label far down it is found for a bottl
   });
   const cut = await findApprovedUses(target('25480', 'gabapentin', { strengths: [{ value: 100, unit: 'mg' }], brand: ['gabarone'] }));
   assert.deepEqual(cut, { status: 'unavailable' });
+});
+
+test("the exact product's labels first: of its strength, so none is screened, nor hidden by the medicine's list", async () => {
+  const USES = 'Atorvastatin calcium tablets are indicated to reduce the risk of myocardial infarction.';
+  const asked = nlm((url) => {
+    if (url.includes('/rxcui/83367/related.json?tty=SCD')) {
+      return { json: { relatedGroup: { conceptGroup: [{ tty: 'SCD', conceptProperties: [
+        { rxcui: '617312', name: 'atorvastatin 10 MG Oral Tablet' },
+        { rxcui: '617310', name: 'atorvastatin 20 MG Oral Tablet' },
+      ] }] } } };
+    }
+    // The product's own list: one label of it.
+    if (url.includes('spls.json?rxcui=617312') && url.includes(RX)) return listing(['ten', 'ATORVASTATIN CALCIUM TABLET, FILM COATED [Z]']);
+    // The medicine's: none of 10 mg among the first, and many of them.
+    if (url.includes('spls.json?rxcui=83367')) {
+      return listing(...Array.from({ length: 30 }, (_, i): [string, string] => [`r${i}`, 'ATORVASTATIN CALCIUM TABLET, FILM COATED [REPACK]']));
+    }
+    if (url.endsWith('/spls/ten.xml')) {
+      return { text: product({ substance: 'ATORVASTATIN CALCIUM TRIHYDRATE', moiety: 'ATORVASTATIN', strengths: [['10', 'mg']], route: 'ORAL', uses: USES }) };
+    }
+    return { status: 404 };
+  });
+  const found = await findApprovedUses(target('83367', 'atorvastatin', { strengths: [{ value: 10, unit: 'mg' }] }));
+  assert.equal(usesOf(found), USES);
+  // Nothing screened by its packaging, and the medicine's list not asked for.
+  assert.ok(!asked.some((url) => url.includes('packaging.json') || url.includes('rxcui=83367&')), asked.join('\n'));
 });

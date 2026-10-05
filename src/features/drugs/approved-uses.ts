@@ -30,6 +30,11 @@
  *   lung-cancer drug. So a label found that way is taken only if its active
  *   ingredients are exactly the medicine's, by name (`sameIngredients`), and
  *   of the form the reading names: a tablet, or a capsule.
+ * - Its lists run to hundreds, a hundred to a page, and every page is read
+ *   (`labelsAt`). By name, the list for the exact product RxNorm says the
+ *   bottle is (its clinical drug: strength, form, release) is read first,
+ *   since its labels are all of that strength; then, where none of them is
+ *   found to be the bottle's, the ingredient's.
  *
  * ## By name, only for a tablet or a capsule
  *
@@ -596,7 +601,9 @@ async function labelsAt(query: string): Promise<Fetched<LabelDocument[]>> {
   };
 }
 
-type Related = { relatedGroup?: { conceptGroup?: { tty?: string; conceptProperties?: { name?: string }[] }[] } };
+type Related = {
+  relatedGroup?: { conceptGroup?: { tty?: string; conceptProperties?: { rxcui?: string; name?: string }[] }[] };
+};
 
 /** An RxNorm concept's ingredients' names; `unavailable` if RxNav could not say. */
 async function ingredientsOf(rxcui: string): Promise<Fetched<string[]>> {
@@ -616,6 +623,8 @@ async function ingredientsOf(rxcui: string): Promise<Fetched<string[]>> {
 
 /** One of RxNorm's clinical drugs (SCD): what is made, as its name says it. */
 export type ClinicalDrug = {
+  /** Its RxNorm code, which DailyMed lists its labels by. */
+  readonly rxcui: string | null;
   /** How many ingredients: "hydrochlorothiazide 12.5 MG / lisinopril 10 MG" is two. */
   readonly ingredients: number;
   /** Its ingredients' words, salts with them ("metoprolol succinate"). */
@@ -630,7 +639,7 @@ export type ClinicalDrug = {
  * Release Oral Tablet" is metformin hydrochloride, 500 mg, an extended-release
  * tablet. Null for any form but a tablet or a capsule.
  */
-export function clinicalDrug(name: string): ClinicalDrug | null {
+export function clinicalDrug(name: string, rxcui: string | null = null): ClinicalDrug | null {
   const parts = [...name.matchAll(/([A-Za-z][A-Za-z0-9 ,'()-]*?)\s+([\d.]+)\s+(MG|MCG|UNT|MEQ)\b/g)];
   if (parts.length === 0) return null;
   const last = parts[parts.length - 1];
@@ -641,6 +650,7 @@ export function clinicalDrug(name: string): ClinicalDrug | null {
     .map(([, , value, unit]) => strengthOf(Number(value), unit === 'UNT' ? 'unit' : unit))
     .filter((strength): strength is Strength => strength !== null);
   return {
+    rxcui,
     ingredients: parts.length,
     // Without the "24 HR" before the first.
     words: parts.flatMap(([, words]) => nameWords(words)).filter((word) => !/^\d/.test(word) && word !== 'hr'),
@@ -661,29 +671,43 @@ async function clinicalDrugsOf(rxcui: string): Promise<Fetched<ClinicalDrug[]>> 
     value: (related.value?.relatedGroup?.conceptGroup ?? [])
       .filter((group) => group.tty === 'SCD')
       .flatMap((group) => group.conceptProperties ?? [])
-      .map((concept) => (typeof concept.name === 'string' ? clinicalDrug(concept.name) : null))
+      .map((concept) => (typeof concept.name === 'string' ? clinicalDrug(concept.name, concept.rxcui ?? null) : null))
       .filter((drug): drug is ClinicalDrug => drug !== null),
   };
 }
 
 /**
- * The releases RxNorm makes this medicine in, at the strength and form and
- * salt the bottle printed: its clinical drugs of as many ingredients, each
- * strength printed among theirs.
+ * RxNorm's clinical drugs that are the bottle: of as many ingredients, its
+ * form and the salts printed, each strength printed among theirs, and of the
+ * release, where one is known.
  */
-export function releasesMade(
+export function productsMade(
   drugs: readonly ClinicalDrug[],
-  bottle: { ingredients: number; form: DoseForm; salts: readonly string[]; strengths: readonly Strength[] }
-): ('immediate' | Release)[] {
-  const made = drugs.filter(
+  bottle: {
+    ingredients: number;
+    form: DoseForm;
+    salts: readonly string[];
+    strengths: readonly Strength[];
+    release?: 'immediate' | Release | null;
+  }
+): ClinicalDrug[] {
+  return drugs.filter(
     (drug) =>
       drug.ingredients === bottle.ingredients &&
       drug.form === bottle.form &&
       bottle.salts.every((salt) => drug.words.includes(salt)) &&
       givesStrengths(drug.strengths, bottle.strengths) &&
-      bottle.strengths.some((printed) => drug.strengths.some((strength) => strength.unit === printed.unit && same(strength.value, printed.value)))
+      bottle.strengths.some((printed) => drug.strengths.some((strength) => strength.unit === printed.unit && same(strength.value, printed.value))) &&
+      (bottle.release == null || drug.release === bottle.release)
   );
-  return [...new Set(made.map((drug) => drug.release))].sort();
+}
+
+/** The releases RxNorm makes this medicine in, at the strength and form and salt the bottle printed. */
+export function releasesMade(
+  drugs: readonly ClinicalDrug[],
+  bottle: { ingredients: number; form: DoseForm; salts: readonly string[]; strengths: readonly Strength[] }
+): ('immediate' | Release)[] {
+  return [...new Set(productsMade(drugs, bottle).map((drug) => drug.release))].sort();
 }
 
 /**
@@ -1331,7 +1355,8 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
   let wanted = release;
   let inferred = false;
   let printed = strengths;
-  if ((release === null || strengths.length === 0) && form !== null) {
+  let made: ClinicalDrug[] = [];
+  if (form !== null) {
     const drugs = await clinicalDrugsOf(rxcui);
     if (!drugs.ok) return { status: 'unavailable' };
     if (strengths.length === 0) {
@@ -1347,21 +1372,10 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
         inferred = true;
       }
     }
+    made = productsMade(drugs.value, { ingredients: ingredients.length, form, salts, strengths: printed, release: wanted });
   }
 
   return ofKind(labelKind, async (type) => {
-    const listed = await labelsAt(`rxcui=${encodeURIComponent(rxcui)}&doctype=${DOCUMENT_TYPES[type]}`);
-    if (!listed.ok) return { status: 'unavailable' };
-    const ranked = likely(listed.value, ingredients, {
-      form,
-      salts,
-      release: wanted,
-      releaseInferred: inferred,
-      releaseToken,
-      brand,
-      onlyBrand,
-      byPrintedBrand: true,
-    });
     const proof: Proof = {
       kind: 'ingredients',
       names: ingredients,
@@ -1373,12 +1387,53 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
       byMouth: true,
       allows,
     };
-    // Labels titled with a brand the bottle did not print only where none
-    // without one is found for it: CHILDREN'S ALLERGY RELIEF's loratadine
-    // 5 mg, where every loratadine label without a product's name is of 10;
-    // PERCOCET's 2.5 mg, where the one generic's fails its salt.
-    const found = await firstProven(await ofStrength(ranked.labels, printed), proof, type);
-    if (found.status !== 'none' || ranked.named.length === 0) return found;
-    return firstProven(await ofStrength(ranked.named, printed), proof, type);
+    /**
+     * The labels of a list this medicine's, best first, held to the proof:
+     * those without a brand the bottle did not print, and only where none of
+     * them is found for it, those with one (CHILDREN'S ALLERGY RELIEF's
+     * loratadine 5 mg, where every loratadine label without a product's name
+     * is of 10; PERCOCET's 2.5 mg, where the one generic's fails its salt).
+     * `screen`: by their packaging first, for the strength printed, where the
+     * list is not of it already.
+     */
+    const chosen = async (listed: readonly LabelDocument[], screen: boolean): Promise<Outcome> => {
+      const ranked = likely(listed, ingredients, {
+        form,
+        salts,
+        release: wanted,
+        releaseInferred: inferred,
+        releaseToken,
+        brand,
+        onlyBrand,
+        byPrintedBrand: true,
+      });
+      const of = (labels: LabelDocument[]) => (screen ? ofStrength(labels, printed) : Promise.resolve(labels));
+      const found = await firstProven(await of(ranked.labels), proof, type);
+      if (found.status !== 'none' || ranked.named.length === 0) return found;
+      return firstProven(await of(ranked.named), proof, type);
+    };
+
+    // First the labels DailyMed lists for the exact product RxNorm says the
+    // bottle is: of its strength, form and release, so none is screened for
+    // them, nor does the list's length hide one. They are not all of its
+    // labels (DailyMed lists 61 to 100% of them by product), so where none is
+    // found there, every label of the medicine.
+    const products = made.map((drug) => drug.rxcui).filter((code): code is string => code !== null);
+    if (products.length > 0) {
+      const lists = await Promise.all(
+        products.map((code) => labelsAt(`rxcui=${encodeURIComponent(code)}&doctype=${DOCUMENT_TYPES[type]}`))
+      );
+      if (lists.some((list) => !list.ok)) return { status: 'unavailable' };
+      const seen = new Set<string>();
+      const exact = lists
+        .flatMap((list) => (list.ok ? list.value : []))
+        .filter((label) => !seen.has(label.setId) && seen.add(label.setId));
+      const found = await chosen(exact, false);
+      if (found.status !== 'none') return found;
+    }
+
+    const listed = await labelsAt(`rxcui=${encodeURIComponent(rxcui)}&doctype=${DOCUMENT_TYPES[type]}`);
+    if (!listed.ok) return { status: 'unavailable' };
+    return chosen(listed.value, true);
   });
 }
