@@ -1,5 +1,6 @@
 package expo.modules.dosealarms
 
+import android.app.ActivityManager
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.Context
@@ -62,6 +63,21 @@ class DoseAlarmsModule : Module() {
     Function("interruptionFilter") {
       val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
       manager.currentInterruptionFilter
+    }
+
+    /**
+     * How the app's last process ended (ApplicationExitInfo.REASON_*): a
+     * force-stop cancels its alarms, being killed for memory does not. Null
+     * below Android 11, which keeps no such record, or where there is none.
+     */
+    Function("lastExitReason") {
+      val reason: Int? = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+        null
+      } else {
+        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        manager.getHistoricalProcessExitReasons(context.packageName, 0, 1).firstOrNull()?.reason
+      }
+      reason
     }
 
     /**

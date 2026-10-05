@@ -649,6 +649,10 @@ export const Strings = {
     statusChecking: { ko: '알림을 확인하고 있어요', en: 'Checking your reminders' },
     statusLate: { ko: "복용 알림이 늦게 울릴 수 있어요. 제시간에 울리게 하려면 이 앱의 '알람 및 리마인더'를 허용해 주세요.", en: 'Reminders may arrive late. To make them come on time, allow "Alarms & reminders" for this app.' },
     statusBlocked: { ko: '복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요.', en: 'Reminders cannot sound: notifications are turned off for this app.' },
+    statusCategoryOff: untranslated(
+      "Reminders cannot sound: medicine reminders are turned off in this app's notification settings.",
+      "SAFETY STRING: not drafted. A medicine's page, and the home screen, when the phone's settings have this app's 복용 알림 (Medicine reminders) category turned off, while its notifications as a whole are on. Under it, 설정 열기 (Open settings), which opens that category's page."
+    ),
     statusUnverified: { ko: '휴대폰에서 복용 알림이 설정됐는지 확인되지 않았어요. 다시 시도해 주세요.', en: 'Your phone did not confirm your reminders. Please try again.' },
     statusSilent: { ko: '복용 알림이 소리 없이 와요. 이 앱의 알림 설정에서 알림 소리가 꺼져 있어요.', en: "Reminders will come without a sound: their sound is turned off in this app's notification settings." },
     statusSet: { ko: '알림이 설정돼 있어요. 다음 알림 시간: {time}', en: 'Reminders are set. The next one is at {time}.' },

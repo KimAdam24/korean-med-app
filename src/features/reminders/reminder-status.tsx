@@ -5,6 +5,7 @@ import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Notice } from '@/components/notice';
 import { Spacing } from '@/constants/theme';
+import { useAppLock } from '@/features/security/app-lock-context';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, fillTemplate } from '@/i18n/strings';
 
@@ -40,6 +41,7 @@ import { timeWords } from './time-picker';
 export function ReminderStatus({ attentionOnly = false }: { attentionOnly?: boolean }) {
   const theme = useTheme();
   const { health, resync } = useReminders();
+  const { runWithSystemUi } = useAppLock();
   const [explaining, setExplaining] = useState(false);
 
   if (attentionOnly && !needsAttention(health)) return null;
@@ -122,8 +124,10 @@ export function ReminderStatus({ attentionOnly = false }: { attentionOnly?: bool
     case 'on':
       return nextLine(true);
     case 'late':
+      // The same words at home as on the page: they will sound, if late, so
+      // "cannot sound right now" (homeWarning) would be untrue.
       return (
-        <Notice tone="warn" title={attentionOnly ? Strings.reminders.homeWarning : Strings.reminders.statusLate} body={attentionOnly ? Strings.reminders.statusLate : undefined} live>
+        <Notice tone="warn" title={Strings.reminders.statusLate} live>
           <BigButton
             label={Strings.reminders.openAlarmSettings}
             tone="secondary"
@@ -134,16 +138,27 @@ export function ReminderStatus({ attentionOnly = false }: { attentionOnly?: bool
           />
         </Notice>
       );
-    case 'blocked':
+    case 'blocked': {
+      // Only the reminders' category may be off, with the app's notifications
+      // on: said so, and its own page opened, where the switch is.
+      const blocked = health.category ? Strings.reminders.statusCategoryOff : Strings.reminders.statusBlocked;
       return (
-        <Notice tone="warn" title={attentionOnly ? Strings.reminders.homeWarning : Strings.reminders.statusBlocked} body={attentionOnly ? Strings.reminders.statusBlocked : undefined} live>
+        <Notice tone="warn" title={attentionOnly ? Strings.reminders.homeWarning : blocked} body={attentionOnly ? blocked : undefined} live>
           {health.canAsk ? (
             <BigButton
               label={Strings.reminders.allow}
               tone="secondary"
               onPress={async () => {
-                await requestReminderPermission().catch(() => false);
+                await runWithSystemUi(() => requestReminderPermission()).catch(() => false);
                 await resync();
+              }}
+            />
+          ) : health.category ? (
+            <BigButton
+              label={Strings.permission.openSettings}
+              tone="secondary"
+              onPress={() => {
+                if (!openReminderChannelSettings()) void Linking.openSettings().catch(() => undefined);
               }}
             />
           ) : (
@@ -155,6 +170,7 @@ export function ReminderStatus({ attentionOnly = false }: { attentionOnly?: bool
           )}
         </Notice>
       );
+    }
     case 'silent':
       // Only the phone's settings can turn the sound back on; the app cannot.
       return (
@@ -167,8 +183,9 @@ export function ReminderStatus({ attentionOnly = false }: { attentionOnly?: bool
         </Notice>
       );
     case 'unverified':
+      // Not known either way: said as that at home too, not as "cannot sound".
       return (
-        <Notice tone="warn" title={attentionOnly ? Strings.reminders.homeWarning : Strings.reminders.statusUnverified} body={attentionOnly ? Strings.reminders.statusUnverified : undefined} live>
+        <Notice tone="warn" title={Strings.reminders.statusUnverified} live>
           <BigButton label={Strings.scan.retry} tone="secondary" onPress={() => void resync()} />
         </Notice>
       );

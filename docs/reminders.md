@@ -28,7 +28,7 @@ question for the pharmacist, not something the app should guess at.
 | Change of timezone | Automatic, as above | **Not handled by expo-notifications**: the alarm is one absolute instant. `modules/dose-alarms` re-arms everything on `TIMEZONE_CHANGED` and `TIME_SET` |
 | Reboot | Kept by the OS | expo-notifications re-arms from its stored list on boot |
 | App update | Kept by the OS | Re-armed on `MY_PACKAGE_REPLACED` |
-| Force-stop | n/a | Alarms cancelled, list kept, nothing re-arms until the app runs. The app re-arms at every launch, before the lock |
+| Force-stop | n/a | Alarms cancelled, list kept, nothing re-arms until the app runs. At launch, before the lock, the app re-arms them if its last process ended in a way that cancels alarms (a force-stop, a revoked permission, an update), or in a way it cannot tell (`ApplicationExitInfo`, Android 11 and later): not after being killed for memory or swiped away, when re-arming would only move a reminder that is due now to tomorrow |
 | On time | Calendar triggers fire on time | Exact only with "Alarms & reminders", which Android 14 does not grant new installs. Checked (native), reported as "may arrive late", with the button that opens the setting |
 | Allowed to show | Full authorisation only; "provisional" is silent and does not count | `POST_NOTIFICATIONS`, asked for with a reason when the first reminder is set |
 | Makes a sound | The default sound (`sound: 'default'` in the content); "Sounds" off in Settings is reported as silent | The channel's sound, which is the phone's default because the channel names no sound file (naming 'default' made expo-notifications look for a file of that name and log it missing on every launch); a muted or lowered channel is reported as silent, and one turned off altogether (importance NONE) as blocked. Below Android 8 there are no channels: the notification's own default sound, and the app-wide switch decides |
@@ -42,15 +42,23 @@ it comes from neither.
 
 ## What "on" means
 
-After every change, on every unlock and whenever the app returns to the front,
-`syncReminders`:
+After every change, on every unlock, whenever the app returns to the front,
+and on Android whenever it gets its window's focus back (as after the
+notification shade, where Do Not Disturb is switched without the app leaving
+the front), `syncReminders`, one at a time with the launch re-arm and an
+erase's cancelling:
 
 1. cancels scheduled reminders that no longer match a medicine and time,
    except those of a medicine the vault could not read: its record is still
    on the phone, damaged or from another version, and its reminders are left
    to ring rather than silently cancelled (nothing on screen says so yet);
-2. schedules every reminder again — idempotent by identifier, and it re-arms
-   anything lost without a trace;
+2. schedules the reminders the phone does not hold, and those it holds with
+   words this build no longer uses. Not the others: scheduling a held one
+   again arms it for its next time from now, and one due at 8:00 and waiting
+   to be delivered (an inexact alarm, deferred while the phone dozes) was
+   moved to tomorrow by a sync at 8:05, so that day's never came. (It used to
+   schedule every one again, to re-arm alarms lost without a trace; that is
+   the launch re-arm's job, above.);
 3. reads the schedule back, and calls it **unverified** unless the phone holds
    exactly what it was given;
 4. checks notifications are allowed (**blocked** if not);
@@ -61,7 +69,9 @@ After every change, on every unlock and whenever the app returns to the front,
    reminders' category can also be turned off on its own while the app's
    notifications stay allowed, which the permission does not show: the
    channel then reads importance NONE, and that is **blocked**, not silent,
-   since nothing will appear at all;
+   since nothing will appear at all, and said as the category being off, with
+   the button opening the category's own page, not as the app's
+   notifications being off, which they are not;
 6. asks the scheduler itself when the next one fires, and reports that time;
 7. checks Do Not Disturb: on Android, whether it is on now, and whether the
    reminders' channel may bypass it (**dnd**, "set" and not "on", if it may
@@ -71,9 +81,16 @@ After every change, on every unlock and whenever the app returns to the front,
 
 Only if all of that holds does the medicine's page say "Reminders are on. The
 next one is at 8:00 AM." Anything else is a warning, spoken to a screen reader
-too, on the medicine's page and on the home screen; except that Do Not
-Disturb, while it is not on, is said on the medicine's page only, since "your
-reminders cannot sound right now" would be untrue on the home screen.
+too, on the medicine's page and on the home screen. On the home screen,
+"your reminders cannot sound right now" heads only what makes that true
+(blocked, silent, Do Not Disturb on now); "may arrive late" and "not
+confirmed" are said there in their own words, and Do Not Disturb, while it
+is not on, only on the medicine's page.
+
+Asking for notifications is done inside the lock's system-UI window: on
+Android the phone's question backgrounds the app, which otherwise locked
+partway through setting a reminder. Opening the phone's settings is not,
+deliberately: that is the user going elsewhere, and the app locks.
 
 ## Do Not Disturb (2026-10-02)
 

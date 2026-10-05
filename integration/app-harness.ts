@@ -58,6 +58,16 @@ export async function sendAppTo(state: 'active' | 'background' | 'inactive'): Pr
   });
 }
 
+/** Android: the app's window gets its focus back, as after the notification shade, with no change of state. */
+export async function sendAppFocus(): Promise<void> {
+  const listeners = appState.addEventListener.mock.calls
+    .filter(([type]) => type === 'focus')
+    .map(([, listener]) => listener as () => void);
+  await act(async () => {
+    for (const listener of listeners) listener();
+  });
+}
+
 /** Presses keypad keys, one digit at a time, as a thumb would. */
 export function pressDigits(digits: string): void {
   for (const digit of digits) {

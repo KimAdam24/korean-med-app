@@ -2,6 +2,9 @@
   "status": "DRAFT, UNREVIEWED. Korean drafted by the implementation (Claude) for the copy batch, so the reviewer reads and corrects rather than writes. Not imported by the app, and nothing here reaches it until the reviewer has signed off each string; see README.md.",
   "drafted": "2026-09-25; follow-up drafted 2026-09-28",
   "strings": {
+    "reminders.statusCategoryOff": {
+      "why": "Safety string: left for her to write, and shown in English until she has."
+    },
     "guidance.perMfds": {
       "ko": "식약처 기준 한글 성분명"
     }

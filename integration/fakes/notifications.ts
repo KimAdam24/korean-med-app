@@ -156,12 +156,20 @@ export const doseAlarms = {
   filter: 1,
   /** The channels whose own settings page was opened, in order. */
   channelPages: [] as string[],
+  /** How the app's last process ended (ApplicationExitInfo): null for no record. */
+  exitReason: null as number | null,
   interruptionFilter(): number {
     return doseAlarms.filter;
   },
   openChannelSettings(channelId: string): boolean {
+    // As the real module: below Android 8 there are no channels to open.
+    const { Platform } = require('react-native') as typeof import('react-native');
+    if (Platform.OS === 'android' && Number(Platform.Version) < 26) return false;
     doseAlarms.channelPages.push(channelId);
     return true;
+  },
+  lastExitReason(): number | null {
+    return doseAlarms.exitReason;
   },
   canScheduleExactAlarms(): boolean {
     return doseAlarms.exact;
@@ -241,5 +249,6 @@ export const notifications = {
     doseAlarms.opened = 0;
     doseAlarms.filter = 1;
     doseAlarms.channelPages = [];
+    doseAlarms.exitReason = null;
   },
 };

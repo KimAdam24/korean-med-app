@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { loadProfile, unreadableMedicationIds } from '@/features/medications/medication-store';
 import { EMPTY_PROFILE } from '@/features/medications/types';
@@ -24,8 +24,12 @@ const RemindersContext = createContext<RemindersValue | null>(null);
  * Mounted inside the unlocked app only, because matching needs the profile,
  * which is encrypted. It syncs when it mounts — that is, on every unlock — and
  * each time the app comes back to the front, which is when a permission the
- * user changed in the phone's settings takes effect. Syncs run one at a time:
- * two interleaved would cancel and schedule over each other.
+ * user changed in the phone's settings takes effect; on Android also when the
+ * app gets its window's focus back, as after the notification shade, where
+ * Do Not Disturb is turned on and off without the app leaving the front.
+ * Syncs run one at a time: two interleaved would cancel and schedule over
+ * each other. One asked for while another waits is that one: each reads the
+ * profile as it starts, so a second would only do the same work again.
  *
  * It also opens the medicine a tapped reminder was for. The tap may have
  * launched the app behind the lock, so it is picked up here, after unlocking,
@@ -35,9 +39,12 @@ export function RemindersProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [health, setHealth] = useState<ReminderHealth | null>(null);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const waiting = useRef<Promise<ReminderHealth> | null>(null);
 
   const resync = useCallback(() => {
+    if (waiting.current) return waiting.current;
     const run = queue.current.then(async (): Promise<ReminderHealth> => {
+      waiting.current = null;
       try {
         const loaded = await loadProfile();
         // An unreadable profile says nothing about which reminders should
@@ -52,10 +59,12 @@ export function RemindersProvider({ children }: { children: React.ReactNode }) {
       }
     });
     queue.current = run;
-    return run.then((next) => {
+    const told = run.then((next) => {
       setHealth(next);
       return next;
     });
+    waiting.current = told;
+    return told;
   }, []);
 
   useEffect(() => {
@@ -63,7 +72,11 @@ export function RemindersProvider({ children }: { children: React.ReactNode }) {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') void resync();
     });
-    return () => subscription.remove();
+    const focus = Platform.OS === 'android' ? AppState.addEventListener('focus', () => void resync()) : null;
+    return () => {
+      subscription.remove();
+      focus?.remove();
+    };
   }, [resync]);
 
   useEffect(() => {

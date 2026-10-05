@@ -501,6 +501,12 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     when: "When the phone's own settings have the reminders' sound turned off: they would still appear, silently.",
     notes: 'A safety string, so no draft: a reminder that does not sound is a missed dose. Beside it are her 복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요. (notifications off) and 복용 알림이 늦게 울릴 수 있어요... (may be late).',
   },
+  'reminders.statusCategoryOff': {
+    section: REMIND,
+    where: "A medicine's page, under its reminder times: an amber warning, with 설정 열기 (Open settings) under it. On the home screen, the body of 지금은 복용 알림이 울릴 수 없어요 (Your medicine reminders cannot sound right now).",
+    when: "When only the reminders' category (복용 알림) is turned off in the phone's settings, while the app's notifications are on.",
+    notes: "A safety string, so no draft. It replaces, for this case, her 복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요., which says the app's notifications are off: they are not, and she would not find the switch there.",
+  },
   'reminders.statusSet': {
     section: REMIND,
     where: "A medicine's page, under its reminder times.",

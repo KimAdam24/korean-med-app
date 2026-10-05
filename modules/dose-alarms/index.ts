@@ -19,6 +19,11 @@ type DoseAlarmsModule = {
   interruptionFilter?(): number;
   /** Opens a notification channel's own settings page. Missing on older builds. */
   openChannelSettings?(channelId: string): boolean;
+  /**
+   * How the app's last process ended (`ApplicationExitInfo.REASON_*`), from
+   * Android 11; null below it, or with no record. Missing on older builds.
+   */
+  lastExitReason?(): number | null;
 };
 
 export const DoseAlarms = requireOptionalNativeModule<DoseAlarmsModule>('DoseAlarms');

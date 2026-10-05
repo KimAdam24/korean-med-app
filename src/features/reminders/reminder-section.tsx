@@ -7,6 +7,7 @@ import { Card, CardDivider } from '@/components/card';
 import { Notice } from '@/components/notice';
 import { Radius, Spacing } from '@/constants/theme';
 import { updateMedication } from '@/features/medications/medication-store';
+import { useAppLock } from '@/features/security/app-lock-context';
 import type { MedicationProfile, MedicationRecord, ReminderTime } from '@/features/medications/types';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, fillTemplate, type Bilingual } from '@/i18n/strings';
@@ -49,6 +50,7 @@ export function ReminderSection({
 }) {
   const theme = useTheme();
   const { resync } = useReminders();
+  const { runWithSystemUi } = useAppLock();
   const [mode, setMode] = useState<Mode>({ kind: 'idle' });
   const [message, setMessage] = useState<Bilingual | null>(null);
   const times = normaliseTimes(record.reminders ?? []);
@@ -132,7 +134,9 @@ export function ReminderSection({
           <BigButton
             label={Strings.reminders.askContinue}
             onPress={async () => {
-              await requestReminderPermission().catch(() => false);
+              // The phone's own question backgrounds the app on Android: asked
+              // for, so not the user leaving, and not a reason to lock.
+              await runWithSystemUi(() => requestReminderPermission()).catch(() => false);
               await save([...times, mode.time]);
             }}
           />

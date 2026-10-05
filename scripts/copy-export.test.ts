@@ -133,6 +133,7 @@ test('the safety strings go to her undrafted, each with the reason, whenever the
     'reminders.statusDnd',
     'reminders.statusDndNow',
     'reminders.statusFocus',
+    'reminders.statusCategoryOff',
   ]) {
     assert.ok(key in COPY_CONTEXT, key);
     if (!pending.has(key)) continue;

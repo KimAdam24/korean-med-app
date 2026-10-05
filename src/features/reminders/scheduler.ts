@@ -40,8 +40,11 @@ export type ReminderHealth =
   | { readonly kind: 'dnd'; readonly next: Date | null; readonly now: boolean; readonly letThrough: boolean }
   /** Confirmed, but Android may deliver them late: exact alarms are not allowed. */
   | { readonly kind: 'late'; readonly next: Date | null }
-  /** Notifications are off for the app; nothing will sound. */
-  | { readonly kind: 'blocked'; readonly canAsk: boolean }
+  /**
+   * Nothing will appear: notifications are off for the app, or (`category`)
+   * only the reminders' own category is, in the phone's settings.
+   */
+  | { readonly kind: 'blocked'; readonly canAsk: boolean; readonly category?: boolean }
   /**
    * They will arrive, but without a sound: the user turned the reminders'
    * sound off, or lowered them below the importance that makes one, in the
@@ -61,6 +64,19 @@ export const needsAttention = (health: ReminderHealth | null) =>
     // Only while it is on: "cannot sound right now" is then true. That it
     // could be on later is said on the medicine's page, beside the times.
     (health.kind === 'dnd' && health.now));
+
+/**
+ * The scheduler's work, one piece at a time, whoever asks: a sync after
+ * unlock, the re-arm at launch, the cancelling of an erase. Interleaved, they
+ * undid each other: a re-arm brought back a reminder a sync had just
+ * cancelled, and a sync in flight re-scheduled one an erase had cancelled.
+ */
+let queue: Promise<unknown> = Promise.resolve();
+function serially<T>(work: () => Promise<T>): Promise<T> {
+  const run = queue.then(work, work);
+  queue = run.catch(() => undefined);
+  return run;
+}
 
 let presentationConfigured = false;
 
@@ -115,7 +131,10 @@ async function ensureChannel(): Promise<void> {
  * which is the failure this feature exists to prevent.
  */
 export async function notificationPermission(): Promise<{ granted: boolean; canAsk: boolean }> {
-  const status = await Notifications.getPermissionsAsync();
+  return permissionOf(await Notifications.getPermissionsAsync());
+}
+
+function permissionOf(status: Notifications.NotificationPermissionsStatus): { granted: boolean; canAsk: boolean } {
   const granted =
     Platform.OS === 'ios'
       ? status.ios?.status === Notifications.IosAuthorizationStatus.AUTHORIZED
@@ -150,15 +169,21 @@ function exactAlarmsAllowed(): boolean | null {
 /** Android's Do Not Disturb filters (`NotificationManager.INTERRUPTION_FILTER_*`). */
 const FILTER = { ALL: 1, PRIORITY: 2, NONE: 3, ALARMS: 4 } as const;
 
-/** Android: the Do Not Disturb filter in force now; null where it cannot be told. */
-function interruptionFilterNow(): number | null {
+/**
+ * Android: the Do Not Disturb filter in force now, from the app's native
+ * module, or else as expo-notifications reports it with the permission; null
+ * where neither can tell.
+ */
+function interruptionFilterNow(status: Notifications.NotificationPermissionsStatus): number | null {
   if (Platform.OS !== 'android') return null;
+  const usable = (filter: unknown) => (typeof filter === 'number' && filter > 0 ? filter : null);
   try {
-    const filter = DoseAlarms?.interruptionFilter?.();
-    return typeof filter === 'number' && filter > 0 ? filter : null;
+    const filter = usable(DoseAlarms?.interruptionFilter?.());
+    if (filter !== null) return filter;
   } catch {
-    return null;
+    // Read from the permission instead.
   }
+  return usable(status.android?.interruptionFilter);
 }
 
 /**
@@ -177,14 +202,16 @@ function interruptionFilterNow(): number | null {
  * Not seen anywhere: when Do Not Disturb will next be on, and, on Android 15,
  * a mode set to let no apps through at all.
  */
-async function doNotDisturb(): Promise<{ passes: boolean; now: boolean; letThrough: boolean }> {
+function doNotDisturb(
+  status: Notifications.NotificationPermissionsStatus,
+  channel: Notifications.NotificationChannel | null
+): { passes: boolean; now: boolean; letThrough: boolean } {
   if (Platform.OS !== 'android') return { passes: false, now: false, letThrough: false };
-  const filter = interruptionFilterNow();
+  const filter = interruptionFilterNow(status);
   const silencesAll = filter === FILTER.NONE || filter === FILTER.ALARMS;
   if (Number(Platform.Version) < FIRST_API_WITH_CHANNELS) {
     return { passes: false, now: silencesAll, letThrough: false };
   }
-  const channel = await Notifications.getNotificationChannelAsync(CHANNEL_ID);
   const bypass = channel?.bypassDnd === true;
   return {
     passes: bypass && !silencesAll,
@@ -244,33 +271,58 @@ const FIRST_API_WITH_CHANNELS = 26;
  * Not seen here: Do Not Disturb and Focus (`doNotDisturb`), and the ringer
  * or notification volume.
  */
-async function reminderSound(
-  status: Notifications.NotificationPermissionsStatus
-): Promise<'sounds' | 'silent' | 'blocked' | 'unknown'> {
+function reminderSound(
+  status: Notifications.NotificationPermissionsStatus,
+  channel: Notifications.NotificationChannel | null
+): 'sounds' | 'silent' | 'blocked' | 'unknown' {
   if (Platform.OS === 'ios') return status.ios?.allowsSound === false ? 'silent' : 'sounds';
   if (Platform.OS !== 'android') return 'sounds';
   if (Number(Platform.Version) < FIRST_API_WITH_CHANNELS) return 'sounds';
-  const channel = await Notifications.getNotificationChannelAsync(CHANNEL_ID);
   if (!channel) return 'unknown';
   if (channel.importance <= Notifications.AndroidImportance.NONE) return 'blocked';
   return channel.importance >= Notifications.AndroidImportance.DEFAULT && channel.sound !== null ? 'sounds' : 'silent';
 }
 
-async function scheduledReminderIds(): Promise<string[]> {
+async function scheduledReminders(): Promise<Notifications.NotificationRequest[]> {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  return scheduled.map((request) => request.identifier).filter(isReminderId);
+  return scheduled.filter((request) => isReminderId(request.identifier));
+}
+
+async function scheduledReminderIds(): Promise<string[]> {
+  return (await scheduledReminders()).map((request) => request.identifier);
+}
+
+function schedule(identifier: string, medicationId: string, time: { hour: number; minute: number }) {
+  return Notifications.scheduleNotificationAsync({
+    identifier,
+    content: content(medicationId),
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: time.hour,
+      minute: time.minute,
+      channelId: CHANNEL_ID,
+    },
+  });
+}
+
+/** Whether a scheduled reminder still says what this build would have it say. */
+function saysCurrent(request: Notifications.NotificationRequest, medicationId: string): boolean {
+  const now = content(medicationId);
+  return request.content.title === now.title && request.content.body === now.body;
 }
 
 /**
  * Makes the phone's schedule match the profile, then checks that it does.
  *
- * Every desired reminder is scheduled again, not only the missing ones. Doing
- * so is idempotent — the identifier is the same, so it replaces — and it
- * re-arms anything the phone lost without saying so: on Android a force-stop
- * cancels every alarm while leaving the stored list that `getAll…` reads, so
- * a reminder can look scheduled and never fire.
+ * Only what is missing is scheduled, and what says outdated words. A
+ * reminder already held is left alone: scheduling it again arms it for its
+ * next time from now, so one due at 8:00 and waiting to be delivered (an
+ * inexact alarm, deferred while the phone dozes) was moved to tomorrow by a
+ * sync at 8:05, and today's never came. Alarms the phone lost while keeping
+ * its list, as a force-stop does, are re-armed at the next launch
+ * (`rearmStoredReminders`).
  */
-export async function syncReminders(
+export function syncReminders(
   profile: MedicationProfile,
   /**
    * Medicines saved but not readable by this build: what the phone holds for
@@ -279,30 +331,32 @@ export async function syncReminders(
    */
   unreadable: readonly string[] = []
 ): Promise<ReminderHealth> {
+  return serially(() => syncOnce(profile, unreadable));
+}
+
+async function syncOnce(profile: MedicationProfile, unreadable: readonly string[]): Promise<ReminderHealth> {
   const desired = desiredReminders(profile);
   const theirs = (identifier: string) => {
     const reminder = parseReminderId(identifier);
     return reminder !== null && unreadable.includes(reminder.medicationId);
   };
 
-  const { stale } = compareSchedules(desired, await scheduledReminderIds());
+  const held = await scheduledReminders();
+  const { stale } = compareSchedules(
+    desired,
+    held.map((request) => request.identifier)
+  );
   for (const identifier of stale.filter((id) => !theirs(id))) {
     await Notifications.cancelScheduledNotificationAsync(identifier);
   }
   if (desired.size === 0) return { kind: 'none' };
 
   await ensureChannel();
+  const holding = new Map(held.map((request) => [request.identifier, request]));
   for (const [identifier, { medicationId, time }] of desired) {
-    await Notifications.scheduleNotificationAsync({
-      identifier,
-      content: content(medicationId),
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: time.hour,
-        minute: time.minute,
-        channelId: CHANNEL_ID,
-      },
-    });
+    const request = holding.get(identifier);
+    if (request && saysCurrent(request, medicationId)) continue;
+    await schedule(identifier, medicationId, time);
   }
 
   // Read back. Anything asked for and not held, or held and not asked for,
@@ -310,18 +364,26 @@ export async function syncReminders(
   const after = compareSchedules(desired, await scheduledReminderIds());
   if (after.missing.length > 0 || after.stale.some((id) => !theirs(id))) return { kind: 'unverified' };
 
-  const allowed = await notificationPermission();
+  // The permission and the channel, each read once.
+  const status = await Notifications.getPermissionsAsync();
+  const allowed = permissionOf(status);
   if (!allowed.granted) return { kind: 'blocked', canAsk: allowed.canAsk };
+  // Asked as everywhere else here: below Android 8 there are no channels.
+  const channel =
+    Platform.OS === 'android' && !(Number(Platform.Version) < FIRST_API_WITH_CHANNELS)
+      ? await Notifications.getNotificationChannelAsync(CHANNEL_ID)
+      : null;
 
-  const sound = await reminderSound(await Notifications.getPermissionsAsync());
+  const sound = reminderSound(status, channel);
   if (sound === 'unknown') return { kind: 'unverified' };
   // The reminders' category turned off: they will not appear, let alone
-  // sound, and only the phone's settings can turn it back on.
-  if (sound === 'blocked') return { kind: 'blocked', canAsk: false };
+  // sound, and only the phone's settings can turn it back on. Not the app's
+  // notifications, which are on.
+  if (sound === 'blocked') return { kind: 'blocked', canAsk: false, category: true };
   if (sound === 'silent') return { kind: 'silent' };
 
   const next = await nextFiring([...desired.values()].map((reminder) => reminder.time));
-  const dnd = await doNotDisturb();
+  const dnd = doNotDisturb(status, channel);
   // On now, it stops them now: said first. Late can be put right meanwhile.
   if (dnd.now) return { kind: 'dnd', next, now: true, letThrough: dnd.letThrough };
   if (exactAlarmsAllowed() === false) return { kind: 'late', next };
@@ -356,30 +418,46 @@ async function nextFiring(times: { hour: number; minute: number }[]): Promise<Da
  * app and leaving it at the lock screen is enough. The copy is generic content
  * and an identifier, so re-arming from it needs no medication data.
  */
-export async function rearmStoredReminders(): Promise<void> {
-  if (Platform.OS !== 'android') return;
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  for (const request of scheduled) {
-    const parsed = parseReminderId(request.identifier);
-    if (!parsed) continue;
-    await Notifications.scheduleNotificationAsync({
-      identifier: request.identifier,
-      content: content(parsed.medicationId),
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: parsed.time.hour,
-        minute: parsed.time.minute,
-        channelId: CHANNEL_ID,
-      },
-    });
+export function rearmStoredReminders(): Promise<void> {
+  if (Platform.OS !== 'android') return Promise.resolve();
+  // Re-arming moves an alarm that is due and waiting to be delivered to
+  // tomorrow (see `syncReminders`), so it is done only where the alarms were
+  // lost: after the app was force-stopped, or where that cannot be told.
+  if (!alarmsMayBeLost()) return Promise.resolve();
+  return serially(async () => {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const request of scheduled) {
+      const parsed = parseReminderId(request.identifier);
+      if (parsed) await schedule(request.identifier, parsed.medicationId, parsed.time);
+    }
+  });
+}
+
+/**
+ * How the app's last process ended (`ApplicationExitInfo`), where that kept
+ * its alarms: it exited, was killed for memory, crashed, was swiped away.
+ * Any other ending, a force-stop (10, 11), a revoked permission (8, which
+ * cancels exact alarms), an update or a change of state (15, 16), or one not
+ * known, may have cancelled them.
+ */
+const ALARMS_KEPT = new Set([1, 2, 3, 4, 5, 6, 7, 9, 12, 13, 14]);
+
+function alarmsMayBeLost(): boolean {
+  try {
+    const reason = DoseAlarms?.lastExitReason?.();
+    return typeof reason !== 'number' || !ALARMS_KEPT.has(reason);
+  } catch {
+    return true;
   }
 }
 
 /** Cancels every reminder: part of erasing everything. */
-export async function cancelAllReminders(): Promise<void> {
-  for (const identifier of await scheduledReminderIds()) {
-    await Notifications.cancelScheduledNotificationAsync(identifier);
-  }
+export function cancelAllReminders(): Promise<void> {
+  return serially(async () => {
+    for (const identifier of await scheduledReminderIds()) {
+      await Notifications.cancelScheduledNotificationAsync(identifier);
+    }
+  });
 }
 
 /** The medicine a tapped reminder is for, if it is one of ours. */

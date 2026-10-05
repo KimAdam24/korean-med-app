@@ -16,6 +16,7 @@ import {
   launchApp,
   loadApp,
   press,
+  sendAppFocus,
   sendAppTo,
 } from './app-harness';
 import { biometrics } from './fakes/local-authentication';
@@ -394,15 +395,19 @@ describe('a reminder that would come without a sound', () => {
     }
   });
 
-  it("on Android, with the reminders' category turned off, says they cannot come at all, not that they come silently", async () => {
+  it("on Android, with the reminders' category turned off, says they cannot come at all, and opens that category's page", async () => {
     const restore = onAndroid();
     try {
       notifications.silencedBy('channel-blocked');
       const record = await medicine([{ hour: 8, minute: 0 }]);
       await openMedicine(record.id);
-      await screen.findByText(R.statusBlocked.ko);
+      await screen.findByText(R.statusCategoryOff.ko);
+      // Not that they come silently, nor that the app's notifications are off:
+      // they are on, and the switch is not there.
       expect(screen.queryByText(R.statusSilent.ko)).toBeNull();
-      expect(screen.getByRole('button', { name: Strings.permission.openSettings.ko })).toBeTruthy();
+      expect(screen.queryByText(R.statusBlocked.ko)).toBeNull();
+      press(Strings.permission.openSettings.ko);
+      expect(doseAlarms.channelPages).toEqual(['dose-reminders']);
     } finally {
       restore();
     }
@@ -577,7 +582,136 @@ describe('Do Not Disturb', () => {
   });
 });
 
+describe('what a sync leaves alone', () => {
+  it('a reminder already held is not scheduled again: that would move one due now to tomorrow', async () => {
+    const record = await medicine([{ hour: 8, minute: 0 }]);
+    await openMedicine(record.id);
+    await screen.findByText(set(at(8, 0)));
+    const schedule = jest.spyOn(NotificationsFake, 'scheduleNotificationAsync');
+
+    await sendAppTo('active');
+    await act(async () => undefined);
+    expect(schedule).not.toHaveBeenCalled();
+    expect(notifications.state.scheduled.has(`dose:${record.id}:0800`)).toBe(true);
+  });
+
+  it('one held with words this build no longer uses is scheduled again, with its words', async () => {
+    const record = await medicine([{ hour: 8, minute: 0 }]);
+    await NotificationsFake.scheduleNotificationAsync({
+      identifier: `dose:${record.id}:0800`,
+      content: { title: 'Older words', body: 'Older words', data: { kind: 'dose', medicationId: record.id } },
+      trigger: { type: 'daily', hour: 8, minute: 0 },
+    });
+    await openMedicine(record.id);
+    await screen.findByText(set(at(8, 0)));
+    expect(notifications.state.scheduled.get(`dose:${record.id}:0800`)?.content.title).toBe(R.notificationTitle.ko);
+  });
+});
+
+describe('re-arming at launch', () => {
+  async function launchWithStoredReminder() {
+    const record = await medicine([{ hour: 8, minute: 0 }]);
+    await NotificationsFake.scheduleNotificationAsync({
+      identifier: `dose:${record.id}:0800`,
+      content: {},
+      trigger: { type: 'daily', hour: 8, minute: 0 },
+    });
+    const schedule = jest.spyOn(NotificationsFake, 'scheduleNotificationAsync');
+    biometrics.hangNextPrompt();
+    launchApp();
+    await screen.findByText(Strings.lock.title.ko);
+    await act(async () => undefined);
+    return { record, schedule };
+  }
+
+  it('is not done after an ordinary ending, such as being killed for memory, which keeps the alarms', async () => {
+    const restore = onAndroid();
+    try {
+      doseAlarms.exitReason = 3; // REASON_LOW_MEMORY
+      const { schedule } = await launchWithStoredReminder();
+      expect(schedule).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it('is done after a force-stop, which cancels them', async () => {
+    const restore = onAndroid();
+    try {
+      doseAlarms.exitReason = 10; // REASON_USER_REQUESTED
+      const { record, schedule } = await launchWithStoredReminder();
+      expect(schedule).toHaveBeenCalledWith(expect.objectContaining({ identifier: `dose:${record.id}:0800` }));
+    } finally {
+      restore();
+    }
+  });
+});
+
 describe('on Android', () => {
+  it('asking for notifications does not lock the app under the phone\'s question', async () => {
+    const restore = onAndroid();
+    try {
+      notifications.notYetAsked('allow');
+      let answer: () => void = () => undefined;
+      jest.spyOn(NotificationsFake, 'requestPermissionsAsync').mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            answer = () => {
+              notifications.allowed();
+              resolve(notifications.state.permission as never);
+            };
+          })
+      );
+      const record = await medicine();
+      await openMedicine(record.id);
+      press(R.add.ko);
+      press(R.saveTime.ko);
+      await screen.findByText(R.askTitle.ko);
+      press(R.askContinue.ko);
+      await act(async () => undefined);
+
+      // Android pauses the app under the dialog: it reports 'background'.
+      await sendAppTo('background');
+      expect(screen.queryByText(Strings.lock.title.ko)).toBeNull();
+      answer();
+      await sendAppTo('active');
+      // Still on the medicine's page, which says what became of the reminder.
+      await screen.findByText(set(at(8, 0)));
+      expect(screen.getByText('LISINOPRIL')).toBeTruthy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('may-be-late is said as that at home, not as "cannot sound right now"', async () => {
+    const restore = onAndroid();
+    try {
+      doseAlarms.exact = false;
+      await medicine([{ hour: 8, minute: 0 }]);
+      launchApp();
+      await screen.findByText(R.statusLate.ko);
+      expect(screen.queryByText(R.homeWarning.ko)).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('Do Not Disturb turned on from the notification shade is noticed when the app gets its focus back', async () => {
+    const restore = onAndroid();
+    try {
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(R.statusDnd.ko);
+
+      // The shade comes down over the app and goes; the app never leaves the front.
+      doseAlarms.filter = 2;
+      await sendAppFocus();
+      await screen.findByText(R.statusDndNow.ko);
+    } finally {
+      restore();
+    }
+  });
+
   it('says reminders may be late without exact alarms, and opens the setting that fixes it', async () => {
     const restore = onAndroid();
     try {
