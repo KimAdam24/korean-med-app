@@ -190,6 +190,29 @@ export function printedRelease(name: string): Release | null {
 export const RELEASE_TOKENS: ReadonlySet<string> = new Set(['xl', 'sr', 'xr', 'cr', 'la', 'cd']);
 
 /**
+ * What the user says the bottle shows beside the name, asked where the
+ * release decides which product it is and none was read: one of the markers,
+ * or none of them, which is a medicine released at once.
+ */
+export type ReleaseMarker = 'er' | 'xl' | 'sr' | 'cd' | 'xr' | 'cr' | 'la' | 'dr' | 'ec' | 'none';
+
+/** The markers that say a medicine is extended-release, most often printed first; and delayed. */
+export const EXTENDED_MARKERS = ['er', 'xl', 'sr', 'cd', 'xr', 'cr', 'la'] as const satisfies readonly ReleaseMarker[];
+export const DELAYED_MARKERS = ['dr', 'ec'] as const satisfies readonly ReleaseMarker[];
+
+export const isReleaseMarker = (value: unknown): value is ReleaseMarker =>
+  value === 'none' ||
+  (EXTENDED_MARKERS as readonly unknown[]).includes(value) ||
+  (DELAYED_MARKERS as readonly unknown[]).includes(value);
+
+/** What a marker the user gave says, as a printed one would: the release, and the particular marker. */
+export function releaseOfMarker(marker: ReleaseMarker): { release: Release | 'immediate'; token: string | null } {
+  if (marker === 'none') return { release: 'immediate', token: null };
+  if ((DELAYED_MARKERS as readonly string[]).includes(marker)) return { release: 'delayed', token: null };
+  return { release: 'extended', token: RELEASE_TOKENS.has(marker) ? marker : null };
+}
+
+/**
  * The particular release marker printed, where it names one ("XL", "SR"...):
  * bupropion XL and SR are both extended-release, and approved for different
  * things (XL for seasonal affective disorder too). Null for none, for "ER",

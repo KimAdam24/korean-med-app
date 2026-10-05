@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 
 import {
+  clinicalDrug,
   dailyMedPackageCodes,
   doseFormOf,
   doseFormOfReading,
@@ -18,6 +19,7 @@ import {
   notUses,
   productKey,
   readIndications,
+  releasesMade,
   sameIngredients,
   sectionMarkup,
   titledNames,
@@ -215,7 +217,12 @@ function nlm(route: Route): string[] {
   globalThis.fetch = (async (input: string | URL) => {
     const url = String(input);
     asked.push(url.replace('https://dailymed.nlm.nih.gov/dailymed/services/v2', '').replace('https://rxnav.nlm.nih.gov/REST', ''));
-    const answer = route(url);
+    let answer = route(url);
+    // RxNorm's clinical drugs, where a test gives none: it makes nothing known
+    // at that strength, and no release is told from it.
+    if (answer !== 'offline' && answer.status === 404 && url.includes('related.json?tty=SCD')) {
+      answer = { json: { relatedGroup: { conceptGroup: [] } } };
+    }
     if (answer === 'offline') throw new TypeError('Network request failed');
     const status = answer.status ?? 200;
     return {
@@ -315,7 +322,13 @@ test('a name: unrelated labels in the ingredient\'s list are passed over, by tit
   if (found.status !== 'found') return;
   assert.equal(found.uses.content.summary, true);
   assert.equal(found.uses.content.label.setId, 'met');
-  assert.deepEqual(asked, [`/spls.json?rxcui=6809&${RX}&pagesize=100`, '/spls/hidden.xml', '/spls/met.xml']);
+  // RxNorm first, for the release; it lists nothing here, so none is told.
+  assert.deepEqual(asked, [
+    '/rxcui/6809/related.json?tty=SCD',
+    `/spls.json?rxcui=6809&${RX}&pagesize=100`,
+    '/spls/hidden.xml',
+    '/spls/met.xml',
+  ]);
 });
 
 test('only an approved label: one marketed as unapproved has no approved uses to show', async () => {
@@ -479,57 +492,154 @@ test("a salt printed is required of the label's own active ingredient, whatever 
   assert.deepEqual(await findApprovedUses(metoprololTarget(['tartrate'], null)), { status: 'none' });
 });
 
-test('no release printed: a label released at once is tried first, but one released otherwise is not refused', async () => {
-  const asked = nlm((url) => {
-    if (url.includes('spls.json?rxcui=6918')) {
+// --- The release, where the bottle does not say it --------------------------
+
+/** RxNorm's clinical drugs, as its related.json lists them. */
+const scds = (...names: string[]) => ({
+  json: { relatedGroup: { conceptGroup: [{ tty: 'SCD', conceptProperties: names.map((name, i) => ({ rxcui: String(i), name })) }] } },
+});
+
+test("RxNorm's clinical drugs read: ingredients, strengths, form, release", () => {
+  assert.deepEqual(clinicalDrug('24 HR metformin hydrochloride 500 MG Extended Release Oral Tablet'), {
+    ingredients: 1,
+    words: ['metformin', 'hydrochloride'],
+    strengths: [{ value: 500, unit: 'mg' }],
+    form: 'TABLET',
+    release: 'extended',
+  });
+  assert.deepEqual(clinicalDrug('hydrochlorothiazide 12.5 MG / lisinopril 10 MG Oral Tablet')?.strengths, [
+    { value: 12.5, unit: 'mg' },
+    { value: 10, unit: 'mg' },
+  ]);
+  assert.equal(clinicalDrug('omeprazole 20 MG Delayed Release Oral Capsule')?.release, 'delayed');
+  assert.equal(clinicalDrug('clonidine hydrochloride 0.1 MG Oral Tablet')?.release, 'immediate');
+  assert.equal(clinicalDrug('ergocalciferol 1.25 MG Oral Capsule')?.form, 'CAPSULE');
+  assert.equal(clinicalDrug('metformin hydrochloride 100 MG/ML Oral Solution'), null);
+});
+
+test('the releases made at the strength, form and salt printed', () => {
+  const drugs = [
+    'metoprolol tartrate 25 MG Oral Tablet',
+    '24 HR metoprolol succinate 25 MG Extended Release Oral Tablet',
+    'metoprolol tartrate 37.5 MG Oral Tablet',
+    'hydrochlorothiazide 12.5 MG / metoprolol tartrate 25 MG Oral Tablet',
+  ].map((name) => clinicalDrug(name)!);
+  const bottle = (salts: string[], value: number) => ({ ingredients: 1, form: 'TABLET' as const, salts, strengths: [{ value, unit: 'mg' as const }] });
+  assert.deepEqual(releasesMade(drugs, bottle([], 25)), ['extended', 'immediate']);
+  // The salt printed says which.
+  assert.deepEqual(releasesMade(drugs, bottle(['tartrate'], 25)), ['immediate']);
+  assert.deepEqual(releasesMade(drugs, bottle([], 37.5)), ['immediate']);
+  assert.deepEqual(releasesMade(drugs, bottle([], 50)), []);
+});
+
+/** Clonidine 0.1 mg: a tablet released at once (blood pressure) and Kapvay's generic (ADHD), titled alike. */
+function clonidine(): string[] {
+  const HYPERTENSION = 'Clonidine hydrochloride tablets are indicated in the treatment of hypertension.';
+  const ADHD = 'Clonidine hydrochloride extended-release tablets are indicated for the treatment of attention deficit hyperactivity disorder (ADHD).';
+  const label = (uses: string) =>
+    product({ substance: 'CLONIDINE HYDROCHLORIDE', moiety: 'CLONIDINE', strengths: [['0.1', 'mg']], route: 'ORAL', uses });
+  return nlm((url) => {
+    if (url.includes('/rxcui/2599/related.json?tty=SCD')) {
+      return scds('clonidine hydrochloride 0.1 MG Oral Tablet', '12 HR clonidine hydrochloride 0.1 MG Extended Release Oral Tablet');
+    }
+    if (url.includes('spls.json?rxcui=2599')) {
       return url.includes(RX)
         ? listing(
-            ['succ', 'METOPROLOL SUCCINATE TABLET, FILM COATED, EXTENDED RELEASE [Y]'],
-            ['tart', 'METOPROLOL TARTRATE TABLET, FILM COATED [X]']
+            // An extended-release label titled as a tablet, as some are.
+            ['er', 'CLONIDINE HYDROCHLORIDE TABLET [X]'],
+            ['ir', 'CLONIDINE HYDROCHLORIDE TABLET [Y]']
           )
         : listing();
     }
-    if (url.endsWith('/spls/tart.xml')) return { text: ofType('prescription', 'METOPROLOL TARTRATE', 'METOPROLOL', TARTRATE) };
-    if (url.endsWith('/spls/succ.xml')) return { text: ofType('prescription', 'METOPROLOL SUCCINATE', 'METOPROLOL', SUCCINATE) };
+    if (url.endsWith('/spls/er.xml')) return { text: label(ADHD) };
+    if (url.endsWith('/spls/ir.xml')) return { text: label(HYPERTENSION) };
     return { status: 404 };
   });
-  const found = await findApprovedUses(metoprololTarget([], null));
-  assert.equal(found.status === 'found' && found.uses.content.text, TARTRATE);
-  assert.ok(!asked.includes('/spls/succ.xml'));
+}
+const clonidineTarget = (extra: Partial<Extract<UsesTarget, { kind: 'ingredients' }>> = {}) =>
+  target('2599', 'clonidine', { strengths: [{ value: 0.1, unit: 'mg' }], ...extra });
 
-  // Where only the other release has a label, it is shown.
-  nlm((url) => {
-    if (url.includes('spls.json?rxcui=6918')) {
-      return url.includes(RX) ? listing(['succ', 'METOPROLOL SUCCINATE TABLET, FILM COATED, EXTENDED RELEASE [Y]']) : listing();
-    }
-    if (url.endsWith('/spls/succ.xml')) return { text: ofType('prescription', 'METOPROLOL SUCCINATE', 'METOPROLOL', SUCCINATE) };
-    return { status: 404 };
-  });
-  const only = await findApprovedUses(metoprololTarget([], null));
-  assert.equal(only.status === 'found' && only.uses.content.text, SUCCINATE);
+test('no release printed where RxNorm makes two at the strength: the user is asked, and no label is looked for', async () => {
+  const asked = clonidine();
+  assert.deepEqual(await findApprovedUses(clonidineTarget()), { status: 'releaseUnknown', releases: ['extended', 'immediate'] });
+  assert.deepEqual(asked, ['/rxcui/2599/related.json?tty=SCD']);
 });
 
-test('"CONTROLLED-RELEASE" in a title is a release: not tried first for an oxycodone released at once', async () => {
+test('the release the user said: "none of these" is released at once, and an extended-release text is not it', async () => {
+  const asked = clonidine();
+  const none = await findApprovedUses(clonidineTarget({ release: 'immediate' }));
+  assert.match(usesOf(none), /treatment of hypertension/);
+  // The label titled as a tablet said in its own words it is extended-release.
+  assert.ok(asked.includes('/spls/er.xml'));
+  // Nor is RxNorm asked: the user said.
+  assert.ok(!asked.some((url) => url.includes('tty=SCD')));
+
+  clonidine();
+  const er = await findApprovedUses(clonidineTarget({ release: 'extended' }));
+  // Titled as a tablet: not an extended-release one by its title, so not tried.
+  assert.equal(usesOf(er), 'none');
+});
+
+test('one release made at the strength: it is the bottle\'s, and a label of another is not', async () => {
+  const ER_TEXT = 'Verapamil hydrochloride extended-release tablets are indicated for the treatment of hypertension.';
+  const IR_TEXT = 'Verapamil hydrochloride tablets are indicated for angina, arrhythmias and essential hypertension.';
+  const label = (uses: string) =>
+    product({ substance: 'VERAPAMIL HYDROCHLORIDE', moiety: 'VERAPAMIL', strengths: [['120', 'mg'], ['240', 'mg']], route: 'ORAL', uses });
+  const route = (made: string[]) =>
+    nlm((url) => {
+      if (url.includes('/rxcui/11170/related.json?tty=SCD')) return scds(...made);
+      if (url.includes('spls.json?rxcui=11170')) {
+        return url.includes(RX)
+          ? listing(['ir', 'VERAPAMIL HYDROCHLORIDE TABLET [X]'], ['er', 'VERAPAMIL HYDROCHLORIDE TABLET, FILM COATED, EXTENDED RELEASE [Y]'])
+          : listing();
+      }
+      if (url.endsWith('/spls/ir.xml')) return { text: label(IR_TEXT) };
+      if (url.endsWith('/spls/er.xml')) return { text: label(ER_TEXT) };
+      return { status: 404 };
+    });
+  // 240 mg is made only extended-release: the label released at once, listed first, is not it.
+  route(['verapamil hydrochloride 120 MG Oral Tablet', 'verapamil hydrochloride 240 MG Extended Release Oral Tablet']);
+  const found = await findApprovedUses(target('11170', 'verapamil', { strengths: [{ value: 240, unit: 'mg' }] }));
+  assert.equal(usesOf(found), ER_TEXT);
+  // 120 mg only released at once: the label whose text is extended-release is not it.
+  route(['verapamil hydrochloride 120 MG Oral Tablet', 'verapamil hydrochloride 240 MG Extended Release Oral Tablet']);
+  const ir = await findApprovedUses(target('11170', 'verapamil', { strengths: [{ value: 120, unit: 'mg' }] }));
+  assert.equal(usesOf(ir), IR_TEXT);
+});
+
+test('RxNorm unreachable, where the release is not printed: "unavailable", not a guess', async () => {
+  nlm((url) => (url.includes('tty=SCD') ? 'offline' : { status: 404 }));
+  assert.deepEqual(await findApprovedUses(clonidineTarget()), { status: 'unavailable' });
+});
+
+test('"CONTROLLED-RELEASE" in a title is a release: not the label of an oxycodone released at once', async () => {
   const CR = 'Oxycodone HCl Controlled-Release Tablets are indicated for moderate to severe pain when a continuous, around-the-clock analgesic is needed for an extended period of time.';
   const IR = 'Oxycodone hydrochloride tablets are indicated for the management of acute pain severe enough to require an opioid analgesic.';
   const label = (uses: string) =>
     product({ substance: 'OXYCODONE HYDROCHLORIDE', moiety: 'OXYCODONE', strengths: [['10', 'mg'], ['20', 'mg']], route: 'ORAL', uses });
-  const asked = twoLabels(
-    '7804',
-    ['OXYCODONE HCL CONTROLLED-RELEASE TABLET OXYCODONE HCL CONTROLLED-RELEASE TABLET [RANBAXY]', label(CR)],
-    ['OXYCODONE HYDROCHLORIDE TABLET [X]', label(IR)]
-  );
-  const found = await findApprovedUses(target('7804', 'oxycodone', { strengths: [{ value: 10, unit: 'mg' }] }));
-  assert.equal(found.status === 'found' && found.uses.content.text, IR);
-  assert.ok(!asked.includes('/spls/first.xml'), asked.join('\n'));
-  // And it is the label for a bottle that says it is extended.
-  twoLabels(
-    '7804',
-    ['OXYCODONE HCL CONTROLLED-RELEASE TABLET [RANBAXY]', label(CR)],
-    ['OXYCODONE HYDROCHLORIDE TABLET [X]', label(IR)]
-  );
-  const extended = await findApprovedUses(target('7804', 'oxycodone', { strengths: [{ value: 10, unit: 'mg' }], release: 'extended' }));
-  assert.equal(extended.status === 'found' && extended.uses.content.text, CR);
+  const route = () =>
+    nlm((url) => {
+      if (url.includes('/rxcui/7804/related.json?tty=SCD')) {
+        return scds('oxycodone hydrochloride 10 MG Oral Tablet', '12 HR oxycodone hydrochloride 10 MG Extended Release Oral Tablet');
+      }
+      if (url.includes('spls.json?rxcui=7804')) {
+        return url.includes(RX)
+          ? listing(['cr', 'OXYCODONE HCL CONTROLLED-RELEASE TABLET OXYCODONE HCL CONTROLLED-RELEASE TABLET [RANBAXY]'], ['ir', 'OXYCODONE HYDROCHLORIDE TABLET [X]'])
+          : listing();
+      }
+      if (url.endsWith('/spls/cr.xml')) return { text: label(CR) };
+      if (url.endsWith('/spls/ir.xml')) return { text: label(IR) };
+      return { status: 404 };
+    });
+  const ten = { strengths: [{ value: 10, unit: 'mg' as const }] };
+  route();
+  assert.equal((await findApprovedUses(target('7804', 'oxycodone', ten))).status, 'releaseUnknown');
+  // Said to show no marker: released at once, and the controlled-release label, listed first, is not it.
+  const asked = route();
+  assert.equal(usesOf(await findApprovedUses(target('7804', 'oxycodone', { ...ten, release: 'immediate' }))), IR);
+  assert.ok(!asked.includes('/spls/cr.xml'), asked.join('\n'));
+  route();
+  assert.equal(usesOf(await findApprovedUses(target('7804', 'oxycodone', { ...ten, release: 'extended' }))), CR);
 });
 
 const RX_USES = 'Esomeprazole magnesium delayed-release capsules are indicated for the treatment of GERD and H. pylori.';

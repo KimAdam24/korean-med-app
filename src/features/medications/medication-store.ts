@@ -8,6 +8,8 @@ import {
   type VaultReadResult,
 } from '@/features/security/secure-vault';
 
+import { isReleaseMarker } from '@/features/drugs/identify-name';
+
 import { EMPTY_PROFILE, type MedicationProfile, type MedicationRecord } from './types';
 
 /**
@@ -50,7 +52,7 @@ function parseProfile(value: unknown): MedicationProfile | null {
  * the user saves it from the edit form. Either way the record is kept.
  */
 function withSoundExtras(record: MedicationRecord): MedicationRecord {
-  const { nameMatch, nameIncomplete, nameSource, labelKind, ...rest } = record;
+  const { nameMatch, nameIncomplete, nameSource, labelKind, releaseMarker, ...rest } = record;
   return {
     ...rest,
     ...(nameMatch !== undefined && isNameMatch(nameMatch) ? { nameMatch } : {}),
@@ -58,7 +60,15 @@ function withSoundExtras(record: MedicationRecord): MedicationRecord {
     // Unknown is said as absent, never guessed.
     ...(nameSource === 'read' || nameSource === 'typed' || nameSource === 'rxnorm' ? { nameSource } : {}),
     ...(labelKind === 'prescription' || labelKind === 'otc' ? { labelKind } : {}),
+    // An answer not one of the markers is no answer: asked again.
+    ...(isReleaseAnswer(releaseMarker) ? { releaseMarker } : {}),
   };
+}
+
+function isReleaseAnswer(value: unknown): value is NonNullable<MedicationRecord['releaseMarker']> {
+  if (typeof value !== 'object' || value === null) return false;
+  const answer = value as { marker?: unknown; source?: unknown };
+  return isReleaseMarker(answer.marker) && answer.source === 'typed';
 }
 
 function isMedicationRecord(value: unknown): value is MedicationRecord {

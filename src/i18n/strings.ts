@@ -514,6 +514,24 @@ export const Strings = {
       'This medicine is sold as different products approved for different things, which only the brand name tells apart, and no brand name was read on the bottle.',
       "In place of the label's text, when a medicine's products of one strength are approved for different things and only the brand tells them apart: tadalafil 20 mg is CIALIS (erectile dysfunction, enlarged prostate) or ADCIRCA and ALYQ (pulmonary hypertension); bupropion SR 150 mg is WELLBUTRIN SR (depression) or ZYBAN (stopping smoking)."
     ),
+    releaseQuestion: untranslated(
+      "Does the bottle show one of these beside the medicine's name?",
+      'In place of the label\'s text, above a row of buttons each with two English letters on it (ER, XL, SR, CD, XR, CR, LA; or DR, EC), and the button uses.releaseNone. Asked when the medicine is made at the strength on the bottle both released at once and released over time, approved for different things, and nothing read from the bottle said which.'
+    ),
+    releaseWhy: untranslated(
+      'This medicine is made in versions that work over different lengths of time, approved for different things. These letters say which one it is.',
+      'Under uses.releaseQuestion. Clonidine is the example: released at once, it is for blood pressure; as clonidine ER, for ADHD.'
+    ),
+    releaseNone: untranslated('None of these', 'A button under the letters of uses.releaseQuestion: the bottle shows none of them.'),
+    releaseAnswered: untranslated(
+      'You said the bottle shows: {marker}',
+      "Above the label's text, after the user tapped one of the letters ({marker} is them, in English: ER, XL...). It is the user's word, not the camera's, as uses.identifiedTypedAs says for a typed name."
+    ),
+    releaseAnsweredNone: untranslated(
+      'You said the bottle shows none of these letters.',
+      "Above the label's text, after the user tapped uses.releaseNone."
+    ),
+    releaseChange: untranslated('Change my answer', 'A button under uses.releaseAnswered or uses.releaseAnsweredNone: asks the question again.'),
     unavailable: { ko: '지금은 FDA 허가사항을 불러오지 못했어요. 인터넷 연결을 확인해 주시거나, 잠시 뒤에 다시 시도해 주세요.', en: 'Its FDA label could not be reached just now. Check the connection, or try again in a while.' },
     retry: { ko: 'FDA 허가사항 다시 찾기', en: 'Look up the FDA label again' },
     nameNotWhole: { ko: '약 이름을 다 읽지 못해서 아직 찾아볼 수 없어요. 약병에 적힌 대로 약 이름을 입력해 주시거나, 사진을 다시 찍어 주세요.', en: 'The medicine\'s name was not read whole, so it cannot be looked up yet. Type it as the bottle shows it, or take another photo.' },

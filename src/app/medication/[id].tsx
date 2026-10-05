@@ -17,6 +17,7 @@ import {
 import { koreanDirections } from '@/features/directions/korean-directions';
 import { doseFormOf } from '@/features/drugs/approved-uses';
 import { ApprovedUsesCard, type UsesSource } from '@/features/drugs/approved-uses-card';
+import type { ReleaseMarker } from '@/features/drugs/identify-name';
 import { koreanIngredientNames } from '@/features/drugs/korean-names';
 import { fetchIngredients } from '@/features/drugs/rxnorm';
 import { ProfileProblem } from '@/features/medications/profile-problem';
@@ -128,9 +129,10 @@ export default function MedicationScreen() {
       await updateMedication(record.id, {
         name,
         // A match for the old name is not one for the new: its page asks again.
-        // And the new name is the user's, typed, not the label's, read.
+        // And the new name is the user's, typed, not the label's, read. The
+        // marker they said was said of the old name's bottle.
         ...(name !== record.name
-          ? { nameMatch: undefined, nameSource: 'typed' as const }
+          ? { nameMatch: undefined, nameSource: 'typed' as const, releaseMarker: undefined }
           : record.nameMatch && (dosage !== record.dosage || instructions !== record.instructions)
             ? // The form its reading named is the user's to say now: what they
               // wrote decides it ("Take 1 tablet", "1 drop in each eye").
@@ -178,6 +180,26 @@ export default function MedicationScreen() {
       setMode({ kind: 'viewing', notice: Strings.failure.confirmNotSaved });
     }
   }, [record, reload]);
+
+  /**
+   * The marker the user says the bottle shows, asked by the approved uses
+   * where the release decides: kept with the medicine, as theirs, so it is not
+   * asked again; or forgotten, to be asked again.
+   */
+  const answerRelease = useCallback(
+    async (marker: ReleaseMarker | null) => {
+      if (!record) return;
+      try {
+        await updateMedication(record.id, {
+          releaseMarker: marker ? { marker, source: 'typed' as const } : undefined,
+        });
+        await reload();
+      } catch {
+        setMode({ kind: 'viewing', notice: Strings.failure.editNotSaved });
+      }
+    },
+    [record, reload]
+  );
 
   const remove = useCallback(async () => {
     if (!record) return;
@@ -337,6 +359,8 @@ export default function MedicationScreen() {
         labelKind: record.labelKind ?? null,
         // Saved only where it was read whole, or as the user wrote it.
         strength: record.dosage ?? null,
+        // The marker the user said the bottle shows, where they were asked.
+        ...(record.releaseMarker ? { release: record.releaseMarker.marker } : {}),
       };
 
   return (
@@ -371,7 +395,7 @@ export default function MedicationScreen() {
         />
       </Card>
 
-      <ApprovedUsesCard source={usesSource} />
+      <ApprovedUsesCard source={usesSource} onReleaseAnswered={answerRelease} />
 
       <ReminderSection record={record} profile={state.profile} onChanged={reload} />
 

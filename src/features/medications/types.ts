@@ -8,6 +8,8 @@
  * photo cannot accidentally carry one into storage.
  */
 
+import type { ReleaseMarker } from '../drugs/identify-name';
+
 export type MedicationSource =
   /** Read off a label by the recognizer in `features/ocr`. */
   | 'label-scan'
@@ -133,6 +135,15 @@ export type MedicationRecord = {
    * records.
    */
   readonly labelKind?: 'prescription' | 'otc';
+  /**
+   * What the user said the bottle shows beside the name, asked where the
+   * release decides which of the medicine's products it is and none was
+   * read: a marker ("XL"), or none of them, released at once. Marked as
+   * `typed`, as a name typed from the bottle is: the user's reading, not the
+   * camera's. Cleared when the name is edited, since it was said of that one.
+   * Absent where it was never asked, and on older records.
+   */
+  readonly releaseMarker?: { readonly marker: ReleaseMarker; readonly source: 'typed' };
   /**
    * Daily reminder times, sorted, no two alike. Stored here, in the encrypted
    * vault, and nowhere else: what the phone's scheduler holds is only an

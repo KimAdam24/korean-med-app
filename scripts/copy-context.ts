@@ -167,6 +167,40 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     when: "When the medicine is sold, at the strength on the bottle, as products approved for different things, and only the brand name tells them apart, and none was read. Today two: tadalafil 20 mg (CIALIS for erectile dysfunction and an enlarged prostate, ADCIRCA and ALYQ for pulmonary hypertension) and bupropion SR 150 mg (WELLBUTRIN SR for depression, ZYBAN for stopping smoking).",
     notes: '상표명 for brand name, as on the boxes Korean pharmacies hand out.',
   },
+  'uses.releaseQuestion': {
+    section: USES,
+    where: "The same box, in place of the text: the question, over a row of buttons each showing two English letters, and the button uses.releaseNone under them.",
+    when: 'When the medicine is made, at the strength on the bottle, both released at once and released over time (or later), and these are approved for different things, and nothing read from the bottle said which. Most often for metformin, the third most prescribed medicine in the U.S.: most people will see this.',
+    notes: 'The letters themselves stay in English: they are what is printed on the bottle, beside the name (METFORMIN ER, BUPROPION XL). It should read as a quick check, not as something gone wrong.',
+  },
+  'uses.releaseWhy': {
+    section: USES,
+    where: 'Under uses.releaseQuestion, in smaller type.',
+    when: 'With uses.releaseQuestion.',
+    notes: "Why it is asked. Beside it is her 이 약은 처방약 허가사항과 일반의약품 허가사항이 따로 있고, 효능이 서로 달라요. (uses.kindUnknown).",
+  },
+  'uses.releaseNone': {
+    section: USES,
+    where: 'A button under the row of letters.',
+    when: 'With uses.releaseQuestion.',
+  },
+  'uses.releaseAnswered': {
+    section: USES,
+    where: "The same box, above the English text, after the user tapped one of the letters. {marker} is those letters, in English.",
+    when: "Each time the medicine's approved uses are shown for the letters the user gave, on the result screen and on the medicine's page.",
+    notes: "The user's answer, not the camera's reading, said as uses.identifiedTypedAs (입력하신 이름으로 찾은 약: {name}) says a typed name.",
+  },
+  'uses.releaseAnsweredNone': {
+    section: USES,
+    where: 'The same place as uses.releaseAnswered.',
+    when: 'After the user tapped uses.releaseNone.',
+  },
+  'uses.releaseChange': {
+    section: USES,
+    where: 'A button under uses.releaseAnswered or uses.releaseAnsweredNone.',
+    when: 'With either: for a tap on the wrong letters.',
+    notes: 'Not the same words as 고치기 (Edit), which edits the medicine on its page.',
+  },
   'uses.unavailable': {
     section: USES,
     where: 'The same box, in place of the text, above the button uses.retry.',

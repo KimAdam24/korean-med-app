@@ -51,10 +51,14 @@
  * - **A salt printed is required** of the label's own active ingredient
  *   ("METOPROLOL SUCC" only a label whose active is metoprolol succinate).
  * - **A release printed is required** of the label's title (ER, XL, CD:
- *   extended; DR, EC: delayed). Where none is printed, labels released at
- *   once are tried first, since a pharmacy prints the release when there is
- *   one, but not required, since a label may leave out one that is always so
- *   (omeprazole is always delayed-release).
+ *   extended; DR, EC: delayed). Where none is printed, RxNorm's products say
+ *   which releases are made at the strength (`releasesMade`): one, and it is
+ *   required as though printed (omeprazole is always delayed-release); two,
+ *   and the user is asked which marker the bottle shows (`releaseUnknown`),
+ *   their answer then taken as printed, "none of these" as released at once.
+ *   Never guessed: labels released at once used to be tried first, and an
+ *   extended-release bottle whose marker went unread was shown the uses of
+ *   one released at once (clonidine ER, for ADHD alone, blood pressure).
  * - **A brand's own label only where that brand is printed** (`likely`):
  *   GRALISE's label lists other uses than generic gabapentin's at the same
  *   strength. A bottle with no brand is shown a generic's label, unless the
@@ -185,6 +189,15 @@ export type ApprovedUsesLookup =
    * printed: none is shown. Nothing is asked of DailyMed.
    */
   | { readonly status: 'productUnknown' }
+  /**
+   * Made, at this strength and form, released at once and over time (or
+   * later), as RxNorm's products say, and the bottle said neither: the
+   * releases are approved for different things (clonidine ER for ADHD, the
+   * tablet released at once for blood pressure), so none is shown until the
+   * user says which marker the bottle shows. `releases` are those made at it,
+   * so the question offers only their markers. Nothing is asked of DailyMed.
+   */
+  | { readonly status: 'releaseUnknown'; readonly releases: readonly ('immediate' | Release)[] }
   /** DailyMed or RxNav could not be reached, or answered with an error: trying again may work. */
   | { readonly status: 'unavailable' };
 
@@ -203,8 +216,12 @@ export type UsesTarget =
       readonly form: DoseForm | null;
       /** The salts the name printed beyond its ingredients (`printedSalts`), required of the label. */
       readonly salts?: readonly string[];
-      /** The release the name printed (`printedRelease`), required of the label. */
-      readonly release?: Release | null;
+      /**
+       * The release the name printed (`printedRelease`), or the user said the
+       * bottle shows (`releaseOfMarker`), required of the label: "immediate"
+       * where they said it shows no marker.
+       */
+      readonly release?: Release | 'immediate' | null;
       /** The kind of label read (`labelKindOf`): prescription or over-the-counter. */
       readonly labelKind?: LabelKind | null;
       /** The strengths the reading printed (`printedStrengths`), required of the label where it gives one alike. */
@@ -550,6 +567,78 @@ async function ingredientsOf(rxcui: string): Promise<Fetched<string[]>> {
   };
 }
 
+/** One of RxNorm's clinical drugs (SCD): what is made, as its name says it. */
+export type ClinicalDrug = {
+  /** How many ingredients: "hydrochlorothiazide 12.5 MG / lisinopril 10 MG" is two. */
+  readonly ingredients: number;
+  /** Its ingredients' words, salts with them ("metoprolol succinate"). */
+  readonly words: readonly string[];
+  readonly strengths: readonly Strength[];
+  readonly form: DoseForm;
+  readonly release: 'immediate' | Release;
+};
+
+/**
+ * A clinical drug's name read: "24 HR metformin hydrochloride 500 MG Extended
+ * Release Oral Tablet" is metformin hydrochloride, 500 mg, an extended-release
+ * tablet. Null for any form but a tablet or a capsule.
+ */
+export function clinicalDrug(name: string): ClinicalDrug | null {
+  const parts = [...name.matchAll(/([A-Za-z][A-Za-z0-9 ,'()-]*?)\s+([\d.]+)\s+(MG|MCG|UNT|MEQ)\b/g)];
+  if (parts.length === 0) return null;
+  const last = parts[parts.length - 1];
+  const doseForm = name.slice(last.index + last[0].length);
+  const form = /\bTablet\b/i.test(doseForm) ? 'TABLET' : /\bCapsule\b/i.test(doseForm) ? 'CAPSULE' : null;
+  if (!form) return null;
+  const strengths = parts
+    .map(([, , value, unit]) => strengthOf(Number(value), unit === 'UNT' ? 'unit' : unit))
+    .filter((strength): strength is Strength => strength !== null);
+  return {
+    ingredients: parts.length,
+    // Without the "24 HR" before the first.
+    words: parts.flatMap(([, words]) => nameWords(words)).filter((word) => !/^\d/.test(word) && word !== 'hr'),
+    strengths,
+    form,
+    release: /\bExtended Release\b/i.test(doseForm) ? 'extended' : /\bDelayed Release\b/i.test(doseForm) ? 'delayed' : 'immediate',
+  };
+}
+
+/** The tablets and capsules RxNorm makes of an ingredient (or with it); `unavailable` if RxNav could not say. */
+async function clinicalDrugsOf(rxcui: string): Promise<Fetched<ClinicalDrug[]>> {
+  const related = await get(`${RXNAV_BASE}/rxcui/${encodeURIComponent(rxcui)}/related.json?tty=SCD`, (response) =>
+    response.json() as Promise<Related>
+  );
+  if (!related.ok) return related;
+  return {
+    ok: true,
+    value: (related.value?.relatedGroup?.conceptGroup ?? [])
+      .filter((group) => group.tty === 'SCD')
+      .flatMap((group) => group.conceptProperties ?? [])
+      .map((concept) => (typeof concept.name === 'string' ? clinicalDrug(concept.name) : null))
+      .filter((drug): drug is ClinicalDrug => drug !== null),
+  };
+}
+
+/**
+ * The releases RxNorm makes this medicine in, at the strength and form and
+ * salt the bottle printed: its clinical drugs of as many ingredients, each
+ * strength printed among theirs.
+ */
+export function releasesMade(
+  drugs: readonly ClinicalDrug[],
+  bottle: { ingredients: number; form: DoseForm; salts: readonly string[]; strengths: readonly Strength[] }
+): ('immediate' | Release)[] {
+  const made = drugs.filter(
+    (drug) =>
+      drug.ingredients === bottle.ingredients &&
+      drug.form === bottle.form &&
+      bottle.salts.every((salt) => drug.words.includes(salt)) &&
+      givesStrengths(drug.strengths, bottle.strengths) &&
+      bottle.strengths.some((printed) => drug.strengths.some((strength) => strength.unit === printed.unit && same(strength.value, printed.value)))
+  );
+  return [...new Set(made.map((drug) => drug.release))].sort();
+}
+
 /** What a label must be, besides approved, to be shown for this lookup. */
 type Proof =
   | { readonly kind: 'product'; readonly key: string }
@@ -558,8 +647,8 @@ type Proof =
       readonly names: readonly string[];
       readonly salts: readonly string[];
       readonly strengths: readonly Strength[];
-      /** The release the bottle printed: required of the label, by its title or its own text. */
-      readonly release: Release | null;
+      /** The release the bottle printed or the user said: required of the label, by its title or its own text. */
+      readonly release: Release | 'immediate' | null;
       readonly releaseToken: string | null;
       /** By name: the label must be of a medicine taken by mouth. */
       readonly byMouth: boolean;
@@ -660,6 +749,19 @@ const releaseOf = (title: string): Release | null =>
       : null;
 
 /**
+ * Whether a label of this release can be the bottle's. The release the bottle
+ * printed, the user said, or the only one RxNorm makes at its strength: a
+ * label must say it is of it, by its title or its own text (or carry the
+ * particular marker); and where it is released at once, a label must say it
+ * is of none. Where nothing is known, any.
+ */
+function releaseFits(label: Release | null, wanted: Release | 'immediate' | null, markerTitled: boolean): boolean {
+  if (wanted === null) return true;
+  if (wanted === 'immediate') return label === null;
+  return label === wanted || markerTitled;
+}
+
+/**
  * The release a label is of: its title's, in words or by a marker ("ENTOCORT
  * EC", "WELLBUTRIN SR"), or else what its own text first says it is. Some
  * labels titled plain "TABLET" are of an extended-release product, and say so
@@ -753,12 +855,11 @@ function likely(
   want: {
     form: DoseForm | null;
     salts: readonly string[];
-    release: Release | null;
+    release: Release | 'immediate' | null;
     releaseToken: string | null;
     brand: readonly string[];
     /** A brand whose title alone may be shown (`brandRequired`). */
     onlyBrand?: string | null;
-    preferAtOnce: boolean;
     /** By name: a brand's own label only where that brand is printed. */
     byPrintedBrand?: boolean;
   }
@@ -781,21 +882,21 @@ function likely(
       // The release printed, in the title's words or by the marker itself:
       // "WELLBUTRIN SR (BUPROPION HYDROCHLORIDE) TABLET, FILM COATED" says
       // "EXTENDED RELEASE" nowhere.
-      (want.release === null ||
-        labelRelease(title, '') === want.release ||
-        (want.releaseToken !== null && tokens.has(want.releaseToken))) &&
+      releaseFits(
+        labelRelease(title, ''),
+        want.release,
+        want.releaseToken !== null && tokens.has(want.releaseToken)
+      ) &&
       // Another product's marker in the title ("(SR)" for an XL bottle).
       (want.releaseToken === null || tokens.size === 0 || tokens.has(want.releaseToken)) &&
       // Only the brand's own label, where only the brand tells them apart.
       (!want.onlyBrand || words.has(want.onlyBrand));
     if (!fits) return [];
-    // First the titles that name the salt printed, the brand, the marker;
-    // then, where no release was printed, those released at once.
+    // First the titles that name the salt printed, the brand, the marker.
     const score =
       (want.salts.length > 0 && want.salts.every((salt) => words.has(salt)) ? 4 : 0) +
       (want.brand.length > 0 && want.brand.every((word) => words.has(word)) ? 4 : 0) +
-      (want.releaseToken !== null && tokens.has(want.releaseToken) ? 2 : 0) +
-      (want.preferAtOnce && want.release === null && labelRelease(title, '') === null ? 1 : 0);
+      (want.releaseToken !== null && tokens.has(want.releaseToken) ? 2 : 0);
     const named = titledNames(title, names);
     return [
       {
@@ -912,9 +1013,11 @@ async function firstProven(
             )) &&
           // The release printed, as the label's title or its own text says
           // it is: not a title naming none over an extended-release text.
-          (proof.release === null ||
-            labelRelease(label.title, text ?? '') === proof.release ||
-            (proof.releaseToken !== null && releaseTokensIn(label.title.toUpperCase()).has(proof.releaseToken))) &&
+          releaseFits(
+            labelRelease(label.title, text ?? ''),
+            proof.release,
+            proof.releaseToken !== null && releaseTokensIn(label.title.toUpperCase()).has(proof.releaseToken)
+          ) &&
           // One medicine's label: not one text for two.
           !read.mixed;
     // Listed by DailyMed as this kind; and not saying otherwise itself.
@@ -987,7 +1090,6 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
         release: null,
         releaseToken: null,
         brand: [],
-        preferAtOnce: false,
       });
       const proof: Proof = {
         kind: 'ingredients',
@@ -1015,6 +1117,20 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
   } = target;
   const onlyBrand = brandRequired(ingredients, strengths, brand, releaseToken);
   if (onlyBrand === 'refuse') return { status: 'productUnknown' };
+
+  // No release printed, nor said: which RxNorm makes at this strength. Two,
+  // and which this is decides its uses, so the user is asked; one, and it is
+  // the bottle's. Never guessed: labels released at once used to be tried
+  // first, and clonidine ER, for ADHD alone, was shown blood pressure.
+  let wanted = release;
+  if (release === null && form !== null) {
+    const drugs = await clinicalDrugsOf(rxcui);
+    if (!drugs.ok) return { status: 'unavailable' };
+    const releases = releasesMade(drugs.value, { ingredients: ingredients.length, form, salts, strengths });
+    if (releases.length > 1) return { status: 'releaseUnknown', releases };
+    if (releases.length === 1) wanted = releases[0];
+  }
+
   return ofKind(labelKind, async (type) => {
     const listed = await labelsAt(
       `rxcui=${encodeURIComponent(rxcui)}&doctype=${DOCUMENT_TYPES[type]}&pagesize=100`
@@ -1024,11 +1140,10 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
       likely(listed.value, ingredients, {
         form,
         salts,
-        release,
+        release: wanted,
         releaseToken,
         brand,
         onlyBrand,
-        preferAtOnce: true,
         byPrintedBrand: true,
       }),
       strengths
@@ -1038,7 +1153,7 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
       names: ingredients,
       salts,
       strengths,
-      release,
+      release: wanted,
       releaseToken,
       byMouth: true,
     };

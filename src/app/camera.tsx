@@ -30,7 +30,7 @@ import {
 } from '@/features/capture/transient-capture';
 import { doseFormOfReading, type DoseForm } from '@/features/drugs/approved-uses';
 import { ApprovedUsesCard, type UsesSource } from '@/features/drugs/approved-uses-card';
-import type { NameMatch } from '@/features/drugs/identify-name';
+import type { NameMatch, ReleaseMarker } from '@/features/drugs/identify-name';
 import { interpretBarcode } from '@/features/drugs/ndc';
 import {
   fetchIngredients,
@@ -453,7 +453,8 @@ export default function CameraScreen() {
       match: NameMatch | null,
       nameSource: 'read' | 'typed',
       labelKind: LabelKind | null,
-      form: DoseForm | null
+      form: DoseForm | null,
+      releaseMarker: ReleaseMarker | null
     ) => {
       const toSave = medicationFromReading(fields, truncation, nameSource === 'typed');
       if (!toSave) return;
@@ -473,6 +474,8 @@ export default function CameraScreen() {
           // labels applies. Kept, since the lines that said are not.
           ...(labelKind ? { labelKind } : {}),
           ...(match ? { nameMatch: { ...match, form } } : {}),
+          // The marker the user said the bottle shows: theirs, as a typed name is.
+          ...(releaseMarker ? { releaseMarker: { marker: releaseMarker, source: 'typed' as const } } : {}),
         });
         setPhase({ kind: 'saved' });
       } catch (error) {
@@ -931,7 +934,8 @@ function ReadingResult({
     match: NameMatch | null,
     nameSource: 'read' | 'typed',
     labelKind: LabelKind | null,
-    form: DoseForm | null
+    form: DoseForm | null,
+    releaseMarker: ReleaseMarker | null
   ) => void;
   onRetake: () => void;
   /** Absent where the sweep is not available: iOS, until its Swift is built. */
@@ -967,7 +971,7 @@ function ReadingResult({
   };
   const lookupName = typedName ?? readableName(fields, truncation);
   const fieldKinds = ['dosage', 'instructions'] as const;
-  const usesSource: UsesSource = {
+  const baseSource: UsesSource = {
     kind: 'name',
     name: lookupName,
     form: doseFormOfReading(
@@ -978,6 +982,15 @@ function ReadingResult({
     strength: isWhole('dosage') ? (fields.dosage?.text ?? null) : null,
     ...(typedName ? { typed: true } : {}),
   };
+  /**
+   * The marker the user said the bottle shows, asked where the release decides
+   * and none was read: held with the reading it was said of (what is looked up
+   * without it), so it never carries to another; and saved with the medicine.
+   */
+  const readingKey = JSON.stringify(baseSource);
+  const [releaseAnswer, setReleaseAnswer] = useState<{ key: string; marker: ReleaseMarker } | null>(null);
+  const releaseMarker = releaseAnswer?.key === readingKey ? releaseAnswer.marker : null;
+  const usesSource: UsesSource = releaseMarker ? { ...baseSource, release: releaseMarker } : baseSource;
   // What the name was identified as, if it was: saved with the medicine. Held
   // with the reading it was made for, so a reading that changes in place is
   // never saved with the last one's match.
@@ -1113,7 +1126,11 @@ function ReadingResult({
         <BigButton label={Strings.fillIn.start} onPress={() => setFilling(true)} tone="secondary" />
       ) : null}
 
-      <ApprovedUsesCard source={usesSource} onIdentified={(found) => setIdentified({ key: usesKey, match: found })} />
+      <ApprovedUsesCard
+        source={usesSource}
+        onIdentified={(found) => setIdentified({ key: usesKey, match: found })}
+        onReleaseAnswered={(marker) => setReleaseAnswer(marker ? { key: readingKey, marker } : null)}
+      />
     </>
   );
 
@@ -1144,7 +1161,9 @@ function ReadingResult({
       ) : null}
       <BigButton
         label={Strings.medications.saveFromLabel}
-        onPress={() => onSave(named, namedTruncation, match, typedName ? 'typed' : 'read', labelKind, usesSource.form)}
+        onPress={() =>
+          onSave(named, namedTruncation, match, typedName ? 'typed' : 'read', labelKind, usesSource.form, releaseMarker)
+        }
         tone={degraded ? 'secondary' : 'primary'}
       />
     </View>

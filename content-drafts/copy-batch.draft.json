@@ -1,7 +1,28 @@
 {
   "status": "DRAFT, UNREVIEWED. Korean drafted by the implementation (Claude) for the copy batch, so the reviewer reads and corrects rather than writes. Not imported by the app, and nothing here reaches it until the reviewer has signed off each string; see README.md.",
-  "drafted": "2026-09-25; follow-up drafted 2026-09-28",
+  "drafted": "2026-09-25; follow-up drafted 2026-09-28; release question drafted 2026-10-05",
   "strings": {
+    "uses.releaseQuestion": {
+      "ko": "약병의 약 이름 옆에 이 중 하나가 적혀 있나요?",
+      "note": "A question to answer by tapping, so short; 약병 as in her uses.kindUnknown."
+    },
+    "uses.releaseWhy": {
+      "ko": "이 약은 약효가 나타나는 시간이 다른 여러 가지로 나오고, 효능도 서로 달라요. 이 글자로 어느 것인지 알 수 있어요.",
+      "note": "효능도 서로 달라요 as her uses.kindUnknown ends."
+    },
+    "uses.releaseNone": {
+      "ko": "아무것도 없어요"
+    },
+    "uses.releaseAnswered": {
+      "ko": "약병에 적혀 있다고 하신 글자: {marker}",
+      "note": "The shape of her uses.identifiedTypedAs (입력하신 이름으로 찾은 약: {name})."
+    },
+    "uses.releaseAnsweredNone": {
+      "ko": "약병에 이 글자들이 없다고 하셨어요."
+    },
+    "uses.releaseChange": {
+      "ko": "답 바꾸기"
+    },
     "uses.productUnknown": {
       "ko": "이 약은 효능이 서로 다른 여러 제품으로 나오고, 상표명으로만 구별할 수 있어요. 약병에서 상표명을 읽지 못했어요.",
       "note": "The shape of her uses.kindUnknown (이 약은 ... 따로 있고, 효능이 서로 달라요)."

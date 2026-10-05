@@ -50,7 +50,7 @@ const label = (category = 'NDA') => `<document>
  * RxNav and DailyMed, answering the lookups for the vitamin D2 vial. Returns
  * every URL asked for, in order.
  */
-function nlm({ online = true, category = 'NDA', overTheCounterToo = false } = {}): string[] {
+function nlm({ online = true, category = 'NDA', overTheCounterToo = false, twoReleases = false } = {}): string[] {
   const asked: string[] = [];
   const reply = (body: unknown) =>
     ({
@@ -72,6 +72,13 @@ function nlm({ online = true, category = 'NDA', overTheCounterToo = false } = {}
     }
     if (url.includes('approximateTerm.json?term=vitamin d2')) {
       return reply({ approximateGroup: { candidate: [{ rxcui: '4018', name: 'vitamin D2', rank: '1', source: 'RXNORM' }] } });
+    }
+    if (url.includes('/rxcui/4018/related.json?tty=SCD')) {
+      // What RxNorm makes of it: one capsule, released at once; or, where a
+      // test needs the release to decide, an extended-release one as well.
+      const made = [{ rxcui: '316965', name: 'ergocalciferol 1.25 MG Oral Capsule' }];
+      if (twoReleases) made.push({ rxcui: '9', name: 'ergocalciferol 1.25 MG Extended Release Oral Capsule' });
+      return reply({ relatedGroup: { conceptGroup: [{ tty: 'SCD', conceptProperties: made }] } });
     }
     if (url.includes('/rxcui/4018/related.json')) {
       return reply({ relatedGroup: { conceptGroup: [{ tty: 'IN', conceptProperties: [{ rxcui: '4018', name: 'ergocalciferol' }] }] } });
@@ -161,10 +168,12 @@ describe('what a medicine is approved to treat', () => {
     // Strength and directions as before: the strength shown, the damaged directions withheld.
     expect(screen.getByText('1.25 MG (50,000 UNIT)')).toBeTruthy();
     expect(screen.getByText(Strings.result.damaged.instructions.title.ko)).toBeTruthy();
-    // Only the words that name the medicine went to RxNav; the capsule label was chosen.
+    // Only the words that name the medicine went to RxNav, and then which
+    // releases it is made in; the capsule label was chosen.
     expect(asked.filter((url) => url.includes('rxnav'))).toEqual([
       expect.stringContaining('approximateTerm.json?term=vitamin d2&'),
-      expect.stringContaining('/rxcui/4018/related.json'),
+      expect.stringContaining('/rxcui/4018/related.json?tty=IN'),
+      expect.stringContaining('/rxcui/4018/related.json?tty=SCD'),
     ]);
 
     press(Strings.medications.saveFromLabel.ko);
@@ -178,7 +187,7 @@ describe('what a medicine is approved to treat', () => {
     expect(profile.status === 'ok' && profile.value.medications[0].nameSource).toBe('read');
   });
 
-  it("a saved medicine's page: the same label, by the match it was saved with, without asking RxNav again", async () => {
+  it("a saved medicine's page: the same label, by the match it was saved with, without identifying it again", async () => {
     const asked = nlm();
     const saved = await addMedication({
       name: 'VITAMIN D2',
@@ -192,7 +201,73 @@ describe('what a medicine is approved to treat', () => {
 
     await screen.findByText(INDICATION);
     expectTheFrame();
-    expect(asked.some((url) => url.includes('rxnav'))).toBe(false);
+    // RxNav asked only which releases it is made in, not what the name is.
+    expect(asked.filter((url) => url.includes('rxnav'))).toEqual([expect.stringContaining('/rxcui/4018/related.json?tty=SCD')]);
+  });
+
+  it('where the release decides and the bottle shows none: the user is asked, a tap, and the answer saved as theirs', async () => {
+    const asked = nlm({ twoReleases: true });
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+
+    // A quick check in place of the label: the letters, a tap each.
+    await screen.findByText(Strings.uses.releaseQuestion.ko);
+    expect(screen.queryByText(INDICATION)).toBeNull();
+    for (const marker of ['E R', 'X L', 'S R', 'C D', 'X R', 'C R', 'L A']) {
+      expect(screen.getByRole('button', { name: marker })).toBeTruthy();
+    }
+    // Only the extended-release product is made besides: no delayed-release letters.
+    expect(screen.queryByRole('button', { name: 'E C' })).toBeNull();
+    // Nothing asked of DailyMed before the answer.
+    expect(asked.some((url) => url.includes('dailymed'))).toBe(false);
+
+    press(Strings.uses.releaseNone.ko);
+    await screen.findByText(INDICATION);
+    expectTheFrame();
+    // Said as the user's answer, with the way to change it.
+    expect(screen.getByText(Strings.uses.releaseAnsweredNone.ko)).toBeTruthy();
+    expect(screen.getByRole('button', { name: Strings.uses.releaseChange.ko })).toBeTruthy();
+
+    press(Strings.medications.saveFromLabel.ko);
+    await screen.findByText(Strings.scan.saved.ko);
+    const profile = await loadProfile();
+    expect(profile.status === 'ok' && profile.value.medications[0].releaseMarker).toEqual({ marker: 'none', source: 'typed' });
+  });
+
+  it("a saved answer is not asked again on the medicine's page; changed there, it is kept as the new one", async () => {
+    nlm({ twoReleases: true });
+    const saved = await addMedication({
+      name: 'VITAMIN D2',
+      dosage: '1.25 MG (50,000 UNIT)',
+      source: 'label-scan',
+      needsReview: true,
+      nameMatch: { ...MATCH, form: 'CAPSULE' },
+      releaseMarker: { marker: 'none', source: 'typed' },
+    });
+    launchApp(`/medication/${saved.id}`);
+    await screen.findByText(INDICATION);
+    expect(screen.queryByText(Strings.uses.releaseQuestion.ko)).toBeNull();
+    expect(screen.getByText(Strings.uses.releaseAnsweredNone.ko)).toBeTruthy();
+
+    // A wrong tap, changed: asked again, and the new answer kept.
+    press(Strings.uses.releaseChange.ko);
+    await screen.findByText(Strings.uses.releaseQuestion.ko);
+    press('E R');
+    // Its only label is released at once: none for an extended-release bottle.
+    await screen.findByText(Strings.uses.none.ko);
+    expect(screen.getByText(fillTemplate(Strings.uses.releaseAnswered, { marker: 'ER' }).ko)).toBeTruthy();
+    const profile = await loadProfile();
+    expect(profile.status === 'ok' && profile.value.medications[0].releaseMarker).toEqual({ marker: 'er', source: 'typed' });
+
+    // A new name was not the bottle the answer was given of: forgotten.
+    press(Strings.medications.edit.ko);
+    fireEvent.changeText(screen.getByDisplayValue('VITAMIN D2'), 'VITAMIN D3');
+    press(Strings.medications.save.ko);
+    await waitFor(async () => {
+      const edited = await loadProfile();
+      expect(edited.status === 'ok' && edited.value.medications[0].name).toBe('VITAMIN D3');
+    });
+    const edited = await loadProfile();
+    expect(edited.status === 'ok' && edited.value.medications[0].releaseMarker).toBeUndefined();
   });
 
   it("a barcode: the exact product's own label, by its NDC, and no ingredient lookup at the save", async () => {

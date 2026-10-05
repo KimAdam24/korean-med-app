@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card } from '@/components/card';
 import { Notice } from '@/components/notice';
-import { Spacing, TypeMaxScale } from '@/constants/theme';
+import { Radius, Spacing, Type, TypeMaxScale } from '@/constants/theme';
 import type { AttributedGuidance } from '@/features/guidance/attribution';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, fillTemplate } from '@/i18n/strings';
@@ -14,13 +14,18 @@ import type { LabelKind } from '@/features/ocr/label-kind';
 
 import { findApprovedUses, type ApprovedUses, type DoseForm, type UsesTarget } from './approved-uses';
 import {
+  DELAYED_MARKERS,
+  EXTENDED_MARKERS,
   identifyByName,
   printedBrandWords,
   printedRelease,
   printedReleaseToken,
   printedSalts,
   printedStrengths,
+  releaseOfMarker,
   type NameMatch,
+  type Release,
+  type ReleaseMarker,
 } from './identify-name';
 import { recallLookup, rememberLookup } from './lookup-memory';
 
@@ -37,7 +42,10 @@ export type UsesSource =
    * carries one. `labelKind` is what kind of label was read, where it is
    * known: a pharmacy's, or an over-the-counter package's. `strength` is the
    * strength line, where it was read whole: a label must give the strength
-   * it prints.
+   * it prints. `release` is what the user said the bottle shows beside the
+   * name, asked where the release decides which product it is and none was
+   * read (`releaseUnknown`): their reading, as a typed name is, and taken as
+   * a printed marker would be.
    */
   | {
       readonly kind: 'name';
@@ -47,6 +55,7 @@ export type UsesSource =
       readonly known?: NameMatch;
       readonly labelKind?: LabelKind | null;
       readonly strength?: string | null;
+      readonly release?: ReleaseMarker | null;
     };
 
 type State =
@@ -56,6 +65,7 @@ type State =
   | { readonly kind: 'formUnknown' }
   | { readonly kind: 'kindUnknown' }
   | { readonly kind: 'productUnknown' }
+  | { readonly kind: 'releaseUnknown'; readonly releases: readonly ('immediate' | Release)[] }
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'found'; readonly uses: AttributedGuidance<ApprovedUses>; readonly match?: NameMatch };
 
@@ -70,14 +80,27 @@ type State =
  * "only for tablets and capsules", "prescription or over the counter cannot
  * be told" and "could not be reached" are different, and only the last offers
  * to try again; an empty space would read as nothing to know.
+ *
+ * One state asks instead: where the release decides which product it is and
+ * the bottle showed none (metformin is made released at once and over time),
+ * which of the markers it shows beside the name, a tap each, or none. It is
+ * a quick check, not a failure: the user is holding the bottle. The answer is
+ * the screen's to keep, with the medicine, as the user's word.
  */
 export function ApprovedUsesCard({
   source,
   onIdentified,
+  onReleaseAnswered,
 }: {
   source: UsesSource;
   /** Told what a name was identified as (or that it was not), for saving with the medicine. */
   onIdentified?: (match: NameMatch | null) => void;
+  /**
+   * Told the marker the user says the bottle shows, or null to be asked
+   * again: kept by the screen, with the medicine, and given back as
+   * `source.release`. Without it the question is not asked.
+   */
+  onReleaseAnswered?: (marker: ReleaseMarker | null) => void;
 }) {
   const theme = useTheme();
   const [attempt, setAttempt] = useState(0);
@@ -143,6 +166,8 @@ export function ApprovedUsesCard({
           match = identified.match;
         }
         told.current?.(match);
+        // What the user said the bottle shows, where it printed no release.
+        const said = current.release ? releaseOfMarker(current.release) : null;
         target = {
           kind: 'ingredients',
           rxcui: match.rxcui,
@@ -151,8 +176,8 @@ export function ApprovedUsesCard({
           // What the bottle printed, and the kind of label read: which of the
           // ingredient's labels is this medicine's.
           salts: printedSalts(current.name!, match.ingredients),
-          release: printedRelease(current.name!),
-          releaseToken: printedReleaseToken(current.name!),
+          release: printedRelease(current.name!) ?? said?.release ?? null,
+          releaseToken: printedReleaseToken(current.name!) ?? said?.token ?? null,
           brand: printedBrandWords(current.name!, match.ingredients),
           strengths: printedStrengths(current.strength),
           labelKind: current.labelKind ?? null,
@@ -161,13 +186,36 @@ export function ApprovedUsesCard({
 
       const found = await findApprovedUses(target);
       if (!live) return;
-      keep(found.status === 'found' ? { kind: 'found', uses: found.uses, match } : { kind: found.status }, match ?? null);
+      keep(
+        found.status === 'found'
+          ? { kind: 'found', uses: found.uses, match }
+          : found.status === 'releaseUnknown'
+            ? { kind: 'releaseUnknown', releases: found.releases }
+            : { kind: found.status },
+        match ?? null
+      );
     })();
 
     return () => {
       live = false;
     };
   }, [key, request]);
+
+  // The user's answer, said as theirs, with the way to change it.
+  const answered =
+    source.kind === 'name' && source.release && onReleaseAnswered ? (
+      <View style={styles.source}>
+        <BilingualText
+          text={
+            source.release === 'none'
+              ? Strings.uses.releaseAnsweredNone
+              : fillTemplate(Strings.uses.releaseAnswered, { marker: source.release.toUpperCase() })
+          }
+          variant="label"
+        />
+        <BigButton label={Strings.uses.releaseChange} tone="secondary" onPress={() => onReleaseAnswered(null)} />
+      </View>
+    ) : null;
 
   return (
     <Card>
@@ -199,6 +247,7 @@ export function ApprovedUsesCard({
               <BilingualText text={Strings.guidance.perRxNorm} variant="label" color={theme.textSecondary} />
             </View>
           ) : null}
+          {answered}
           <Text
             style={[styles.text, { color: theme.text }]}
             maxFontSizeMultiplier={TypeMaxScale.body}
@@ -217,6 +266,40 @@ export function ApprovedUsesCard({
             />
           </View>
         </>
+      ) : state.kind === 'releaseUnknown' ? (
+        // A quick check, not a failure: the letters beside the name, a tap
+        // each. Only those of the releases made at the strength.
+        <View style={styles.question} accessibilityLiveRegion="polite">
+          <BilingualText text={Strings.uses.releaseQuestion} />
+          <BilingualText text={Strings.uses.releaseWhy} variant="label" color={theme.textSecondary} />
+          {onReleaseAnswered ? (
+            <>
+              <View style={styles.markers}>
+                {[
+                  ...(state.releases.includes('extended') ? EXTENDED_MARKERS : []),
+                  ...(state.releases.includes('delayed') ? DELAYED_MARKERS : []),
+                ].map((marker) => (
+                  <Pressable
+                    key={marker}
+                    onPress={() => onReleaseAnswered(marker)}
+                    accessibilityRole="button"
+                    // Letter by letter: "E R", not a word.
+                    accessibilityLabel={marker.toUpperCase().split('').join(' ')}
+                    style={({ pressed }) => [
+                      styles.marker,
+                      { borderColor: theme.outline, backgroundColor: pressed ? theme.backgroundSelected : theme.surface },
+                      pressed && styles.pressed,
+                    ]}>
+                    <Text style={[styles.markerText, { color: theme.text }]} maxFontSizeMultiplier={TypeMaxScale.button}>
+                      {marker.toUpperCase()}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <BigButton label={Strings.uses.releaseNone} tone="secondary" onPress={() => onReleaseAnswered('none')} />
+            </>
+          ) : null}
+        </View>
       ) : (
         <>
           <BilingualText
@@ -244,6 +327,7 @@ export function ApprovedUsesCard({
           {state.kind === 'unavailable' ? (
             <BigButton label={Strings.uses.retry} tone="secondary" onPress={() => setAttempt((n) => n + 1)} />
           ) : null}
+          {answered}
         </>
       )}
     </Card>
@@ -265,5 +349,30 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 20,
     lineHeight: 30,
+  },
+  question: {
+    gap: Spacing.three,
+  },
+  markers: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.three,
+  },
+  marker: {
+    // Past the 48dp minimum, for unsteady hands: two letters, large.
+    minWidth: 80,
+    minHeight: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderWidth: 2,
+    borderRadius: Radius.button,
+    borderCurve: 'continuous',
+  },
+  markerText: {
+    ...Type.button,
+  },
+  pressed: {
+    transform: [{ scale: 0.98 }],
   },
 });
