@@ -134,11 +134,36 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
   TOPROL XL all get the succinate label, the tartrate its own; esomeprazole,
   ibuprofen, famotidine, omeprazole, loperamide and naproxen get their
   prescription labels from a pharmacy's label, and nothing without one.
-  Still not told apart: two products of one salt and release with different
-  uses, as bupropion SR and XL (both "extended release"), and an
-  over-the-counter strength dispensed by a pharmacy (ibuprofen 200 mg), which
-  is shown the prescription label. Records saved before this have no
-  `labelKind`, so a medicine sold both ways shows nothing on their page.
+  Records saved before this have no `labelKind`, so a medicine sold both
+  ways shows nothing on their page.
+- **Exactly this medicine** (2026-10-05, after a review that found each of
+  these live). A label's active ingredient must be the medicine's name
+  exactly, or with only a carrying salt, its water or, for a medicine not
+  itself a salt, a metal: a calcium supplement was shown calcium acetate's
+  label (kidney failure). The strength printed must be among the label's
+  products' strengths, where it gives one in the same measure: finasteride
+  5 mg was shown the 1 mg hair-loss label, sildenafil 20 mg (and REVATIO)
+  the erectile-dysfunction one. Most of a list is repackagers' labels of one
+  strength each, so candidates are first screened by DailyMed's packaging
+  summary (about a kilobyte each, six at a time, up to 24), and only labels
+  of the strength are downloaded. A brand printed puts its own label first.
+  By name, a label must be of a medicine taken by mouth (its route): not a
+  tablet put in the vagina. Another product's release marker ("(SR)" for an
+  XL bottle), in the title or the label's own words, is refused. And the
+  form is taken from text read whole, or from cut text only where it says
+  the medicine is swallowed ("by mouth") or that it is not: "INSERT 1 TABLET
+  VAGIN", cut before "VAGINALLY", passed for a tablet to swallow.
+  Checked live on 40 medicines: all found but the calcium supplement, which
+  is refused, each in about a second.
+  Still not told apart: products of one ingredient, strength and form
+  approved for different things, as tadalafil 20 mg (Cialis's erectile
+  dysfunction, Adcirca's pulmonary hypertension) unless the brand is
+  printed; and an over-the-counter strength dispensed by a pharmacy where a
+  prescription label gives the same strength.
+- **Looked up once a session.** What a lookup found is kept while the app is
+  unlocked, so opening fill-in or a medicine's page again does not ask again
+  or send the name again; forgotten on lock and on erase, and never kept
+  when it could not be reached.
 - **By name, only for a tablet or a capsule** (2026-10-02). A medicine's forms
   have different labels with different uses: timolol's tablets are for blood
   pressure, its eye drops for glaucoma; budesonide's capsules for Crohn's
