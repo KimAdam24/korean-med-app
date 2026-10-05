@@ -715,3 +715,67 @@ test("repackagers' labels of other strengths, listed first, are passed over by t
   // Only the label of the strength printed was downloaded.
   assert.deepEqual(asked.filter((url) => url.endsWith('.xml')), ['/spls/f.xml']);
 });
+
+// --- Told apart only by the brand -------------------------------------------
+
+const ED = 'CIALIS is indicated for the treatment of erectile dysfunction and benign prostatic hyperplasia.';
+const PAH = 'Tadalafil tablets are indicated for the treatment of pulmonary arterial hypertension.';
+const ADCIRCA = 'ADCIRCA is indicated for the treatment of pulmonary arterial hypertension.';
+
+/** Tadalafil's labels: a generic for pulmonary hypertension listed first, then the brands. */
+function tadalafil(): string[] {
+  const label = (uses: string, strengths: [string, string][]) =>
+    product({ substance: 'TADALAFIL', moiety: 'TADALAFIL', strengths, route: 'ORAL', uses });
+  return nlm((url) => {
+    if (url.includes('spls.json?rxcui=358263')) {
+      return url.includes(RX)
+        ? listing(
+            ['generic', 'TADALAFIL TABLET, FILM COATED [X]'],
+            ['adcirca', 'ADCIRCA (TADALAFIL) TABLET [LILLY]'],
+            ['cialis', 'CIALIS (TADALAFIL) TABLET, FILM COATED [LILLY]']
+          )
+        : listing();
+    }
+    if (url.endsWith('/spls/generic.xml')) return { text: label(PAH, [['20', 'mg']]) };
+    if (url.endsWith('/spls/adcirca.xml')) return { text: label(ADCIRCA, [['20', 'mg']]) };
+    if (url.endsWith('/spls/cialis.xml')) return { text: label(ED, [['2.5', 'mg'], ['5', 'mg'], ['10', 'mg'], ['20', 'mg']]) };
+    return { status: 404 };
+  });
+}
+const tadalafilTarget = (strengths: { value: number; unit: 'mg' }[], brand: string[]) =>
+  target('358263', 'tadalafil', { strengths, brand });
+
+test('tadalafil 20 mg with no brand printed is refused, and nothing is asked: its generics are for two different things', async () => {
+  const asked = tadalafil();
+  assert.deepEqual(await findApprovedUses(tadalafilTarget([{ value: 20, unit: 'mg' }], [])), { status: 'productUnknown' });
+  // Nor with no strength read: 20 mg is among the strengths it could be.
+  assert.deepEqual(await findApprovedUses(tadalafilTarget([], [])), { status: 'productUnknown' });
+  assert.deepEqual(asked, []);
+});
+
+test("tadalafil with its brand printed is shown that brand's own label, never a generic of the other kind", async () => {
+  tadalafil();
+  const cialis = await findApprovedUses(tadalafilTarget([{ value: 20, unit: 'mg' }], ['cialis']));
+  assert.equal(cialis.status === 'found' && cialis.uses.content.text, ED);
+  const adcirca = await findApprovedUses(tadalafilTarget([{ value: 20, unit: 'mg' }], ['adcirca']));
+  assert.equal(adcirca.status === 'found' && adcirca.uses.content.text, ADCIRCA);
+});
+
+test('tadalafil at a strength only one product has is chosen by its strength, as any other medicine', async () => {
+  tadalafil();
+  const five = await findApprovedUses(tadalafilTarget([{ value: 5, unit: 'mg' }], []));
+  assert.equal(five.status === 'found' && five.uses.content.text, ED);
+});
+
+test("tadalafil with its brand printed, where that brand's label is not listed: none, not a generic of either kind", async () => {
+  nlm((url) => {
+    if (url.includes('spls.json?rxcui=358263')) {
+      return url.includes(RX) ? listing(['generic', 'TADALAFIL TABLET, FILM COATED [X]']) : listing();
+    }
+    if (url.endsWith('/spls/generic.xml')) {
+      return { text: product({ substance: 'TADALAFIL', moiety: 'TADALAFIL', strengths: [['20', 'mg']], route: 'ORAL', uses: PAH }) };
+    }
+    return { status: 404 };
+  });
+  assert.deepEqual(await findApprovedUses(tadalafilTarget([{ value: 20, unit: 'mg' }], ['cialis'])), { status: 'none' });
+});

@@ -2,6 +2,10 @@
   "status": "DRAFT, UNREVIEWED. Korean drafted by the implementation (Claude) for the copy batch, so the reviewer reads and corrects rather than writes. Not imported by the app, and nothing here reaches it until the reviewer has signed off each string; see README.md.",
   "drafted": "2026-09-25; follow-up drafted 2026-09-28",
   "strings": {
+    "uses.productUnknown": {
+      "ko": "이 약은 효능이 서로 다른 여러 제품으로 나오고, 상표명으로만 구별할 수 있어요. 약병에서 상표명을 읽지 못했어요.",
+      "note": "The shape of her uses.kindUnknown (이 약은 ... 따로 있고, 효능이 서로 달라요)."
+    },
     "settings.storageNotice": {
       "ko": "약 정보는 이 휴대폰 안에만 저장돼요. 약을 찾아볼 때는 약 이름이나 바코드 번호만 미국 국립의학도서관에 보내고, 약 목록은 보내지 않아요. 휴대폰을 바꾸면 다시 등록해야 해요.",
       "note": "Her first and last sentences unchanged; the middle in the words of her introduction line (미국 국립의학도서관에 보내요 ... 약 목록이나 사진은 보내지 않아요)."

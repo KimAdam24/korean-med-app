@@ -56,9 +56,17 @@ Also found, not changed (decisions):
   that cannot be opened (the README's "profile does not survive a change of
   device"). Setting `"allowBackup": false` under `android` in `app.json` keeps
   the data on the phone entirely.
-- **The app's name on the phone is `korean-med-assistant`**, in every
-  language: `app.json`'s `name`. `"name": "약 도우미"` (the reviewed name) and
-  a prebuild would fix it.
+- **The app's name on the phone is 약 도우미** (since 2026-10-05), in every
+  language: `app.json`'s `name`, which the reminder notification names ("약
+  도우미를 열어서..."). The release check confirms the APK's label. The slug,
+  for URLs, stays `korean-med-assistant`.
+- **Prebuild can replace `android/` wholesale.** Even without `--clean`, it
+  clears and regenerates the folder when it judges it malformed (a missing
+  build file, manifest or MainApplication), without asking when run
+  non-interactively. On 2026-10-05 it did, taking the git-ignored research in
+  `android/release-check/indications/` with it (its scripts and source PDFs
+  were restored from the session record). Nothing meant to last belongs in
+  `android/`.
 
 ## Checking it on the emulator
 

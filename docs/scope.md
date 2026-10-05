@@ -155,11 +155,14 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
   VAGIN", cut before "VAGINALLY", passed for a tablet to swallow.
   Checked live on 40 medicines: all found but the calcium supplement, which
   is refused, each in about a second.
-  Still not told apart: products of one ingredient, strength and form
-  approved for different things, as tadalafil 20 mg (Cialis's erectile
-  dysfunction, Adcirca's pulmonary hypertension) unless the brand is
-  printed; and an over-the-counter strength dispensed by a pharmacy where a
-  prescription label gives the same strength.
+  Products of one ingredient, strength and form approved for different
+  things, that only the brand tells apart, are refused unless the brand is
+  printed, and then shown only that brand's label (`uses.productUnknown`):
+  tadalafil 20 mg, CIALIS (erectile dysfunction, enlarged prostate) or
+  ADCIRCA and ALYQ (pulmonary hypertension), whose generics share one title
+  (2026-10-05). Looked for and not found: bupropion SR for smoking cessation.
+  Still not told apart: an over-the-counter strength dispensed by a pharmacy
+  where a prescription label gives the same strength.
 - **Looked up once a session.** What a lookup found is kept while the app is
   unlocked, so opening fill-in or a medicine's page again does not ask again
   or send the name again; forgotten on lock and on erase, and never kept

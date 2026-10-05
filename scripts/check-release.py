@@ -103,6 +103,13 @@ def main():
         for text in SHIPPED:
             check(count(text) > 0, f'shipped copy present, so the search works: {text!r}')
 
+    # The name under its icon, which the reminder tells her to open
+    # (strings.ts `reminders.notificationBody`: 약 도우미를 열어서...).
+    arsc = apk.read('resources.arsc')
+    label = '약 도우미'
+    check(arsc.count(label.encode('utf-8')) + arsc.count(label.encode('utf-16-le')) > 0,
+          f'app label is {label!r}, the name the reminder tells her to open')
+
     dex = b''.join(apk.read(name) for name in apk.namelist() if re.match(r'classes\d*\.dex$', name))
     mapping = open(args.mapping, encoding='utf-8').read() if args.mapping else None
     for name in NATIVE:

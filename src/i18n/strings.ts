@@ -510,6 +510,10 @@ export const Strings = {
     none: { ko: '이 약의 FDA 허가사항을 찾지 못해서, 허가받은 효능을 보여 드리지 못해요.', en: 'No FDA-approved label was found for this medicine, so what it is approved to treat is not shown.' },
     formUnknown: { ko: '허가받은 효능은 알약이나 캡슐일 때만 보여 드려요. 약병에서 읽은 내용에는 알약이나 캡슐이라는 말이 없어요. 안약, 흡입기 등 다른 형태의 약은 허가사항이 따로 있고, 효능도 달라요.', en: 'What it is approved to treat is shown only for tablets and capsules, and this label does not say that it is one. Eye drops, inhalers and other forms have labels of their own, with other uses.' },
     kindUnknown: { ko: '이 약은 처방약 허가사항과 일반의약품 허가사항이 따로 있고, 효능이 서로 달라요. 약병에서 읽은 내용으로는 어느 쪽인지 알 수 없어요.', en: 'This medicine has a prescription label and an over-the-counter label, which list different uses, and what was read of the bottle does not show which it is.' },
+    productUnknown: untranslated(
+      'This medicine is sold as different products approved for different things, which only the brand name tells apart, and no brand name was read on the bottle.',
+      "In place of the label's text, when a medicine's products of one strength are approved for different things and only the brand tells them apart: tadalafil 20 mg is CIALIS (erectile dysfunction, enlarged prostate) or ADCIRCA and ALYQ (pulmonary hypertension)."
+    ),
     unavailable: { ko: '지금은 FDA 허가사항을 불러오지 못했어요. 인터넷 연결을 확인해 주시거나, 잠시 뒤에 다시 시도해 주세요.', en: 'Its FDA label could not be reached just now. Check the connection, or try again in a while.' },
     retry: { ko: 'FDA 허가사항 다시 찾기', en: 'Look up the FDA label again' },
     nameNotWhole: { ko: '약 이름을 다 읽지 못해서 아직 찾아볼 수 없어요. 약병에 적힌 대로 약 이름을 입력해 주시거나, 사진을 다시 찍어 주세요.', en: 'The medicine\'s name was not read whole, so it cannot be looked up yet. Type it as the bottle shows it, or take another photo.' },

@@ -55,6 +55,7 @@ type State =
   | { readonly kind: 'none' }
   | { readonly kind: 'formUnknown' }
   | { readonly kind: 'kindUnknown' }
+  | { readonly kind: 'productUnknown' }
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'found'; readonly uses: AttributedGuidance<ApprovedUses>; readonly match?: NameMatch };
 
@@ -234,7 +235,9 @@ export function ApprovedUsesCard({
                     ? Strings.uses.formUnknown
                     : state.kind === 'kindUnknown'
                       ? Strings.uses.kindUnknown
-                      : Strings.uses.unavailable
+                      : state.kind === 'productUnknown'
+                        ? Strings.uses.productUnknown
+                        : Strings.uses.unavailable
             }
             color={theme.textSecondary}
           />

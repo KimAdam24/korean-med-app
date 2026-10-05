@@ -156,6 +156,12 @@ export type ApprovedUsesLookup =
    * is was not read: they list different uses, so neither is shown.
    */
   | { readonly status: 'kindUnknown' }
+  /**
+   * Sold, at this strength and form, as products approved for different
+   * things that only their brand tells apart (`BY_BRAND`), and no brand was
+   * printed: none is shown. Nothing is asked of DailyMed.
+   */
+  | { readonly status: 'productUnknown' }
   /** DailyMed or RxNav could not be reached, or answered with an error: trying again may work. */
   | { readonly status: 'unavailable' };
 
@@ -484,6 +490,49 @@ type Proof =
       readonly byMouth: boolean;
     };
 
+/**
+ * Medicines sold, at one strength and form, as products approved for
+ * different things, which nothing on a generic's label tells apart but the
+ * brand. Refused unless the brand is printed, and then shown only that
+ * brand's own label: every other ambiguity (salt, strength, route, release,
+ * prescription or over the counter) refuses rather than guesses, and so does
+ * this.
+ *
+ * Tadalafil 20 mg tablets: CIALIS is for erectile dysfunction and benign
+ * prostatic hyperplasia, ADCIRCA and ALYQ for pulmonary arterial
+ * hypertension, and both kinds of generic are titled "TADALAFIL TABLET"
+ * (2026-10-05: 91 such labels of 183). CIALIS's other strengths (2.5, 5, 10
+ * mg) are its own, so the strength chooses there. Looked for and not found:
+ * bupropion SR for smoking cessation (ZYBAN) among 40 of its extended-release
+ * labels.
+ */
+const BY_BRAND: readonly {
+  readonly ingredient: string;
+  readonly strengths: readonly Strength[];
+  readonly brands: readonly string[];
+}[] = [{ ingredient: 'tadalafil', strengths: [{ value: 20, unit: 'mg' }], brands: ['cialis', 'adcirca', 'alyq'] }];
+
+/**
+ * For a medicine told apart only by its brand: the brand whose label alone
+ * may be shown; null where none is needed; 'refuse' where one is and none was
+ * printed. Needed at the strength the products share, or where no strength
+ * was read.
+ */
+function brandRequired(
+  ingredients: readonly string[],
+  strengths: readonly Strength[],
+  brand: readonly string[]
+): string | null | 'refuse' {
+  const entry = BY_BRAND.find((one) => ingredients.length === 1 && nameWords(ingredients[0]).join(' ') === one.ingredient);
+  if (!entry) return null;
+  const masses = strengths.filter((strength) => strength.unit === 'mg');
+  const shared =
+    masses.length === 0 ||
+    masses.some((strength) => entry.strengths.some((one) => one.unit === strength.unit && same(one.value, strength.value)));
+  if (!shared) return null;
+  return entry.brands.find((one) => brand.includes(one)) ?? 'refuse';
+}
+
 /** Routes of a medicine taken by mouth, of which a name's tablet or capsule is one. */
 const BY_MOUTH = new Set(['ORAL', 'SUBLINGUAL', 'BUCCAL']);
 
@@ -529,6 +578,8 @@ function likely(
     release: Release | null;
     releaseToken: string | null;
     brand: readonly string[];
+    /** A brand whose title alone may be shown (`brandRequired`). */
+    onlyBrand?: string | null;
     preferAtOnce: boolean;
   }
 ): LabelDocument[] {
@@ -549,7 +600,9 @@ function likely(
         (!words.has('and') && !(formWord !== null && /\//.test(title.replace(/\b(TABLET|CAPSULE)\b.*$/i, ''))))) &&
       (want.release === null || releaseOf(title) === want.release) &&
       // Another product's marker in the title ("(SR)" for an XL bottle).
-      (want.releaseToken === null || tokens.size === 0 || tokens.has(want.releaseToken));
+      (want.releaseToken === null || tokens.size === 0 || tokens.has(want.releaseToken)) &&
+      // Only the brand's own label, where only the brand tells them apart.
+      (!want.onlyBrand || words.has(want.onlyBrand));
     if (!fits) return [];
     // First the titles that name the salt printed, the brand, the marker;
     // then, where no release was printed, those released at once.
@@ -747,13 +800,15 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
     releaseToken = null,
     brand = [],
   } = target;
+  const onlyBrand = brandRequired(ingredients, strengths, brand);
+  if (onlyBrand === 'refuse') return { status: 'productUnknown' };
   return ofKind(labelKind, async (type) => {
     const listed = await labelsAt(
       `rxcui=${encodeURIComponent(rxcui)}&doctype=${DOCUMENT_TYPES[type]}&pagesize=100`
     );
     if (!listed.ok) return { status: 'unavailable' };
     const labels = await ofStrength(
-      likely(listed.value, ingredients, { form, salts, release, releaseToken, brand, preferAtOnce: true }),
+      likely(listed.value, ingredients, { form, salts, release, releaseToken, brand, onlyBrand, preferAtOnce: true }),
       strengths
     );
     const proof: Proof = { kind: 'ingredients', names: ingredients, salts, strengths, releaseToken, byMouth: true };
