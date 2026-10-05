@@ -283,6 +283,18 @@ same uses in other words, a generic's label in place of a brand's
 (an older oxycodone controlled-release text; potassium chloride's and
 doxycycline's old-format sections): kind 6, left as decided.
 
+Then, from the release build (2026-10-05): the vitamin D2 vial was shown a
+repackager's label (Advanced Rx of Tennessee), not Torrent's, its maker's.
+A repackager's label names the product it repackaged (`asEquivalentEntity`);
+where that product's own label is listed and is the bottle's too, it is now
+shown instead. Replayed against master: no bottle lost or gained a label;
+of the labels shown, repackagers' fell from 424 to 37; 388 bottles are shown
+another label, the same product's maker's (232 in the same words, the rest
+the maker's newer or reformatted text, as fenofibrate's current label for
+severe hypertriglyceridemia), for about one list request and one label
+more where a repackager's is followed to its maker's. This closes part of
+kind 6: a maker's label is current where its repackagers' lag.
+
 33 of the 195 have no approved tablet or capsule label and show nothing by
 name either way (inhalers, insulins, injections, creams, drops, unapproved
 supplements; and lithium and valproate, whose labels name them lithium

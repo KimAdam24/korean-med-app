@@ -67,6 +67,8 @@ gives, for each version:
 - how many medicines' most common bottle shows a label, and how many bottles
   of all;
 - every lookup's outcome (found, none, refused and why), tallied;
+- how many of the labels shown are a repackager's (its products another
+  labeler's, `asEquivalentEntity`);
 - requests per lookup (list pages, packaging summaries, labels downloaded,
   RxNav), at the median, 90th and 99th percentiles and the most;
 

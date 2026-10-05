@@ -35,6 +35,10 @@
  *   bottle is (its clinical drug: strength, form, release) is read first,
  *   since its labels are all of that strength; then, where none of them is
  *   found to be the bottle's, the ingredient's.
+ * - Most of a list is repackagers' labels, which lag their makers' and were
+ *   most of those whose text was not uses. A repackager's label proven the
+ *   bottle's names the product it repackaged; where that product's own label
+ *   is listed and is the bottle's too, it is shown instead (`makers`).
  *
  * ## By name, only for a tablet or a capsule
  *
@@ -162,6 +166,14 @@ export type LabelIndications = {
    * product's, and not the other's.
    */
   readonly mixed: boolean;
+  /**
+   * The codes of the products a repackager's label says its own are
+   * ("71930-055"), another labeler's: the maker's. Empty for a maker's own
+   * label. Most of DailyMed's labels are repackagers' (two in three of the
+   * top 200 medicines'), and repackagers' were most of the labels whose text
+   * was not their uses (docs/label-scan.md).
+   */
+  readonly sources: readonly string[];
 };
 
 export type ApprovedUses = {
@@ -399,11 +411,19 @@ export function readIndications(xml: string): LabelIndications {
     medicines.add([...new Set(substances)].sort().join(' + '));
   }
 
+  // The products a repackager's label says it repackaged, by their codes
+  // ("71930-055"): another labeler's products, not this label's own.
+  const equivalents = [...xml.matchAll(/<asEquivalentEntity\b[\s\S]*?<\/asEquivalentEntity>/g)].map(([block]) => block);
+  const ndcCodes = (markup: string) =>
+    [...markup.matchAll(/<code\b[^>]*>/g)]
+      .map(([tag]) => tag)
+      .filter((tag) => tag.includes(`codeSystem="${NDC_SYSTEM}"`))
+      .map((tag) => /\bcode="([^"]+)"/.exec(tag)?.[1] ?? '')
+      .filter((code) => productKey(code) !== null);
+  const sources = [...new Set(equivalents.flatMap(ndcCodes))];
   const products = new Set<string>();
-  for (const [tag] of xml.matchAll(/<code\b[^>]*>/g)) {
-    if (!tag.includes(`codeSystem="${NDC_SYSTEM}"`)) continue;
-    const key = productKey(/\bcode="([^"]+)"/.exec(tag)?.[1] ?? '');
-    if (key) products.add(key);
+  for (const code of ndcCodes(equivalents.reduce((rest, block) => rest.replace(block, ''), xml))) {
+    products.add(productKey(code)!);
   }
 
   const section = sectionMarkup(xml, INDICATIONS_SECTION);
@@ -431,6 +451,7 @@ export function readIndications(xml: string): LabelIndications {
     strengths,
     routes,
     mixed: medicines.size > 1,
+    sources,
   };
 }
 
@@ -765,6 +786,10 @@ type Proof =
       readonly byMouth: boolean;
       /** Only the labels a marker printed allows, in a brand's place (`brandRequired`). */
       readonly allows?: (title: string, text: string) => boolean;
+      /** By name: a repackager's label is shown as its maker's, where that is the bottle's too (`makers`). */
+      readonly byMaker?: boolean;
+      /** Whether a label's title would be tried for the bottle (`likely`): asked of a maker's label. */
+      readonly titleFits?: (label: LabelDocument) => boolean;
     };
 
 /**
@@ -1217,17 +1242,90 @@ async function firstProven(
 ): Promise<Outcome> {
   let failed = false;
   for (const label of labels.slice(0, LABELS_TRIED)) {
-    const xml = await get(
-      `${DAILYMED_BASE}/spls/${encodeURIComponent(label.setId)}.xml`,
-      (response) => response.text(),
-      LABEL_TIMEOUT_MS
-    );
+    const xml = await download(label);
     if (!xml.ok) {
       failed = true;
       continue;
     }
+    const proven = proves(label, xml.value, proof, type);
+    if (!proven) continue;
+    // A repackager's label: its maker's own instead, where that is listed
+    // and is the bottle's too.
+    return (proof.kind === 'ingredients' && proof.byMaker ? await makers(label, proven.read, proof, type) : null) ?? found(label, proven);
+  }
+  return failed ? { status: 'unavailable' } : { status: 'none' };
+}
 
-    const read = readIndications(xml.value);
+/** A label's XML. */
+const download = (label: LabelDocument) =>
+  get(`${DAILYMED_BASE}/spls/${encodeURIComponent(label.setId)}.xml`, (response) => response.text(), LABEL_TIMEOUT_MS);
+
+/** What a label shows, as found. */
+function found(label: LabelDocument, proven: { read: LabelIndications; text: string }): Outcome {
+  const { read, text } = proven;
+  return {
+    status: 'found',
+    uses: attribute(
+      { text, summary: read.summary !== null, label },
+      {
+        source: 'fda-label',
+        label: Strings.guidance.perFdaLabel,
+        citation: `DailyMed SPL ${label.setId} (${INDICATIONS_SECTION}${read.summary !== null ? ', highlights' : ''})`,
+        revision: label.version === null ? undefined : `v${label.version}`,
+      }
+    ),
+  };
+}
+
+/** How many hops from a repackager's label to its maker's: a repackager may repackage a repackager's. */
+const MAKER_HOPS = 2;
+
+/**
+ * Of a repackager's label, proven the bottle's, its maker's own: the label
+ * DailyMed lists for a product the repackager's says it repackaged, which
+ * lists that product itself, passes everything the repackager's did, and
+ * whose title would be tried for the bottle (`titleFits`). Null where there
+ * is none, or it cannot be had: the repackager's is shown then, as before.
+ * Repackagers' labels lag their makers' and were most of those whose text
+ * was not their uses; the same uses, from the maker, are the better source.
+ */
+async function makers(
+  repackaged: LabelDocument,
+  read: LabelIndications,
+  proof: Extract<Proof, { kind: 'ingredients' }>,
+  type: DocumentType | null,
+  hops = MAKER_HOPS
+): Promise<Outcome | null> {
+  for (const code of read.sources) {
+    const key = productKey(code);
+    const listed = await labelsAt(`ndc=${encodeURIComponent(code)}`);
+    if (!key || !listed.ok) continue;
+    for (const label of listed.value.filter((one) => one.setId !== repackaged.setId).slice(0, 2)) {
+      if (proof.titleFits && !proof.titleFits(label)) continue;
+      const xml = await download(label);
+      if (!xml.ok) continue;
+      const proven = proves(label, xml.value, proof, type);
+      if (!proven || !proven.read.products.includes(key)) continue;
+      const further = proven.read.sources.length > 0 && hops > 1 ? await makers(label, proven.read, proof, type, hops - 1) : null;
+      return further ?? found(label, proven);
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether a label is the bottle's, by everything it says of itself: its
+ * approval, its ingredients, salt, strength, route, release and marker, one
+ * medicine's, its kind, and text that is uses. Its reading and text, or null.
+ */
+function proves(
+  label: LabelDocument,
+  xml: string,
+  proof: Proof,
+  type: DocumentType | null
+): { read: LabelIndications; text: string } | null {
+  {
+    const read = readIndications(xml);
     const approved = read.approvals.length > 0 && read.approvals.every((category) => APPROVED.test(category));
     const text = read.summary ?? read.section;
     const thisMedicine =
@@ -1266,22 +1364,9 @@ async function firstProven(
     // Listed by DailyMed as this kind; and not saying otherwise itself.
     const ofKind = type === null || read.documentType === null || read.documentType === type;
     // Its text its uses: not a bullet, a fragment, a warning or a guide.
-    if (!approved || !thisMedicine || !ofKind || !text || notUses(text)) continue;
-
-    return {
-      status: 'found',
-      uses: attribute(
-        { text, summary: read.summary !== null, label },
-        {
-          source: 'fda-label',
-          label: Strings.guidance.perFdaLabel,
-          citation: `DailyMed SPL ${label.setId} (${INDICATIONS_SECTION}${read.summary !== null ? ', highlights' : ''})`,
-          revision: label.version === null ? undefined : `v${label.version}`,
-        }
-      ),
-    };
+    if (!approved || !thisMedicine || !ofKind || !text || notUses(text)) return null;
+    return { read, text };
   }
-  return failed ? { status: 'unavailable' } : { status: 'none' };
 }
 
 /**
@@ -1394,6 +1479,17 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
     made = productsMade(drugs.value, { ingredients: ingredients.length, form, salts, strengths: printed, release: wanted });
   }
 
+  // What a label's title must be to be tried for the bottle (`likely`).
+  const want = {
+    form,
+    salts,
+    release: wanted,
+    releaseInferred: inferred,
+    releaseToken,
+    brand,
+    onlyBrand,
+    byPrintedBrand: true,
+  };
   return ofKind(labelKind, async (type) => {
     const proof: Proof = {
       kind: 'ingredients',
@@ -1405,6 +1501,8 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
       releaseToken,
       byMouth: true,
       allows,
+      byMaker: true,
+      titleFits: (label) => likely([label], ingredients, want).labels.length > 0,
     };
     /**
      * The labels of a list this medicine's, best first, held to the proof:
@@ -1416,16 +1514,7 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
      * list is not of it already.
      */
     const chosen = async (listed: readonly LabelDocument[], screen: boolean): Promise<Outcome> => {
-      const ranked = likely(listed, ingredients, {
-        form,
-        salts,
-        release: wanted,
-        releaseInferred: inferred,
-        releaseToken,
-        brand,
-        onlyBrand,
-        byPrintedBrand: true,
-      });
+      const ranked = likely(listed, ingredients, want);
       const of = (labels: LabelDocument[]) => (screen ? ofStrength(labels, printed) : Promise.resolve(labels));
       const found = await firstProven(await of(ranked.labels), proof, type);
       if (found.status !== 'none' || ranked.named.length === 0) return found;

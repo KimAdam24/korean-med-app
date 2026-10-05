@@ -19,6 +19,7 @@ import {
   FILES,
   REPO,
   bottlesOf,
+  isRepackaged,
   readJson,
   readLabels,
   stand,
@@ -132,6 +133,8 @@ for (const [name, side] of [[before.name, 'before'], [after.name, 'after']] as c
   const tally = new Map<string, number>();
   for (const row of rows) tally.set(row[side].status, (tally.get(row[side].status) ?? 0) + 1);
   out.push(`  ${[...tally].sort((a, b) => b[1] - a[1]).map(([status, n]) => `${status} ${n}`).join(', ')}`);
+  const repackaged = rows.filter((row) => row[side].label && isRepackaged(data.labels.get(row[side].label!)?.xml ?? '')).length;
+  out.push(`  of the labels shown, ${repackaged} a repackager's (its products another labeler's)`);
   const percentile = (kind: keyof Asked, p: number) => {
     const sorted = rows.map((row) => row[side].asked[kind]).sort((a, b) => a - b);
     return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
@@ -161,5 +164,5 @@ const stem = `replay-${before.name.replace(/\W+/g, '_')}-to-${after.name.replace
 writeFileSync(resolve(DATA, `${stem}.txt`), `${out.join('\n')}\n`);
 writeFileSync(resolve(DATA, `${stem}.json`), JSON.stringify(Object.fromEntries(results)));
 // The summary, and where the rest is.
-console.log(out.slice(0, out.indexOf('') + 1 + 2 * 3).join('\n'));
+console.log(out.slice(0, out.indexOf('') + 1 + 2 * 4).join('\n'));
 console.log(`Lost ${lost.length}, gained ${gained.length}, another label ${changed.length}, refused otherwise ${otherwise.length}: data/${stem}.txt`);

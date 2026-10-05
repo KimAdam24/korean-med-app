@@ -1444,3 +1444,51 @@ test("the exact product's labels first: of its strength, so none is screened, no
   // Nothing screened by its packaging, and the medicine's list not asked for.
   assert.ok(!asked.some((url) => url.includes('packaging.json') || url.includes('rxcui=83367&')), asked.join('\n'));
 });
+
+// --- A repackager's label, and its maker's -------------------------------------
+
+/** A label of one product, its code, and the code of the product it repackages if it does. */
+const packaged = (opts: { code: string; source?: string; uses: string }) => `<document>
+  <code code="34391-3" codeSystem="2.16.840.1.113883.6.1"/>${approval('ANDA')}
+  <subject><manufacturedProduct><manufacturedProduct>
+    <code code="${opts.code}" codeSystem="2.16.840.1.113883.6.69"/>
+    <formCode code="C1" displayName="CAPSULE"/>
+    ${opts.source ? `<asEquivalentEntity classCode="EQUIV"><code code="C64637" codeSystem="2.16.840.1.113883.3.26.1.1"/><definingMaterialKind><code code="${opts.source}" codeSystem="2.16.840.1.113883.6.69"/></definingMaterialKind></asEquivalentEntity>` : ''}
+    <ingredient classCode="ACTIB"><quantity><numerator unit="mg" value="1.25"/><denominator unit="1" value="1"/></quantity>
+      <ingredientSubstance><name>ERGOCALCIFEROL</name></ingredientSubstance></ingredient>
+  </manufacturedProduct><consumedIn><substanceAdministration><routeCode displayName="ORAL"/></substanceAdministration></consumedIn></manufacturedProduct></subject>
+  <component><section><code code="34067-9"/><title>INDICATIONS AND USAGE</title><text><paragraph>${opts.uses}</paragraph></text></section></component>
+</document>`;
+
+test("a repackager's label says what it repackaged, apart from its own products", () => {
+  const read = readIndications(packaged({ code: '80425-0130', source: '13668-757', uses: 'x' }));
+  assert.deepEqual(read.sources, ['13668-757']);
+  assert.deepEqual(read.products, ['804250130']);
+  assert.deepEqual(readIndications(packaged({ code: '13668-757', uses: 'x' })).sources, []);
+});
+
+test("a repackager's label proven the bottle's is shown as its maker's, where that is listed and the bottle's too", async () => {
+  const REPACKAGED = 'Ergocalciferol capsules are indicated for hypoparathyroidism (as repackaged).';
+  const MAKERS = 'Ergocalciferol capsules are indicated for hypoparathyroidism, refractory rickets and familial hypophosphatemia.';
+  const route = (makerListed: boolean) =>
+    nlm((url) => {
+      if (url.includes('spls.json?rxcui=4018')) {
+        return url.includes(RX)
+          ? listing(['repack', 'ERGOCALCIFEROL (VITAMIN D2) CAPSULE [ADVANCED RX]'], ['maker', 'ERGOCALCIFEROL CAPSULE [TORRENT]'])
+          : listing();
+      }
+      if (url.includes('spls.json?ndc=13668-757')) return makerListed ? listing(['maker', 'ERGOCALCIFEROL CAPSULE [TORRENT]']) : listing();
+      if (url.endsWith('/spls/repack.xml')) return { text: packaged({ code: '80425-0130', source: '13668-757', uses: REPACKAGED }) };
+      if (url.endsWith('/spls/maker.xml')) return { text: packaged({ code: '13668-757', uses: MAKERS }) };
+      return { status: 404 };
+    });
+  const bottle = target('4018', 'ergocalciferol', { form: 'CAPSULE', brand: ['vitamin', 'd2'], strengths: [{ value: 1.25, unit: 'mg' }] });
+  // Its title names VITAMIN D2, as the vial does: tried first, and proven.
+  route(true);
+  const found = await findApprovedUses(bottle);
+  assert.equal(usesOf(found), MAKERS);
+  assert.equal(found.status === 'found' && found.uses.content.label.title, 'ERGOCALCIFEROL CAPSULE [TORRENT]');
+  // The maker's label not listed by its code: the repackager's, as before.
+  route(false);
+  assert.equal(usesOf(await findApprovedUses(bottle)), REPACKAGED);
+});

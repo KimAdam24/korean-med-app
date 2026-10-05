@@ -100,6 +100,25 @@ export function productsOf(xml: string): Product[] {
   }));
 }
 
+/**
+ * A label's own products' codes, labeler and product ("71930-055"): not
+ * those a repackager's names as what it repackaged (`asEquivalentEntity`).
+ */
+export function ownProductCodes(xml: string): string[] {
+  const own = xml.replace(/<asEquivalentEntity\b[\s\S]*?<\/asEquivalentEntity>/g, '');
+  return [
+    ...new Set(
+      [...own.matchAll(/<code\b[^>]*codeSystem="2\.16\.840\.1\.113883\.6\.69"[^>]*>/g)]
+        .map(([tag]) => /\bcode="(\d+)-(\d+)/.exec(tag))
+        .filter((match): match is RegExpExecArray => match !== null)
+        .map(([, labeler, product]) => `${labeler}-${product}`)
+    ),
+  ];
+}
+
+/** Whether a label says its products are another labeler's, repackaged. */
+export const isRepackaged = (xml: string) => xml.includes('<asEquivalentEntity');
+
 export const APPROVED = /^(NDA|ANDA|BLA|NDA AUTHORIZED GENERIC)$/i;
 export const approvalsOf = (xml: string) =>
   [...xml.matchAll(/<approval\b[^>]*>([\s\S]*?)<\/approval>/g)].map(([, body]) => /<code\b[^>]*displayName="([^"]+)"/.exec(body)?.[1].trim() ?? '');
@@ -224,6 +243,14 @@ export type Asked = { lists: number; packaging: number; labels: number; rxnav: n
  */
 export function stand(data: { lists: Lists; productLists: Lists; clinicalDrugs: ClinicalDrugs; labels: Map<string, Label> }) {
   const asked: Asked = { lists: 0, packaging: 0, labels: 0, rxnav: 0 };
+  // Each label by its own products' codes, as DailyMed finds one by an NDC:
+  // by the code's prefix, labeler and product.
+  const byProduct = new Map<string, Label[]>();
+  for (const label of data.labels.values()) {
+    for (const code of ownProductCodes(label.xml)) {
+      byProduct.set(code, [...(byProduct.get(code) ?? []), label]);
+    }
+  }
   const reply = (body: unknown, status = 200) =>
     ({ ok: status < 400, status, json: async () => body, text: async () => (typeof body === 'string' ? body : JSON.stringify(body)) }) as Response;
   const fetcher = (async (input: string | URL) => {
@@ -244,6 +271,13 @@ export function stand(data: { lists: Lists; productLists: Lists; clinicalDrugs: 
         data: all.slice((page - 1) * 100, page * 100).map((entry) => ({ setid: entry.setid, title: entry.title, spl_version: entry.version })),
         metadata: { total_pages: Math.max(1, Math.ceil(all.length / 100)) },
       });
+    }
+    const ndc = /\/spls\.json\?ndc=([\d-]+)/.exec(url);
+    if (ndc) {
+      asked.lists++;
+      const [labeler, product] = ndc[1].split('-');
+      const found = byProduct.get(`${labeler}-${product}`) ?? [];
+      return reply({ data: found.map((label) => ({ setid: label.setid, title: label.title, spl_version: null })), metadata: { total_pages: 1 } });
     }
     const packaging = /\/spls\/([0-9a-f-]+)\/packaging\.json/.exec(url);
     if (packaging) {

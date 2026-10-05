@@ -199,6 +199,10 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
   (23 more bottles of 1,071 find a label, and the median lookup screens none).
   `tools/label-scan/` replays the lookup over every product of the top 200
   medicines, and is rerun whenever its rules change.
+- **The maker's label, not a repackager's** (2026-10-05). A repackager's
+  label proven the bottle's is shown as the label of the product it says it
+  repackaged, where that is listed and is the bottle's too: of the labels
+  the replay shows, repackagers' fell from 424 to 37, none lost.
   Replayed over every product of those medicines, a clean reading of the most
   common bottle shows a label for 155 of the 195 that identify (142 at once,
   13 after the release question), against 158 before; the three lost are the
