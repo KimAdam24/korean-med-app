@@ -570,9 +570,19 @@ function givesStrengths(label: readonly Strength[], printed: readonly Strength[]
 
 type Outcome = Extract<ApprovedUsesLookup, { status: 'found' | 'none' | 'unavailable' }>;
 
-/** The release a label's title names ("TABLET, FILM COATED, EXTENDED RELEASE"). */
+/**
+ * The release a label's title names ("TABLET, FILM COATED, EXTENDED RELEASE").
+ * Controlled, sustained and prolonged release are extended release by other
+ * names: "OXYCODONE HCL CONTROLLED-RELEASE TABLET" was taken for one released
+ * at once, and tried first for an immediate-release bottle, whose uses its
+ * "around-the-clock ... for an extended period" are not.
+ */
 const releaseOf = (title: string): Release | null =>
-  /\bEXTENDED[- ]RELEASE\b/i.test(title) ? 'extended' : /\bDELAYED[- ]RELEASE\b/i.test(title) ? 'delayed' : null;
+  /\b(?:EXTENDED|CONTROLLED|SUSTAINED|PROLONGED)[- ]RELEASE\b/i.test(title)
+    ? 'extended'
+    : /\bDELAYED[- ]RELEASE\b/i.test(title)
+      ? 'delayed'
+      : null;
 
 /**
  * Of the labels DailyMed lists for an RxNorm concept, those whose titles could

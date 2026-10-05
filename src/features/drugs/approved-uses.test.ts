@@ -507,6 +507,29 @@ test('no release printed: a label released at once is tried first, but one relea
   assert.equal(only.status === 'found' && only.uses.content.text, SUCCINATE);
 });
 
+test('"CONTROLLED-RELEASE" in a title is a release: not tried first for an oxycodone released at once', async () => {
+  const CR = 'Oxycodone HCl Controlled-Release Tablets are indicated for moderate to severe pain when a continuous, around-the-clock analgesic is needed for an extended period of time.';
+  const IR = 'Oxycodone hydrochloride tablets are indicated for the management of acute pain severe enough to require an opioid analgesic.';
+  const label = (uses: string) =>
+    product({ substance: 'OXYCODONE HYDROCHLORIDE', moiety: 'OXYCODONE', strengths: [['10', 'mg'], ['20', 'mg']], route: 'ORAL', uses });
+  const asked = twoLabels(
+    '7804',
+    ['OXYCODONE HCL CONTROLLED-RELEASE TABLET OXYCODONE HCL CONTROLLED-RELEASE TABLET [RANBAXY]', label(CR)],
+    ['OXYCODONE HYDROCHLORIDE TABLET [X]', label(IR)]
+  );
+  const found = await findApprovedUses(target('7804', 'oxycodone', { strengths: [{ value: 10, unit: 'mg' }] }));
+  assert.equal(found.status === 'found' && found.uses.content.text, IR);
+  assert.ok(!asked.includes('/spls/first.xml'), asked.join('\n'));
+  // And it is the label for a bottle that says it is extended.
+  twoLabels(
+    '7804',
+    ['OXYCODONE HCL CONTROLLED-RELEASE TABLET [RANBAXY]', label(CR)],
+    ['OXYCODONE HYDROCHLORIDE TABLET [X]', label(IR)]
+  );
+  const extended = await findApprovedUses(target('7804', 'oxycodone', { strengths: [{ value: 10, unit: 'mg' }], release: 'extended' }));
+  assert.equal(extended.status === 'found' && extended.uses.content.text, CR);
+});
+
 const RX_USES = 'Esomeprazole magnesium delayed-release capsules are indicated for the treatment of GERD and H. pylori.';
 const OTC_USES = 'treats frequent heartburn (occurs 2 or more days a week)';
 
