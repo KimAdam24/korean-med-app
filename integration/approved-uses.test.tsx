@@ -5,12 +5,13 @@
  * `src/features/drugs/*.test.ts` for the lookups on their own).
  */
 import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Platform } from 'react-native';
 
 import { APP_LOAD_BUDGET_MS, forgetAppStateListeners, launchApp, loadApp, press, visibleText } from './app-harness';
 import { camera } from './fakes/camera';
 import { ocr } from './fakes/devices';
 import { disk } from './fakes/file-system';
+import { notifications } from './fakes/notifications';
 
 import * as store from '@/features/medications/medication-store';
 import { addMedication, loadProfile } from '@/features/medications/medication-store';
@@ -746,5 +747,75 @@ describe('typing the name from the bottle, where the reading could not give it',
     await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
     await screen.findByText(INDICATION);
     expect(screen.queryByLabelText(Strings.nameEntry.inputLabel.ko)).toBeNull();
+  });
+});
+
+describe('the word joiners Korean is drawn with, on Android', () => {
+  /** Whatever it is, as text: a request, a record, a notification. */
+  const joined = (value: unknown) => JSON.stringify(value).includes('\u2060') || JSON.stringify(value).includes('\u2060');
+
+  it('reach nothing stored, sent, scheduled or compared: they are drawn, and only drawn', async () => {
+    const original = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, get: () => 'android' });
+    try {
+      nlm({ twoReleases: true });
+      const sent = global.fetch as jest.Mock;
+
+      // A name typed from the bottle, the release asked and answered, the
+      // medicine saved: every way a reading becomes a record and a lookup.
+      await openPickedPhoto(nameAtTheEdge('VITAMIN D'));
+      await screen.findByText(Strings.uses.nameNotWhole.ko);
+      // Typed with Korean in it, where a joiner would go if one could: looked
+      // up (its Latin words; identification leaves the Korean out), and kept
+      // in the box as typed.
+      const input = () => screen.getByLabelText(Strings.nameEntry.inputLabel.ko);
+      const lookups = () => sent.mock.calls.filter(([url]) => String(url).includes('approximateTerm')).length;
+      const before = lookups();
+      fireEvent.changeText(input(), '비타민 D2');
+      press(Strings.nameEntry.submit.ko);
+      await waitFor(() => expect(lookups()).toBeGreaterThan(before));
+      expect(input().props.value).toBe('비타민 D2');
+      fireEvent.changeText(input(), 'VITAMIN D2');
+      press(Strings.nameEntry.submit.ko);
+      await screen.findByText(Strings.uses.releaseQuestion.ko);
+      // The Korean on this screen is drawn with them: the test would mean
+      // nothing if it were not.
+      expect(joined(screen.toJSON())).toBe(true);
+      press(Strings.uses.releaseNone.ko);
+      await screen.findByText(INDICATION);
+      press(Strings.medications.saveFromLabel.ko);
+      await screen.findByText(Strings.scan.saved.ko);
+
+      // Its page: edited, and a reminder set, which schedules a notification
+      // with Korean in it.
+      const saved = await loadProfile();
+      const id = saved.status === 'ok' ? saved.value.medications[0].id : '';
+      launchApp(`/medication/${id}`);
+      await screen.findByText(INDICATION);
+      press(Strings.medications.edit.ko);
+      fireEvent.changeText(screen.getByDisplayValue('VITAMIN D2'), 'VITAMIN D2 비타민');
+      press(Strings.medications.save.ko);
+      await screen.findByText('VITAMIN D2 비타민');
+      // Saved as typed.
+      const edited = await loadProfile();
+      expect(edited.status === 'ok' && edited.value.medications[0].name).toBe('VITAMIN D2 비타민');
+      notifications.notYetAsked('allow');
+      press(Strings.reminders.add.ko);
+      press(Strings.reminders.saveTime.ko);
+      await screen.findByText(Strings.reminders.askTitle.ko);
+      press(Strings.reminders.askContinue.ko);
+      await waitFor(() => expect(notifications.scheduledContents().length).toBeGreaterThan(0));
+
+      // Nothing sent (every request's address and anything with it), stored,
+      // or scheduled has one.
+      expect(sent.mock.calls.length).toBeGreaterThan(0);
+      expect(sent.mock.calls.filter((call) => joined(call))).toEqual([]);
+      const profile = await loadProfile();
+      expect(profile.status).toBe('ok');
+      expect(joined(profile)).toBe(false);
+      expect(notifications.scheduledContents().filter((content) => joined(content))).toEqual([]);
+    } finally {
+      Object.defineProperty(Platform, 'OS', { configurable: true, get: () => original });
+    }
   });
 });
