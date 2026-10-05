@@ -259,7 +259,7 @@ test("a barcode: the product's own label, by its full package code", async () =>
   assert.equal(found.uses.content.label.title, 'ERGOCALCIFEROL CAPSULE [TORRENT]');
   assert.equal(found.uses.attribution.source, 'fda-label');
   assert.equal(found.uses.attribution.revision, 'v3');
-  assert.deepEqual(asked, ['/spls.json?ndc=13668-757-01', '/spls/erg.xml']);
+  assert.deepEqual(asked, ['/spls.json?ndc=13668-757-01&pagesize=100', '/spls/erg.xml']);
 });
 
 test("a barcode whose code DailyMed matches to another product: that label is not shown, since it does not list the code", async () => {
@@ -1343,4 +1343,64 @@ test("no brand printed, where no label without one is found for the bottle: one 
   });
   const five = await findApprovedUses(target('28889', 'loratadine', { strengths: [{ value: 5, unit: 'mg' }], labelKind: 'otc' }));
   assert.equal(usesOf(five), CHILDRENS);
+});
+
+test("one label of two products told apart by strength is neither's: sildenafil 20 and 50 mg with REVATIO's uses", async () => {
+  const PAH = 'Sildenafil tablets are indicated for the treatment of pulmonary arterial hypertension (WHO Group I) in adults.';
+  const ED = 'Sildenafil tablets are indicated for the treatment of erectile dysfunction.';
+  const label = (uses: string, strengths: [string, string][]) =>
+    product({ substance: 'SILDENAFIL CITRATE', moiety: 'SILDENAFIL', strengths, route: 'ORAL', uses });
+  const route = () =>
+    nlm((url) => {
+      if (url.includes('spls.json?rxcui=136411')) {
+        return url.includes(RX)
+          ? listing(
+              ['both', 'SILDENAFIL TABLET, FILM COATED [DIRECT RX]'],
+              ['ed', 'SILDENAFIL TABLET, FILM COATED [X]'],
+              ['pah', 'SILDENAFIL TABLET, FILM COATED [Y]']
+            )
+          : listing();
+      }
+      if (url.endsWith('/spls/both.xml')) return { text: label(PAH, [['20', 'mg'], ['50', 'mg']]) };
+      if (url.endsWith('/spls/ed.xml')) return { text: label(ED, [['25', 'mg'], ['50', 'mg'], ['100', 'mg']]) };
+      if (url.endsWith('/spls/pah.xml')) return { text: label(PAH, [['20', 'mg']]) };
+      return { status: 404 };
+    });
+  route();
+  assert.equal(usesOf(await findApprovedUses(target('136411', 'sildenafil', { strengths: [{ value: 50, unit: 'mg' }] }))), ED);
+  const asked = route();
+  assert.equal(usesOf(await findApprovedUses(target('136411', 'sildenafil', { strengths: [{ value: 20, unit: 'mg' }] }))), PAH);
+  // The label of both was read, and passed over, for 20 mg too.
+  assert.ok(asked.includes('/spls/both.xml') && asked.includes('/spls/pah.xml'), asked.join('\n'));
+});
+
+test("every page of a list: a brand's own label far down it is found for a bottle printing the brand", async () => {
+  const GABARONE = 'GABARONE is indicated for the management of postherpetic neuralgia in adults.';
+  const generics = (from: number) => Array.from({ length: 100 }, (_, i): [string, string] => [`g${from + i}`, 'GABAPENTIN CAPSULE [X]']);
+  const asked = nlm((url) => {
+    if (url.includes('spls.json?rxcui=25480') && url.includes(RX)) {
+      const page = Number(/&page=(\d+)/.exec(url)?.[1] ?? 1);
+      const data = page === 1 ? generics(0) : page === 2 ? generics(100) : [['gabarone', 'GABARONE (GABAPENTIN) TABLET [INA]'] as [string, string]];
+      return { json: { ...listing(...data).json, metadata: { total_pages: 3 } } };
+    }
+    if (url.includes('spls.json?rxcui=25480')) return listing();
+    if (url.endsWith('/spls/gabarone.xml')) {
+      return { text: product({ substance: 'GABAPENTIN', moiety: 'GABAPENTIN', strengths: [['100', 'mg']], route: 'ORAL', uses: GABARONE }) };
+    }
+    return { status: 404 };
+  });
+  const found = await findApprovedUses(target('25480', 'gabapentin', { strengths: [{ value: 100, unit: 'mg' }], brand: ['gabarone'] }));
+  assert.equal(usesOf(found), GABARONE);
+  assert.ok(asked.some((url) => url.endsWith('&page=3')), asked.join('\n'));
+
+  // A page that cannot be had: unavailable, not a list cut short.
+  nlm((url) => {
+    if (url.includes('spls.json?rxcui=25480') && url.includes(RX)) {
+      if (url.includes('&page=2')) return 'offline';
+      return { json: { ...listing(...generics(0)).json, metadata: { total_pages: 3 } } };
+    }
+    return listing();
+  });
+  const cut = await findApprovedUses(target('25480', 'gabapentin', { strengths: [{ value: 100, unit: 'mg' }], brand: ['gabarone'] }));
+  assert.deepEqual(cut, { status: 'unavailable' });
 });

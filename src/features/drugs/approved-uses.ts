@@ -549,14 +549,44 @@ async function get<T>(
   }
 }
 
-type Listing = { data?: { setid?: string; title?: string; spl_version?: number }[] };
+type Listing = {
+  data?: { setid?: string; title?: string; spl_version?: number }[];
+  metadata?: { total_pages?: number };
+};
 
+/** How many of a list's pages are asked for at once, after its first. */
+const PAGES_AT_ONCE = 4;
+
+/**
+ * Every label DailyMed lists for a query, in its order: every page of it,
+ * not the first hundred. Only the first page was read, and GABARONE's own
+ * label, 177th of gabapentin's, was never found for a bottle that printed
+ * GABARONE, which was shown another's; most of the top 200 medicines' lists
+ * run past a hundred. A page that cannot be had makes the list unavailable,
+ * not shorter: a list cut short is a sample.
+ */
 async function labelsAt(query: string): Promise<Fetched<LabelDocument[]>> {
-  const listing = await get(`${DAILYMED_BASE}/spls.json?${query}`, (response) => response.json() as Promise<Listing>);
-  if (!listing.ok) return listing;
+  const page = (n: number) =>
+    get(`${DAILYMED_BASE}/spls.json?${query}&pagesize=100${n > 1 ? `&page=${n}` : ''}`, (response) =>
+      response.json() as Promise<Listing>
+    );
+  const first = await page(1);
+  if (!first.ok) return first;
+  const pages = [first.value];
+  const total = first.value.metadata?.total_pages ?? 1;
+  for (let next = 2; next <= total; next += PAGES_AT_ONCE) {
+    const batch = await Promise.all(
+      Array.from({ length: Math.min(PAGES_AT_ONCE, total - next + 1) }, (_, i) => page(next + i))
+    );
+    for (const got of batch) {
+      if (!got.ok) return got;
+      pages.push(got.value);
+    }
+  }
   return {
     ok: true,
-    value: (listing.value.data ?? [])
+    value: pages
+      .flatMap((listing) => listing.data ?? [])
       .filter((entry) => typeof entry.setid === 'string')
       .map((entry) => ({
         setId: entry.setid as string,
@@ -786,6 +816,32 @@ const BY_BRAND: readonly {
     marker: { tokens: ['cd', 'xr'], allows: (_title, text) => !/\btwice[- ]a[- ]day\b/i.test(text) },
   },
 ];
+
+/**
+ * Medicines whose products, approved for different things, are made at
+ * strengths none of the others is: sildenafil 20 mg (REVATIO's, pulmonary
+ * arterial hypertension) and 25, 50 and 100 mg (VIAGRA's, erectile
+ * dysfunction); finasteride 1 mg (PROPECIA's, hair loss) and 5 mg (PROSCAR's,
+ * the prostate). A label giving strengths of two of them is a label of two
+ * products, its one text one of theirs: a DIRECT RX label of sildenafil 20
+ * and 50 mg with REVATIO's uses was shown for a 50 mg bottle. Not where a
+ * product's strengths are another's too (CIALIS 20 mg, ADCIRCA 20 mg), whose
+ * brand's label covers both.
+ */
+const BY_STRENGTH: readonly { readonly ingredient: string; readonly products: readonly (readonly Strength[])[] }[] = [
+  { ingredient: 'sildenafil', products: [mg(20), mg(25, 50, 100)] },
+  { ingredient: 'finasteride', products: [mg(1), mg(5)] },
+];
+
+/** Whether a label's strengths are of two of a medicine's products (`BY_STRENGTH`). */
+function ofTwoProducts(ingredients: readonly string[], strengths: readonly Strength[]): boolean {
+  const entry = BY_STRENGTH.find((one) => ingredients.length === 1 && nameWords(ingredients[0]).join(' ') === one.ingredient);
+  if (!entry) return false;
+  const products = entry.products.filter((product) =>
+    product.some((made) => strengths.some((given) => given.unit === made.unit && same(given.value, made.value)))
+  );
+  return products.length > 1;
+}
 
 /** Strengths in milligrams. */
 function mg(...values: number[]): Strength[] {
@@ -1158,8 +1214,10 @@ async function firstProven(
             proof.releaseInferred,
             proof.releaseToken !== null && releaseTokensIn(label.title.toUpperCase()).has(proof.releaseToken)
           ) &&
-          // One medicine's label: not one text for two.
+          // One medicine's label: not one text for two, of two medicines or
+          // of two products told apart by their strengths.
           !read.mixed &&
+          !ofTwoProducts(proof.names, read.strengths) &&
           // Of the product a marker printed says, where it stands for a brand.
           (!proof.allows || proof.allows(label.title, text ?? ''));
     // Listed by DailyMed as this kind; and not saying otherwise itself.
@@ -1292,9 +1350,7 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
   }
 
   return ofKind(labelKind, async (type) => {
-    const listed = await labelsAt(
-      `rxcui=${encodeURIComponent(rxcui)}&doctype=${DOCUMENT_TYPES[type]}&pagesize=100`
-    );
+    const listed = await labelsAt(`rxcui=${encodeURIComponent(rxcui)}&doctype=${DOCUMENT_TYPES[type]}`);
     if (!listed.ok) return { status: 'unavailable' };
     const ranked = likely(listed.value, ingredients, {
       form,
