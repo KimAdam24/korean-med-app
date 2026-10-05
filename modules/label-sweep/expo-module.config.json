@@ -1,9 +1,9 @@
 {
-  "platforms": ["android"],
+  "platforms": ["apple", "android"],
   "android": {
     "modules": ["expo.modules.labelsweep.LabelSweepModule"]
   },
   "apple": {
-    "modules": ["LabelSweepModule"]
+    "modules": []
   }
 }
