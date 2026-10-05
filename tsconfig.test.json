@@ -14,7 +14,9 @@
   "include": [
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "tools/**/*.ts"
   ],
-  "exclude": []
+  // The label scan's fetched data, with old versions of src/ the replay takes out of git.
+  "exclude": ["tools/label-scan/data"]
 }

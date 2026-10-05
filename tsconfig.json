@@ -40,6 +40,7 @@
     // by tsconfig.integration.json.
     "integration",
     // Node scripts, typechecked with Node's globals by tsconfig.test.json.
-    "scripts"
+    "scripts",
+    "tools"
   ]
 }

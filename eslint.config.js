@@ -5,7 +5,8 @@ const expoConfig = require("eslint-config-expo/flat");
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*"],
+    // The label scan's fetched data holds old versions of src/, taken out of git.
+    ignores: ["dist/*", "tools/label-scan/data/**"],
   },
   {
     // Jest integration tests: `describe`, `jest`, `expect` and friends.

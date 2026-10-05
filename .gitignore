@@ -55,3 +55,6 @@ example
 # translation batches exported for review (npm run copy:pending -- --export)
 /copy-batch-*.csv
 /sig-phrases-*.csv
+
+# The label scan's fetched data (tools/label-scan/README.md)
+/tools/label-scan/data/

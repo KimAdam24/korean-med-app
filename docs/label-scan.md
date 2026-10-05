@@ -272,5 +272,6 @@ name either way (inhalers, insulins, injections, creams, drops, unapproved
 supplements; and lithium and valproate, whose labels name them lithium
 carbonate, divalproex sodium or valproic acid, which do not match).
 
-Scan scripts and data: the session's scratch directory, not kept in the repo,
-and no longer there.
+The first scan's scripts were kept in a temporary directory and lost with
+it. The scan is now `tools/label-scan/` (fetch and replay, with how to rerun
+them), its data in `tools/label-scan/data/`, which git ignores.

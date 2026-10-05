@@ -59,7 +59,9 @@
     "test:integration": "jest",
     "eval": "node --no-warnings --experimental-strip-types src/features/ocr/eval/report.ts",
     "copy:pending": "node --no-warnings --experimental-strip-types scripts/pending-copy.ts",
-    "smoke:android": "node --no-warnings --experimental-strip-types scripts/smoke-android.ts"
+    "smoke:android": "node --no-warnings --experimental-strip-types scripts/smoke-android.ts",
+    "label-scan:fetch": "node --no-warnings --experimental-strip-types tools/label-scan/fetch.ts",
+    "label-scan:replay": "node --no-warnings --experimental-strip-types --max-old-space-size=8192 tools/label-scan/replay.ts"
   },
   "private": true,
   "jest": {
