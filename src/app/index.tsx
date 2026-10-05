@@ -43,7 +43,9 @@ export default function HomeScreen() {
    * screen's result view so both paths end in the same place.
    */
   const pickAndRead = useCallback(async () => {
-    const picked = await pickImage(runWithSystemUi);
+    // The picker failing to open is left as nothing happening, not an
+    // unhandled rejection: there is nothing read to show.
+    const picked = await pickImage(runWithSystemUi).catch(() => null);
     if (!picked) return;
     router.push({ pathname: '/camera', params: { imageUri: picked.uri } });
   }, [router, runWithSystemUi]);

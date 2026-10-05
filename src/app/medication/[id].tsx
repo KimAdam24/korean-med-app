@@ -316,8 +316,9 @@ export default function MedicationScreen() {
   // name that reads as damaged is not matched at all, nor one its reading
   // withheld as cut off until the user has saved it from the edit form. A
   // typed one is matched as typed: word for word, so a slip matches nothing.
-  const nameWithheld =
-    nameCut || (record.nameSource !== 'typed' && assessField('name', record.name).level === 'damaged');
+  // Judged as a reading only while it is one (`assessName`): once saved from
+  // the edit form, it is the user's word, looked up as given, as it is shown.
+  const nameWithheld = nameCut || (assessName && assessField('name', record.name).level === 'damaged');
   const usesSource: UsesSource = record.identity
     ? { kind: 'product', ndc11: record.identity.ndc11, rxcui: record.identity.rxcui }
     : {

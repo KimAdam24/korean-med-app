@@ -5,6 +5,7 @@
  * `src/features/drugs/*.test.ts` for the lookups on their own).
  */
 import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
+import { AccessibilityInfo } from 'react-native';
 
 import { APP_LOAD_BUDGET_MS, forgetAppStateListeners, launchApp, loadApp, press, visibleText } from './app-harness';
 import { camera } from './fakes/camera';
@@ -362,6 +363,29 @@ describe('what a medicine is approved to treat', () => {
     expect(after.status === 'ok' && after.value.medications[0].nameMatch).toEqual(MATCH);
   });
 
+  it('a read name that looked damaged, saved unchanged from the edit form, is looked up as given', async () => {
+    const asked = nlm();
+    const saved = await addMedication({
+      name: 'LISINOPRL',
+      dosage: '10 MG',
+      instructions: 'Take 1 tablet by mouth daily',
+      source: 'label-scan',
+      needsReview: true,
+      nameSource: 'read',
+    });
+    launchApp(`/medication/${saved.id}`);
+    // While it is a reading, a near miss of "lisinopril" is not looked up.
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
+    expect(asked.some((url) => url.includes('approximateTerm'))).toBe(false);
+
+    // Saved from the form as it stands: the user's word, looked up word for
+    // word. It used to stay "not read whole" for good.
+    press(Strings.medications.edit.ko);
+    press(Strings.medications.save.ko);
+    await screen.findByText(Strings.uses.unidentified.ko);
+    expect(asked).toContainEqual(expect.stringContaining('approximateTerm.json?term=lisinoprl&'));
+  });
+
   it("editing a medicine's name forgets what the old name was identified as", async () => {
     nlm();
     const saved = await addMedication({
@@ -624,6 +648,22 @@ describe('typing the name from the bottle, where the reading could not give it',
     await screen.findByText(Strings.uses.typedUnidentified.ko);
     expect(screen.queryByText(Strings.uses.nameNotWhole.ko)).toBeNull();
     expect(screen.queryByText(Strings.result.damaged.name.title.ko)).toBeNull();
+  });
+
+  it('a screen reader is told at once that the name was withheld at the edge, and not again when it is typed', async () => {
+    nlm();
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    await openPickedPhoto(nameAtTheEdge('VITAMIN D'));
+    await screen.findByText(Strings.uses.nameNotWhole.ko);
+    // The directions are cut too, and come first: either way, said before a
+    // clean-sounding name and dose are heard.
+    expect(announce).toHaveBeenCalledWith(Strings.result.damaged.instructions.title.ko);
+    const told = announce.mock.calls.length;
+
+    typeName('VITAMIN D2');
+    await screen.findByText(INDICATION);
+    expect(announce.mock.calls.length).toBe(told);
+    announce.mockRestore();
   });
 
   it('a name read whole asks for nothing', async () => {

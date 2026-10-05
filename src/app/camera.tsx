@@ -241,22 +241,28 @@ export default function CameraScreen() {
    * clean-sounding name and dose first — which is exactly the order in which a
    * damaged direction is most likely to be taken at face value.
    */
+  // Announced once per reading: not again when a name is typed into it.
+  const announcedFields = phase.kind === 'result' ? phase.fields : null;
+  const announcedQuality = phase.kind === 'result' ? phase.quality : undefined;
+  const announcedTruncation = phase.kind === 'result' ? phase.truncation : undefined;
   useEffect(() => {
-    if (phase.kind !== 'result') return;
+    if (!announcedFields) return;
 
-    if (phase.quality?.level === 'degraded') {
+    if (announcedQuality?.level === 'degraded') {
       AccessibilityInfo.announceForAccessibility(Strings.result.degradedTitle.ko);
       return;
     }
 
+    // Withheld either way, damaged or cut off at the label's edge, as the
+    // amber panel a sighted reader sees says.
     for (const kind of ['instructions', 'dosage', 'name'] as const) {
-      const text = phase.fields[kind]?.text;
-      if (text && assessField(kind, text).level === 'damaged') {
+      const text = announcedFields[kind]?.text;
+      if (text && (assessField(kind, text).level === 'damaged' || isCutAtEdge(announcedTruncation, kind))) {
         AccessibilityInfo.announceForAccessibility(Strings.result.damaged[kind].title.ko);
         return;
       }
     }
-  }, [phase]);
+  }, [announcedFields, announcedQuality, announcedTruncation]);
 
   /**
    * When the screen is opened with an image already chosen, it reads that
@@ -694,6 +700,8 @@ export default function CameraScreen() {
           </View>
         ))}
         <BigButton label={Strings.scan.scanAgain} onPress={retake} tone="secondary" />
+        {/* A way out that is not another scan, as every other sheet has. */}
+        <BigButton label={Strings.camera.close} onPress={close} tone="secondary" disabled={phase.saving} />
       </Sheet>
     );
   }

@@ -129,37 +129,78 @@ const comparable = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, ''
  * directions if the line above is part of them. Nothing else is inherited: a
  * cut line of unknown role under a strength is not the strength's.
  */
+/** A line's words, a number and its unit apart however printed ("20MG", "20 MG"). */
+const wordsIn = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/(\d)([a-z])/g, '$1 $2')
+    .replace(/([a-z])(\d)/g, '$1 $2')
+    .split(/[^a-z0-9.]+/)
+    .map((word) => word.replace(/^\.+|\.+$/g, ''))
+    .filter(Boolean);
+
+/** Whether `line` holds the words of `field` together, in order. */
+function holds(line: string, field: string): boolean {
+  const have = wordsIn(line);
+  const want = wordsIn(field);
+  if (want.length === 0) return false;
+  for (let at = 0; at + want.length <= have.length; at += 1) {
+    if (want.every((word, offset) => have[at + offset] === word)) return true;
+  }
+  return false;
+}
+
+/**
+ * Which fields one line of the label belongs to: one, as a rule, but both
+ * the name and the strength of a line that prints both ("1.25MG VITAMIN D"),
+ * so that such a line cut at the edge withholds its name too. It used to
+ * count only as the strength: the name "VITAMIN D" of "VITAMIN D2" was shown
+ * as whole, and looked up as another medicine.
+ */
 function fieldOf(
   index: number,
   lines: readonly RecognizedTextLine[],
   fields: MedicationLabelFields,
-  known: Map<number, FieldKind | null>
-): FieldKind | null {
-  if (known.has(index)) return known.get(index)!;
+  known: Map<number, readonly FieldKind[]>
+): readonly FieldKind[] {
+  const cached = known.get(index);
+  if (cached) return cached;
   const text = lines[index].text;
   const part = comparable(text);
 
-  let kind: FieldKind | null =
-    (['name', 'dosage', 'instructions'] as const).find((candidate) => {
-      const field = fields[candidate]?.text;
-      return Boolean(field) && part.length > 0 && comparable(field!).includes(part);
-    }) ?? null;
+  // The fields whose parsed text contains the line; and the name, if the line
+  // holds it whole (but not the strength or directions that way: "(10 MG)" in
+  // a line of directions is not the strength's line).
+  let kinds: FieldKind[] = (['name', 'dosage', 'instructions'] as const).filter((candidate) => {
+    const field = fields[candidate]?.text;
+    return (
+      Boolean(field) &&
+      ((part.length > 0 && comparable(field!).includes(part)) || (candidate === 'name' && holds(text, field!)))
+    );
+  });
+  // The name's line, holding the strength too ("LISINOPRIL 20MG"): both.
+  const strength = fields.dosage?.text;
+  if (kinds.includes('name') && !kinds.includes('dosage') && strength && holds(text, strength)) {
+    kinds = ['name', 'dosage', ...kinds.filter((kind) => kind === 'instructions')];
+  }
 
-  if (!kind) {
+  if (kinds.length === 0) {
     const bare = text.replace(/^[^A-Za-z0-9]+/, '');
     const role = classifyLine(bare);
-    if (role === 'directions') kind = 'instructions';
-    else if (role === 'product') kind = splitProduct(bare).strength ? 'dosage' : 'name';
-    else if (role === 'unknown' && bare.split(/\s+/).some((token) => isSigWord(token) && !/^\d/.test(token))) {
-      kind = 'instructions';
+    if (role === 'directions') kinds = ['instructions'];
+    else if (role === 'product') {
+      const product = splitProduct(bare);
+      kinds = product.strength ? (product.name ? ['name', 'dosage'] : ['dosage']) : ['name'];
+    } else if (role === 'unknown' && bare.split(/\s+/).some((token) => isSigWord(token) && !/^\d/.test(token))) {
+      kinds = ['instructions'];
     }
   }
-  if (!kind && index > 0 && fieldOf(index - 1, lines, fields, known) === 'instructions') {
-    kind = 'instructions';
+  if (kinds.length === 0 && index > 0 && fieldOf(index - 1, lines, fields, known).includes('instructions')) {
+    kinds = ['instructions'];
   }
 
-  known.set(index, kind);
-  return kind;
+  known.set(index, kinds);
+  return kinds;
 }
 
 /** The fields these lines belong to, in field order. Also used by the sweep's merge. */
@@ -168,8 +209,8 @@ export function fieldsOf(
   lines: readonly RecognizedTextLine[],
   fields: MedicationLabelFields
 ): FieldKind[] {
-  const known = new Map<number, FieldKind | null>();
-  const found = new Set(indexes.map((index) => fieldOf(index, lines, fields, known)));
+  const known = new Map<number, readonly FieldKind[]>();
+  const found = new Set(indexes.flatMap((index) => fieldOf(index, lines, fields, known)));
   return (['name', 'dosage', 'instructions'] as const).filter((kind) => found.has(kind));
 }
 

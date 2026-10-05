@@ -11,7 +11,7 @@ import test from 'node:test';
 
 import { assessField, endsCutOff, startsCutOff } from './field-integrity.ts';
 import { interpretLines } from './interpret-lines.ts';
-import { medicationFromReading } from './reading-to-record.ts';
+import { medicationFromReading, readableName } from './reading-to-record.ts';
 import { isCutAtEdge } from './truncation.ts';
 import type { RecognizedTextLine } from './types.ts';
 import { VITAMIN_D2_VIAL_LINES, VITAMIN_D2_VIAL_NO_GEOMETRY_LINES, VITAMIN_D2_VIAL_RETAKE_LINES } from './eval/corpus.ts';
@@ -192,4 +192,46 @@ test('after a fill-in, a field withheld at the edge stays withheld unless it was
   assert.equal(keepWithheld({ ...before, fields: [...before.fields] }, null, ['name', 'instructions']), null);
   // Nothing withheld before: as the new reading has it.
   assert.equal(keepWithheld(null, null, ['instructions']), null);
+});
+
+/**
+ * The vial, with its name line in place of "VITAMIN D2" running out to the
+ * same curved edge as the cut directions, along the text's own slope; and its
+ * own strength lines blanked, so the strength is read from that line alone.
+ */
+function productLineAtTheEdge(text: string): RecognizedTextLine[] {
+  const lines = VITAMIN_D2_VIAL_LINES.map((line) =>
+    line.text === '1.25MG(50,' || line.text === '000 UNIT)' ? { ...line, text: 'Xxxxx' } : { ...line }
+  );
+  const at = lines.findIndex((line) => line.text === 'VITAMIN D2');
+  const slopes = lines
+    .map((line) => (line.corners![1].y - line.corners![0].y) / (line.corners![1].x - line.corners![0].x))
+    .sort((a, b) => a - b);
+  const angle = Math.atan(slopes[Math.floor(slopes.length / 2)]);
+  const along = (point: { x: number; y: number }) => point.x * Math.cos(angle) + point.y * Math.sin(angle);
+  const edge = Math.max(...lines.flatMap((line) => [along(line.corners![1]), along(line.corners![2])]));
+  const reach = (y: number) => (edge - y * Math.sin(angle)) / Math.cos(angle);
+  const [topLeft, topRight, bottomRight, bottomLeft] = lines[at].corners!;
+  lines[at] = {
+    ...lines[at],
+    text,
+    corners: [topLeft, { x: reach(topRight.y), y: topRight.y }, { x: reach(bottomRight.y), y: bottomRight.y }, bottomLeft],
+    frame: { ...lines[at].frame!, width: reach(topRight.y) - lines[at].frame!.left },
+  };
+  return lines;
+}
+
+test("a name printed on the strength's line, at the edge, is withheld with it: not looked up as another medicine", () => {
+  // "LISINOPRIL" may be all of it, or the start of "LISINOPRIL AND
+  // HYDROCHLOROTHIAZIDE"; "VITAMIN D", of "VITAMIN D2". The line used to count
+  // only as the strength's, and the name was looked up as read.
+  for (const text of ['20MG LISINOPRIL', 'LISINOPRIL 20MG', '1.25MG VITAMIN D']) {
+    const result = interpretLines(productLineAtTheEdge(text));
+    assert.equal(result.status, 'recognized', text);
+    if (result.status !== 'recognized') continue;
+    assert.ok(result.truncation?.fields.includes('name'), `${text}: ${JSON.stringify(result.truncation?.fields)}`);
+    assert.ok(result.truncation?.fields.includes('dosage'), `${text}: ${JSON.stringify(result.truncation?.fields)}`);
+    assert.equal(readableName(result.fields, result.truncation), null, text);
+    assert.equal(medicationFromReading(result.fields, result.truncation)?.record.nameIncomplete, true, text);
+  }
 });
