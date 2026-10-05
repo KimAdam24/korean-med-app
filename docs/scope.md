@@ -193,9 +193,12 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
     pulmonary hypertension).
   And no list is cut short: every page of DailyMed's list is read, where only
   the first hundred labels were (a bottle printing GABARONE never found its
-  own label, 177th). Still a window: of a list's likely labels, only the
-  first 24 are screened by their packaging for the strength printed, which
-  hides a label from 33 of 1,067 bottles (docs/label-scan.md).
+  own label, 177th); and the list of the exact product RxNorm says the bottle
+  is (its strength, form and release) is read first, its labels needing no
+  screening for the strength, then, where none is found, the ingredient's
+  (23 more bottles of 1,071 find a label, and the median lookup screens none).
+  `tools/label-scan/` replays the lookup over every product of the top 200
+  medicines, and is rerun whenever its rules change.
   Replayed over every product of those medicines, a clean reading of the most
   common bottle shows a label for 155 of the 195 that identify (142 at once,
   13 after the release question), against 158 before; the three lost are the

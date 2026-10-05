@@ -259,13 +259,29 @@ refuses; and 3 whose brand is printed but whose own label is past the 100
 DailyMed lists first, where before another product's label was shown. With
 every page read, those 3 find their own, and 40 more bottles a label.
 
-One window is left: of a list's likely labels, only the first 24 are
-screened by their packaging for the strength printed. Screening all of them
-finds a label for 33 more of 1,067 bottles, at up to 263 packaging requests
-for one in a hundred lookups. Asking DailyMed for the exact product's list
-first (its clinical drug: strength, form, release), whose labels need no
-screening, is built and tested but not measured, and so not committed: the
-scan's data went with the session that held it.
+One window was left: of a list's likely labels, only the first 24 are
+screened by their packaging for the strength printed, and screening all of
+them would cost up to 263 packaging requests for one lookup in a hundred.
+Instead, DailyMed's list for the exact product RxNorm says the bottle is
+(its clinical drug: strength, form, release) is read first, its labels
+needing no screening, and the ingredient's list only where none of them is
+found. Replayed on a fresh fetch (tools/label-scan/, 2026-10-05; 1,071
+bottles, so not comparable with the table above), against master:
+
+| | Most common bottle | All bottles | Packaging requests per lookup, median / 99th / most |
+| --- | --- | --- | --- |
+| Master | 155 of 195 | 1,002 of 1,071 | 12 / 37 / 96 |
+| Exact product first | 155 of 195 | 1,025 of 1,071, none lost | 0 / 26 / 35 |
+
+Its first version showed GRALISE's generic, for nerve pain after shingles
+alone, for an immediate-release gabapentin bottle: RxNorm names it
+"Once-Daily gabapentin 600 MG Oral Tablet", read as released at once. Fixed
+before it was merged, with tablets swallowed as they are read before those
+chewed or dissolved. Of the 89 bottles shown another label, the rest are the
+same uses in other words, a generic's label in place of a brand's
+(LOPRESSOR, TIAZAC, LORTAB), or another edition of the same product's label
+(an older oxycodone controlled-release text; potassium chloride's and
+doxycycline's old-format sections): kind 6, left as decided.
 
 33 of the 195 have no approved tablet or capsule label and show nothing by
 name either way (inhalers, insulins, injections, creams, drops, unapproved
