@@ -106,7 +106,8 @@ export function forgetAppStateListeners(): void {
 export function visibleText(): string[] {
   const texts: string[] = [];
   const walk = (node: unknown): void => {
-    if (typeof node === 'string') texts.push(node);
+    // As a person reads it: without the WORD JOINERs Korean is drawn with on Android.
+    if (typeof node === 'string') texts.push(node.replace(/\u2060/g, ''));
     else if (Array.isArray(node)) node.forEach(walk);
     else if (node && typeof node === 'object' && 'children' in node) walk((node as { children: unknown }).children);
   };

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BilingualText } from '@/components/bilingual-text';
+import { shownKorean } from '@/components/shown-korean';
 import { Radius, Spacing, Type, TypeMaxScale } from '@/constants/theme';
 import { useLargeText } from '@/hooks/use-large-text';
 import { useTheme } from '@/hooks/use-theme';
@@ -53,8 +54,10 @@ export function TimePicker({ value, onChange }: { value: ReminderTime; onChange:
         style={[styles.display, { color: theme.text }]}
         maxFontSizeMultiplier={TypeMaxScale.heading}
         accessibilityLiveRegion="polite"
-        accessibilityLanguage="ko-KR">
-        {shown}
+        accessibilityLabel={shown}
+        accessibilityLanguage="ko-KR"
+        lineBreakStrategyIOS="hangul-word">
+        {shownKorean(shown)}
       </Text>
 
       <View style={styles.periods}>

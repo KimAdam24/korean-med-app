@@ -27,6 +27,18 @@ jest.mock('../modules/label-sweep', () => {
   };
 });
 
+// Korean is drawn on Android with WORD JOINER inside its words, which shows
+// nothing (`shownKorean`): text is found as a person reads it, without it.
+jest.mock('@testing-library/react-native/build/matches', () => {
+  const actual = jest.requireActual('@testing-library/react-native/build/matches');
+  const read = (text: unknown) => (typeof text === 'string' ? text.replace(/\u2060/g, '') : text);
+  return {
+    ...actual,
+    matches: (matcher: unknown, text: unknown, normalizer: unknown, exact: unknown) =>
+      actual.matches(matcher, read(text), normalizer, exact),
+  };
+});
+
 // Icons are decorative and hidden from assistive technology; nothing to test.
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 

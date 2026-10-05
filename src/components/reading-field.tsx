@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BilingualText } from '@/components/bilingual-text';
+import { shownKorean } from '@/components/shown-korean';
 import { Notice } from '@/components/notice';
 import { Radius, Spacing, TypeMaxScale } from '@/constants/theme';
 import { assessField, type FieldKind } from '@/features/ocr/field-integrity';
@@ -91,8 +92,11 @@ export function ReadingField({
           body={compact ? undefined : cutNote}
         />
       ) : !text ? (
-        <Text style={[styles.missing, { color: theme.textSecondary }]}>
-          {Strings.result.missing.ko}
+        <Text
+          style={[styles.missing, { color: theme.textSecondary }]}
+          accessibilityLabel={Strings.result.missing.ko}
+          lineBreakStrategyIOS="hangul-word">
+          {shownKorean(Strings.result.missing.ko)}
         </Text>
       ) : integrity?.level === 'damaged' || cutAtEdge ? (
         <Notice
@@ -140,8 +144,8 @@ export function ReadingField({
                   )
                 )}
               </Text>
-              <Text style={[styles.caption, { color: theme.recessedText }]}>
-                {Strings.result.rawCaption.ko}
+              <Text style={[styles.caption, { color: theme.recessedText }]} lineBreakStrategyIOS="hangul-word">
+                {shownKorean(Strings.result.rawCaption.ko)}
               </Text>
             </View>
           ) : null}
@@ -163,8 +167,10 @@ export function ReadingField({
           <Text
             style={[styles.value, { color: theme.text }]}
             maxFontSizeMultiplier={TypeMaxScale.body}
-            accessibilityLanguage="ko-KR">
-            {korean.text}
+            accessibilityLabel={korean.text}
+            accessibilityLanguage="ko-KR"
+            lineBreakStrategyIOS="hangul-word">
+            {shownKorean(korean.text)}
           </Text>
           <BilingualText text={korean.source} variant="label" color={theme.textSecondary} />
         </View>

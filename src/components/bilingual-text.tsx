@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { shownKorean } from '@/components/shown-korean';
 import { CameraChrome, Type, TypeMaxScale } from '@/constants/theme';
 import { useAnnouncement } from '@/hooks/use-announcement';
 import { useTheme } from '@/hooks/use-theme';
@@ -122,8 +123,10 @@ export function BilingualText({
       accessibilityRole={variant === 'heading' ? 'header' : undefined}>
       <Text
         style={[styles[variant], { color: primaryColor, textAlign }]}
-        maxFontSizeMultiplier={primaryScale}>
-        {text.ko}
+        maxFontSizeMultiplier={primaryScale}
+        // Korean breaks between its words, not inside them (`shownKorean`).
+        lineBreakStrategyIOS={english ? undefined : 'hangul-word'}>
+        {english ? text.ko : shownKorean(text.ko)}
       </Text>
       {hideEnglish || !text.en || text.pendingKo ? null : (
         <Text

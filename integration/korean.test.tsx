@@ -7,6 +7,7 @@
  * translation.
  */
 import { screen } from 'expo-router/testing-library';
+import { Platform } from 'react-native';
 
 import { APP_LOAD_BUDGET_MS, forgetAppStateListeners, launchApp, loadApp,
   withFullScope,
@@ -159,5 +160,32 @@ describe('a label just read', () => {
 
     await screen.findByText(Strings.result.damaged.instructions.title.ko);
     expect(screen.queryByText(Strings.guidance.perReviewedPhrases.ko)).toBeNull();
+  });
+});
+
+describe('Korean wrapped between its words', () => {
+  it('on Android, is drawn joined within each word, and given to a screen reader as written', async () => {
+    const original = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, get: () => 'android' });
+    try {
+      const saved = await addMedication({ name: 'LISINOPRIL', source: 'manual', needsReview: false });
+      launchApp(`/medication/${saved.id}`);
+      const heading = Strings.medications.fieldName.ko;
+      await screen.findByText(heading);
+      // As drawn: every two letters of a Korean word joined, so Android breaks
+      // the line only at a space ("약 이름", never "약 이 / 름").
+      const drawn: string[] = [];
+      const walk = (node: unknown): void => {
+        if (typeof node === 'string') drawn.push(node);
+        else if (Array.isArray(node)) node.forEach(walk);
+        else if (node && typeof node === 'object' && 'children' in node) walk((node as { children: unknown }).children);
+      };
+      walk(screen.toJSON());
+      expect(drawn).toContain(heading.split(' ').map((word) => [...word].join('\u2060')).join(' '));
+      // As read aloud: the words as written.
+      expect(screen.getByLabelText(heading)).toBeTruthy();
+    } finally {
+      Object.defineProperty(Platform, 'OS', { configurable: true, get: () => original });
+    }
   });
 });
