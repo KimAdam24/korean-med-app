@@ -213,9 +213,9 @@ export const notifications = {
       });
     }
   },
-  /** The user turns on "Override Do Not Disturb" on the reminders' channel page. */
-  letThroughDoNotDisturb(): void {
-    state.channelChanges.set('dose-reminders', { ...state.channelChanges.get('dose-reminders'), bypassDnd: true });
+  /** The user turns on "Override Do Not Disturb" on the reminders' channel page (or, `false`, off again). */
+  letThroughDoNotDisturb(on = true): void {
+    state.channelChanges.set('dose-reminders', { ...state.channelChanges.get('dose-reminders'), bypassDnd: on });
   },
   allowed(): void {
     state.permission = ALLOWED;

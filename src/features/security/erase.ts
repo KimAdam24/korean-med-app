@@ -1,11 +1,13 @@
 import { forgetLookups } from '@/features/drugs/lookup-memory';
 import { clearProfile } from '@/features/medications/medication-store';
+import { forgetPreferences } from '@/features/preferences/preferences';
 import { cancelAllReminders } from '@/features/reminders/scheduler';
 
 import { clearPin } from './pin';
 
 /**
- * Everything the app holds, gone: the reminders, the medicines, the PIN.
+ * Everything the app holds, gone: the reminders, the medicines, the PIN, and
+ * the screen preferences, back to Korean only.
  *
  * Reminders first. Left scheduled, they would go on ringing "time for your
  * medicine" for a list that no longer exists. A failure to cancel them does
@@ -19,6 +21,7 @@ import { clearPin } from './pin';
 export async function eraseEverything(): Promise<void> {
   await cancelAllReminders().catch(() => undefined);
   forgetLookups();
+  forgetPreferences();
   await clearProfile();
   await clearPin();
 }

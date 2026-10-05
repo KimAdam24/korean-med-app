@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card, CardDivider } from '@/components/card';
+import { EnglishToggle } from '@/components/english-toggle';
 import { Notice, StatusBadge } from '@/components/notice';
 import { Icon, type IconName } from '@/components/icon';
 import { ReadingField } from '@/components/reading-field';
@@ -672,7 +673,7 @@ export default function CameraScreen() {
   if (phase.kind === 'identified') {
     return (
       <Sheet>
-        <BilingualText text={Strings.scan.foundTitle} variant="heading" autoFocus />
+        <ResultHeading text={Strings.scan.foundTitle} autoFocus />
         <DrugCard drug={phase.drug} />
         <BilingualText text={Strings.scan.foundBody} variant="label" />
         <ApprovedUsesCard source={{ kind: 'product', ndc11: phase.drug.ndc11, rxcui: phase.drug.rxcui }} />
@@ -1221,7 +1222,7 @@ function ReadingResult({
 
   return (
     <Sheet>
-      <BilingualText text={Strings.result.title} variant="heading" />
+      <ResultHeading text={Strings.result.title} />
       {curvedNotice}
       {sweepButton}
       {filledNotice}
@@ -1297,6 +1298,19 @@ function DrugCard({ drug }: { drug: DrugIdentity }) {
         <Notice tone="info" title={Strings.scan.discontinued} />
       ) : null}
     </Card>
+  );
+}
+
+/**
+ * A result's heading, with the English button beside it: the screen most
+ * likely to be handed across a pharmacy counter.
+ */
+function ResultHeading({ text, autoFocus = false }: { text: Bilingual; autoFocus?: boolean }) {
+  return (
+    <View style={styles.resultHeading}>
+      <BilingualText text={text} variant="heading" autoFocus={autoFocus} style={styles.headingText} />
+      <EnglishToggle />
+    </View>
   );
 }
 
@@ -1466,6 +1480,12 @@ function Sheet({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  resultHeading: {
+    flexDirection: 'row',
+    // Beside the heading's first line, however far it wraps.
+    alignItems: 'flex-start',
+    gap: Spacing.three,
+  },
   sheet: {
     flex: 1,
   },

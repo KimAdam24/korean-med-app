@@ -5,12 +5,14 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card, CardDivider } from '@/components/card';
-import { ListRow } from '@/components/list-row';
+import { ListRow, SwitchRow } from '@/components/list-row';
 import { Notice } from '@/components/notice';
 import { PinPad } from '@/components/pin-pad';
 import { Screen } from '@/components/screen';
 import { Spacing } from '@/constants/theme';
 import { goBackOr } from '@/features/navigation/go-back';
+import { setShowEnglish } from '@/features/preferences/preferences';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { useAppLock } from '@/features/security/app-lock-context';
 import { eraseEverything } from '@/features/security/erase';
 import { PIN_LENGTH, setPin, verifyPin } from '@/features/security/pin';
@@ -59,6 +61,7 @@ type Step =
 export default function SettingsScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const { showEnglish } = usePreferences();
   const { capability, requestDeviceUnlock, refresh } = useAppLock();
   const [step, setStep] = useState<Step>({ kind: 'menu' });
   const [entry, setEntry] = useState('');
@@ -315,6 +318,11 @@ export default function SettingsScreen() {
         means starting again — belongs somewhere the user will actually meet it.
       */}
       <Notice tone="info" title={Strings.settings.storageNotice} />
+
+      {/* For a family member or a pharmacist: off, the app is Korean only. */}
+      <Card flush>
+        <SwitchRow icon="language" title={Strings.settings.showEnglish} value={showEnglish} onValueChange={setShowEnglish} />
+      </Card>
 
       <Card flush>
         {capability?.pinSet ? (

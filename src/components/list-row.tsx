@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { BilingualText } from '@/components/bilingual-text';
 import { Icon, type IconName } from '@/components/icon';
@@ -75,6 +75,55 @@ export function ListRow({
       </View>
 
       <Icon name="chevron" color={theme.textSecondary} size={IconSize.row - 4} />
+    </Pressable>
+  );
+}
+
+/**
+ * A row that turns one choice on or off: the same layout as `ListRow`, with a
+ * switch where the chevron goes.
+ *
+ * The whole row is the target, as it is for `ListRow`, and it is announced as
+ * one switch with its state. The switch drawn at the end only shows the state:
+ * it takes no touches of its own, so a tap on it cannot count twice.
+ */
+export function SwitchRow({
+  title,
+  icon,
+  value,
+  onValueChange,
+}: {
+  title: Bilingual;
+  icon?: IconName;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+}) {
+  const theme = useTheme();
+  const large = useLargeText();
+
+  return (
+    <Pressable
+      onPress={() => onValueChange(!value)}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel={title.ko}
+      style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.backgroundSelected }]}>
+      {icon && !large ? (
+        <View style={[styles.iconWell, { backgroundColor: theme.primaryWash }]}>
+          <Icon name={icon} color={theme.primaryIcon} />
+        </View>
+      ) : null}
+      <View style={styles.text}>
+        <BilingualText text={title} variant="title" />
+      </View>
+      <View pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+        <Switch
+          value={value}
+          trackColor={{ false: theme.border, true: theme.primary }}
+          thumbColor={theme.surface}
+          ios_backgroundColor={theme.border}
+        />
+      </View>
     </Pressable>
   );
 }

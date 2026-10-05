@@ -80,6 +80,12 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     notes:
       "Written in 합니다체, not the app's 해요체, because it sits among the phone's own formal wording. Is that right, or should it match the app? The current wording is 약병의 글씨를 읽기 위해 카메라를 사용합니다. 사진은 저장하지 않습니다.; only the second sentence changes.",
   },
+  'settings.showEnglish': {
+    section: RESULT,
+    where: "The Settings screen, a switch; and spoken by the screen reader for the small English button at the top of the result screen and of a medicine's page.",
+    when: 'Always.',
+    notes: 'Off by default: the app shows Korean only. The button itself says "English", in English, for the person it is for.',
+  },
   'settings.storageNotice': {
     section: PRIVACY,
     where: 'The Settings screen, under where the list is kept.',
@@ -206,6 +212,28 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     where: 'A button under uses.releaseAnswered or uses.releaseAnsweredNone.',
     when: 'With either: for a tap on the wrong letters.',
     notes: 'Not the same words as 고치기 (Edit), which edits the medicine on its page.',
+  },
+  'uses.sourceDetails': {
+    section: USES,
+    where: "Under the label's text, beside 미국 FDA 허가사항 기준 (guidance.perFdaLabel).",
+    when: 'Whenever a label is shown.',
+    notes: 'It replaces two lines that were always there: which DailyMed label the text is from, and that the name was matched per RxNorm. Those now show only when this is tapped.',
+  },
+  'uses.sourceDetailsHide': {
+    section: USES,
+    where: 'The same button, once tapped.',
+    when: 'While the details are open.',
+  },
+  'uses.explanationShow': {
+    section: USES,
+    where: "In the middle of the label's English text, where some of its paragraphs were.",
+    when: "Only on a label with the FDA's standard paragraphs about blood pressure (atenolol, prazosin, lisinopril with hydrochlorothiazide), which run to about 2,000 characters of background.",
+    notes: '설명 rather than a bare 더 보기: what is hidden is background, never one of the uses, and the button should not suggest more uses are behind it.',
+  },
+  'uses.explanationHide': {
+    section: USES,
+    where: 'Under the paragraphs, once shown.',
+    when: 'After uses.explanationShow is tapped.',
   },
   'uses.unavailable': {
     section: USES,

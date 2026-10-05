@@ -5,6 +5,8 @@ import { AppState, Platform } from 'react-native';
 
 import { loadProfile, unreadableMedicationIds } from '@/features/medications/medication-store';
 import { EMPTY_PROFILE } from '@/features/medications/types';
+import { setDndWarningSeen } from '@/features/preferences/preferences';
+import { usePreferences } from '@/features/preferences/preferences-context';
 
 import { medicationFromResponse, syncReminders, type ReminderHealth } from './scheduler';
 
@@ -90,6 +92,13 @@ export function RemindersProvider({ children }: { children: React.ReactNode }) {
     const subscription = Notifications.addNotificationResponseReceivedListener(open);
     return () => subscription.remove();
   }, [router]);
+
+  // Let through Do Not Disturb now: a dismissed warning about it is
+  // forgotten, so that if they stop being let through, it is shown again.
+  const { dndWarningSeen } = usePreferences();
+  useEffect(() => {
+    if (health?.kind === 'on' && dndWarningSeen) setDndWarningSeen(false);
+  }, [health, dndWarningSeen]);
 
   const value = useMemo(() => ({ health, resync }), [health, resync]);
   return <RemindersContext.Provider value={value}>{children}</RemindersContext.Provider>;

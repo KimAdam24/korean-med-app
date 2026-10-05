@@ -503,6 +503,11 @@ export const Strings = {
     eraseDone: { ko: '모두 지웠어요', en: 'Everything has been erased' },
 
     /** Why the medicines live only on this phone, said plainly rather than buried. */
+    showEnglish: aiKorean(
+      '영어도 같이 보기',
+      'Show English too',
+      "A switch on the Settings screen; and what a screen reader says for the small English button at the top of the result screen and of a medicine's page, which turns the same switch. On, every Korean line has its English under it, for a family member or a pharmacist; off, Korean only."
+    ),
     storageNotice: untranslated(
       'Your medicines are kept on this phone only. To look a medicine up, only its name or barcode number is sent, to the U.S. National Library of Medicine; your list never is. Changing phones means adding them again.',
       "Settings screen, under the storage heading. Replaces 약 정보는 이 휴대폰 안에만 저장돼요. 다른 곳으로 보내지 않아요. 휴대폰을 바꾸면 다시 등록해야 해요., whose middle sentence is no longer true: a medicine's name is sent to look it up."
@@ -551,6 +556,18 @@ export const Strings = {
       "Above the label's text, after the user tapped uses.releaseNone."
     ),
     releaseChange: untranslated('Change my answer', 'A button under uses.releaseAnswered or uses.releaseAnsweredNone: asks the question again.'),
+    sourceDetails: aiKorean(
+      '출처 자세히 보기',
+      'Where this comes from',
+      "A button beside guidance.perFdaLabel, under the label's text: shows which DailyMed label it is (uses.fromLabel), and that the medicine's name was matched per RxNorm."
+    ),
+    sourceDetailsHide: aiKorean('출처 접기', 'Hide where this comes from', 'The same button once uses.sourceDetails has been tapped.'),
+    explanationShow: aiKorean(
+      '설명 더 보기',
+      "Show the label's explanation",
+      "A button in the middle of the label's English text, in place of its paragraphs of background about blood pressure (the FDA's standard text for blood pressure medicines). Never in place of what the medicine is approved for, or of what it is not for: those are always shown."
+    ),
+    explanationHide: aiKorean('설명 접기', "Hide the label's explanation", 'The same button once uses.explanationShow has been tapped, under the paragraphs it showed.'),
     unavailable: { ko: '지금은 FDA 허가사항을 불러오지 못했어요. 인터넷 연결을 확인해 주시거나, 잠시 뒤에 다시 시도해 주세요.', en: 'Its FDA label could not be reached just now. Check the connection, or try again in a while.' },
     retry: { ko: 'FDA 허가사항 다시 찾기', en: 'Look up the FDA label again' },
     nameNotWhole: { ko: '약 이름을 다 읽지 못해서 아직 찾아볼 수 없어요. 약병에 적힌 대로 약 이름을 입력해 주시거나, 사진을 다시 찍어 주세요.', en: 'The medicine\'s name was not read whole, so it cannot be looked up yet. Type it as the bottle shows it, or take another photo.' },

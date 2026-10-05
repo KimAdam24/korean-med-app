@@ -89,6 +89,15 @@ export function alreadySetUp(): void {
   disk.write('file:///document/installed.v1', '');
 }
 
+/** Where the app keeps its two screen preferences. See `preferences`. */
+export const SHOW_ENGLISH = 'file:///document/show-english.v1';
+export const DND_WARNING_SEEN = 'file:///document/dnd-warning-seen.v1';
+
+/** The phone as a family member set it: English shown under the Korean. */
+export function withEnglishShown(): void {
+  disk.write(SHOW_ENGLISH, '');
+}
+
 /**
  * A phone on which the app has never been opened: without the introduction
  * marker every other suite starts with. See `reset.ts`.

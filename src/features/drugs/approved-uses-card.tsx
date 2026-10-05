@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card } from '@/components/card';
+import { Disclosure } from '@/components/disclosure';
 import { Notice } from '@/components/notice';
 import { Radius, Spacing, Type, TypeMaxScale } from '@/constants/theme';
 import type { AttributedGuidance } from '@/features/guidance/attribution';
@@ -27,6 +28,7 @@ import {
   type Release,
   type ReleaseMarker,
 } from './identify-name';
+import { labelParts } from './label-prose';
 import { recallLookup, rememberLookup } from './lookup-memory';
 
 /** What to show the approved uses of. */
@@ -208,6 +210,20 @@ export function ApprovedUsesCard({
     };
   }, [key, request]);
 
+  const [details, setDetails] = useState(false);
+
+  // The medicine the label is for, as found: from the label's words, or the
+  // name the user typed.
+  const identified =
+    state.kind === 'found' && state.match ? (
+      <BilingualText
+        text={fillTemplate(source.kind === 'name' && source.typed ? Strings.uses.identifiedTypedAs : Strings.uses.identifiedAs, {
+          name: state.match.ingredients.join(' / '),
+        })}
+        variant="label"
+      />
+    ) : null;
+
   // The user's answer, said as theirs, with the way to change it.
   const answered =
     source.kind === 'name' && source.release && onReleaseAnswered ? (
@@ -242,36 +258,44 @@ export function ApprovedUsesCard({
             is not. Amber, as a caution, not the blue of an aside.
           */}
           <Notice tone="warn" title={Strings.uses.disclaimer} />
-          {state.match ? (
-            <View style={styles.source}>
-              <BilingualText
-                text={fillTemplate(
-                  source.kind === 'name' && source.typed ? Strings.uses.identifiedTypedAs : Strings.uses.identifiedAs,
-                  { name: state.match.ingredients.join(' / ') }
-                )}
-                variant="label"
-              />
-              <BilingualText text={Strings.guidance.perRxNorm} variant="label" color={theme.textSecondary} />
-            </View>
-          ) : null}
+          {/* How the user checks the right medicine was found: always shown. */}
+          {identified}
           {answered}
-          <Text
-            style={[styles.text, { color: theme.text }]}
-            maxFontSizeMultiplier={TypeMaxScale.body}
-            // The label's own words, in English, read in an English voice on
-            // an iPhone; Android's TalkBack takes no language from the app, and
-            // reads in the phone's own.
-            accessibilityLanguage="en-US">
-            {state.uses.content.text}
-          </Text>
-          <View style={styles.source}>
+          <LabelText key={state.uses.content.label.setId} text={state.uses.content.text} />
+          {/*
+            Whose words these are, in one line; which label, and whose match
+            of the name, a tap away. All of it used to be shown, four lines
+            deep with the label's title in it twice, under every label.
+          */}
+          <View style={styles.sourceLine}>
             <BilingualText text={state.uses.attribution.label} variant="label" color={theme.textSecondary} />
-            <BilingualText
-              text={fillTemplate(Strings.uses.fromLabel, { title: state.uses.content.label.title })}
-              variant="label"
-              color={theme.textSecondary}
+            <Disclosure
+              open={details}
+              show={Strings.uses.sourceDetails}
+              hide={Strings.uses.sourceDetailsHide}
+              onToggle={() => setDetails((open) => !open)}
             />
           </View>
+          {details ? (
+            <View style={styles.source}>
+              {/*
+                Korean only, even with English shown: the title is the label's
+                own English, and the English line would only say it again.
+              */}
+              <BilingualText
+                text={fillTemplate(Strings.uses.fromLabel, { title: state.uses.content.label.title })}
+                variant="label"
+                color={theme.textSecondary}
+                hideEnglish
+              />
+              {state.match ? (
+                <View style={styles.source}>
+                  {identified}
+                  <BilingualText text={Strings.guidance.perRxNorm} variant="label" color={theme.textSecondary} />
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </>
       ) : state.kind === 'releaseUnknown' ? (
         // A quick check, not a failure: the letters beside the name, a tap
@@ -345,7 +369,67 @@ export function ApprovedUsesCard({
   );
 }
 
+/**
+ * The label's own words, in English, read in an English voice on an iPhone;
+ * Android's TalkBack takes no language from the app, and reads in the phone's
+ * own.
+ *
+ * Shown whole, but for the FDA's standard background on blood pressure, which
+ * folds away behind a button where it stood (see `label-prose`): never a use,
+ * never a limitation.
+ */
+function LabelText({ text }: { text: string }) {
+  const theme = useTheme();
+  const parts = useMemo(() => labelParts(text), [text]);
+  const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
+  const paragraph = (words: string, key?: number) => (
+    <Text
+      key={key}
+      style={[styles.text, { color: theme.text }]}
+      maxFontSizeMultiplier={TypeMaxScale.body}
+      accessibilityLanguage="en-US">
+      {words}
+    </Text>
+  );
+
+  if (!parts.some((part) => part.background)) return paragraph(text);
+  return (
+    <View>
+      {parts.map((part, index) => {
+        // The line breaks between parts are the space between their blocks.
+        const words = part.text.replace(/^\n+|\n+$/g, '');
+        if (!part.background) return paragraph(words, index);
+        const shown = open.has(index);
+        return (
+          <View key={index}>
+            {shown ? paragraph(words) : null}
+            <Disclosure
+              open={shown}
+              show={Strings.uses.explanationShow}
+              hide={Strings.uses.explanationHide}
+              onToggle={() =>
+                setOpen((now) => {
+                  const next = new Set(now);
+                  if (shown) next.delete(index);
+                  else next.add(index);
+                  return next;
+                })
+              }
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  sourceLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: Spacing.three,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

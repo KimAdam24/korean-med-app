@@ -32,6 +32,7 @@ export const Icons = {
     web: 'barcode_scanner',
   },
   key: { ios: 'key.fill', android: 'key', web: 'key' },
+  language: { ios: 'character.bubble', android: 'translate', web: 'translate' },
   erase: { ios: 'trash.fill', android: 'delete', web: 'delete' },
   edit: { ios: 'pencil', android: 'edit', web: 'edit' },
   backspace: { ios: 'delete.left', android: 'backspace', web: 'backspace' },

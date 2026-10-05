@@ -11,6 +11,7 @@ import { Linking, Platform } from 'react-native';
 
 import {
   APP_LOAD_BUDGET_MS,
+  DND_WARNING_SEEN,
   alreadySetUp,
   forgetAppStateListeners,
   launchApp,
@@ -18,7 +19,9 @@ import {
   press,
   sendAppFocus,
   sendAppTo,
+  withEnglishShown,
 } from './app-harness';
+import { disk } from './fakes/file-system';
 import { biometrics } from './fakes/local-authentication';
 import * as NotificationsFake from './fakes/notifications';
 import { doseAlarms, notifications } from './fakes/notifications';
@@ -456,12 +459,17 @@ describe('Do Not Disturb', () => {
     await screen.findByText(set(at(8, 0)));
     expect(screen.getByText(R.statusFocus.ko)).toBeTruthy();
     expect(screen.queryByText(on(at(8, 0)))).toBeNull();
-    // Nothing the app can open would change it.
+    // Nothing the app can open would change it: 확인 is the only way to put it away.
     expect(screen.queryByRole('button', { name: R.letThroughDnd.ko })).toBeNull();
+    press(Strings.camera.done.ko);
+    expect(screen.queryByText(R.statusFocus.ko)).toBeNull();
+    expect(screen.getByText(set(at(8, 0)))).toBeTruthy();
   });
 
   it('on Android, not yet let through: set, not on; explained before anything opens; on once let through', async () => {
     const restore = onAndroid();
+    // For the English line, at the end.
+    withEnglishShown();
     try {
       const record = await medicine([{ hour: 8, minute: 0 }]);
       await openMedicine(record.id);
@@ -501,6 +509,79 @@ describe('Do Not Disturb', () => {
       expect(doseAlarms.channelPages).toEqual([]);
       expect(screen.getByText(R.statusDnd.ko)).toBeTruthy();
       expect(screen.getByRole('button', { name: R.letThroughDnd.ko })).toBeTruthy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('on Android, 확인 puts the warning away for good: the times still say "set", not "on"', async () => {
+    const restore = onAndroid();
+    try {
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(R.statusDnd.ko);
+      press(Strings.camera.done.ko);
+      expect(screen.queryByText(R.statusDnd.ko)).toBeNull();
+      expect(screen.queryByRole('button', { name: R.letThroughDnd.ko })).toBeNull();
+      expect(screen.getByText(set(at(8, 0)))).toBeTruthy();
+      expect(disk.under(DND_WARNING_SEEN)).toEqual([DND_WARNING_SEEN]);
+
+      // Phone-wide, and kept: another medicine, another launch.
+      const other = await medicine([{ hour: 20, minute: 0 }]);
+      await openMedicine(other.id);
+      await screen.findByText(set(at(8, 0)));
+      expect(screen.queryByText(R.statusDnd.ko)).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('on Android, while the explanation is open, 확인 is not offered beside it', async () => {
+    const restore = onAndroid();
+    try {
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(R.statusDnd.ko);
+      press(R.letThroughDnd.ko);
+      expect(screen.queryByRole('button', { name: Strings.camera.done.ko })).toBeNull();
+      press(Strings.onboarding.notNow.ko);
+      expect(screen.getByRole('button', { name: Strings.camera.done.ko })).toBeTruthy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('put away, it is back while Do Not Disturb is on now, with nothing to put it away', async () => {
+    const restore = onAndroid();
+    try {
+      disk.write(DND_WARNING_SEEN, '');
+      doseAlarms.filter = 2; // priority only, and not let through
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(R.statusDndNow.ko);
+      expect(screen.getByRole('button', { name: R.letThroughDnd.ko })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: Strings.camera.done.ko })).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('put away, then let through, then not: the warning is new, and shown again', async () => {
+    const restore = onAndroid();
+    try {
+      disk.write(DND_WARNING_SEEN, '');
+      notifications.letThroughDoNotDisturb();
+      const record = await medicine([{ hour: 8, minute: 0 }]);
+      await openMedicine(record.id);
+      await screen.findByText(on(at(8, 0)));
+      // On: the dismissal is forgotten.
+      expect(disk.under(DND_WARNING_SEEN)).toEqual([]);
+
+      // The phone stops letting them through, and the user comes back.
+      notifications.letThroughDoNotDisturb(false);
+      await sendAppTo('active');
+      await screen.findByText(R.statusDnd.ko);
+      expect(screen.getByText(set(at(8, 0)))).toBeTruthy();
     } finally {
       restore();
     }

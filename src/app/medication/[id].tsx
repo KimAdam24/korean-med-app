@@ -1,10 +1,11 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
 
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card, CardDivider } from '@/components/card';
+import { EnglishToggle } from '@/components/english-toggle';
 import { Notice } from '@/components/notice';
 import { ReadingField } from '@/components/reading-field';
 import { Screen } from '@/components/screen';
@@ -365,6 +366,8 @@ export default function MedicationScreen() {
 
   return (
     <Screen>
+      {/* Beside the title: the page a pharmacist is shown. */}
+      <Stack.Screen options={{ headerRight: () => <EnglishToggle /> }} />
       {mode.kind === 'viewing' && mode.notice ? <Notice tone="warn" title={mode.notice} live /> : null}
       <Card>
         <ReadingField

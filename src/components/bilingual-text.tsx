@@ -10,12 +10,22 @@ import {
 
 import { shownKorean } from '@/components/shown-korean';
 import { CameraChrome, Type, TypeMaxScale } from '@/constants/theme';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { useAnnouncement } from '@/hooks/use-announcement';
 import { useTheme } from '@/hooks/use-theme';
 import type { Bilingual } from '@/i18n/strings';
 
 /**
  * Korean primary, English secondary.
+ *
+ * The English line is shown only when it is asked for (`showEnglish`: the
+ * switch in Settings, or the English button on the result and medicine
+ * screens), for a family member or a pharmacist. Korean alone otherwise: an
+ * English line under every Korean one doubled every screen for a reader who
+ * does not need it. Two exceptions show it whatever the setting: a string
+ * still waiting for its Korean, which is English only; and Korean completed
+ * by AI (`aiKorean`), which keeps its English beside it until the reviewer has
+ * read it.
  *
  * Sizes start well above the scaffold's 16px body because the target user is
  * elderly (spec §2). Font scaling is left enabled, so nothing here may assume a
@@ -41,9 +51,10 @@ export type BilingualTextProps = {
   color?: string;
   secondaryColor?: string;
   /**
-   * Omit the English gloss. For explanatory text inside notices, where the
-   * title already carries the gist in both languages and repeating a whole
-   * sentence in English doubles the block for a reader who does not need it.
+   * Omit the English gloss even when English is shown. For explanatory text
+   * inside notices, where the title already carries the gist in both languages
+   * and repeating a whole sentence in English doubles the block. Korean
+   * completed by AI keeps its English regardless.
    */
   hideEnglish?: boolean;
   align?: 'left' | 'center';
@@ -96,6 +107,8 @@ export function BilingualText({
     secondaryOverride ?? color ?? (onDark ? 'rgba(255,255,255,0.72)' : theme.textSecondary);
   const textAlign = align;
   const english = language === 'en' || text.pendingKo;
+  const { showEnglish } = usePreferences();
+  const gloss = Boolean(text.en) && !text.pendingKo && ((showEnglish && !hideEnglish) || text.koBy === 'ai');
 
   const ref = useRef<View>(null);
   useEffect(() => {
@@ -128,7 +141,7 @@ export function BilingualText({
         lineBreakStrategyIOS={english ? undefined : 'hangul-word'}>
         {english ? text.ko : shownKorean(text.ko)}
       </Text>
-      {hideEnglish || !text.en || text.pendingKo ? null : (
+      {!gloss ? null : (
         <Text
           style={[styles.secondary, { color: secondaryColor, textAlign }]}
           maxFontSizeMultiplier={glossScale}

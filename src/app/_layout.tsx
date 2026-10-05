@@ -6,6 +6,7 @@ import { Colors } from '@/constants/theme';
 import { sweepPhotoCaches } from '@/features/capture/photo-caches';
 import { markOnboarded, needsOnboarding } from '@/features/onboarding/onboarding-marker';
 import { Onboarding } from '@/features/onboarding/onboarding-screen';
+import { PreferencesProvider } from '@/features/preferences/preferences-context';
 import { RemindersProvider } from '@/features/reminders/reminders-context';
 import { configureReminderPresentation, rearmStoredReminders } from '@/features/reminders/scheduler';
 import { protectFromAppSwitcher } from '@/features/security/screen-privacy';
@@ -57,9 +58,11 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={navigationTheme(scheme)}>
-      <AppLockProvider>
-        <LockGate />
-      </AppLockProvider>
+      <PreferencesProvider>
+        <AppLockProvider>
+          <LockGate />
+        </AppLockProvider>
+      </PreferencesProvider>
     </ThemeProvider>
   );
 }

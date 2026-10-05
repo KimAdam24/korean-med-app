@@ -19,10 +19,12 @@ import {
   loadApp,
   press,
   pressDigits,
+  withEnglishShown,
 } from './app-harness';
 import { biometrics } from './fakes/local-authentication';
 
 import { BilingualText } from '@/components/bilingual-text';
+import { PreferencesProvider } from '@/features/preferences/preferences-context';
 import { PinPad } from '@/components/pin-pad';
 import { TypeMaxScale } from '@/constants/theme';
 import * as store from '@/features/medications/medication-store';
@@ -56,11 +58,12 @@ describe('large system text', () => {
   });
 
   it('stops each size where the system would stop its own body text', () => {
+    withEnglishShown();
     render(
-      <>
+      <PreferencesProvider>
         <BilingualText text={{ ko: '제목', en: 'Title' }} variant="heading" />
         <BilingualText text={{ ko: '본문', en: 'Body' }} />
-      </>
+      </PreferencesProvider>
     );
     expect(screen.getByText('제목').props.maxFontSizeMultiplier).toBe(TypeMaxScale.heading);
     expect(screen.getByText('본문').props.maxFontSizeMultiplier).toBe(TypeMaxScale.body);

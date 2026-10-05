@@ -36,14 +36,14 @@ afterEach(() => {
 const INDICATION =
   'Ergocalciferol is indicated for use in the treatment of hypoparathyroidism, refractory rickets, also known as vitamin D resistant rickets, and familial hypophosphatemia.';
 const TORRENT = 'ERGOCALCIFEROL CAPSULE [TORRENT PHARMACEUTICALS LIMITED]';
-const label = (category = 'NDA') => `<document>
+const label = (category = 'NDA', indications: readonly string[] = [INDICATION]) => `<document>
   <subjectOf><approval><id extension="NDA003444"/><code code="C73594" displayName="${category}"/></approval></subjectOf>
   <ingredient classCode="ACTIB"><ingredientSubstance><name>ERGOCALCIFEROL</name></ingredientSubstance></ingredient>
   <manufacturedProduct><code code="13668-757" codeSystem="2.16.840.1.113883.6.69"/>
     <containerPackagedProduct><code code="13668-757-01" codeSystem="2.16.840.1.113883.6.69"/></containerPackagedProduct>
   </manufacturedProduct>
   <component><section><code code="34067-9"/><title>INDICATIONS AND USAGE</title>
-    <text><paragraph>${INDICATION}</paragraph></text>
+    <text>${indications.map((paragraph) => `<paragraph>${paragraph}</paragraph>`).join('')}</text>
   </section></component>
 </document>`;
 
@@ -51,7 +51,13 @@ const label = (category = 'NDA') => `<document>
  * RxNav and DailyMed, answering the lookups for the vitamin D2 vial. Returns
  * every URL asked for, in order.
  */
-function nlm({ online = true, category = 'NDA', overTheCounterToo = false, twoReleases = false } = {}): string[] {
+function nlm({
+  online = true,
+  category = 'NDA',
+  overTheCounterToo = false,
+  twoReleases = false,
+  indications = [INDICATION] as readonly string[],
+} = {}): string[] {
   const asked: string[] = [];
   const reply = (body: unknown) =>
     ({
@@ -100,7 +106,7 @@ function nlm({ online = true, category = 'NDA', overTheCounterToo = false, twoRe
       return reply({ data: [{ setid: 'torrent', title: TORRENT, spl_version: 3 }] });
     }
     if (url.includes('spls.json')) return reply({ data: [] });
-    if (url.endsWith('/spls/torrent.xml')) return reply(label(category));
+    if (url.endsWith('/spls/torrent.xml')) return reply(label(category, indications));
     return { ok: false, status: 404, json: async () => ({}), text: async () => '' } as Response;
   }) as unknown as typeof fetch;
   return asked;
@@ -117,8 +123,15 @@ async function openPickedPhoto(lines: Parameters<typeof ocr.willRead>[0]) {
 function expectTheFrame(): void {
   expect(screen.getByText(Strings.uses.title.ko)).toBeTruthy();
   expect(screen.getByText(Strings.guidance.perFdaLabel.ko)).toBeTruthy();
-  expect(screen.getByText(fillTemplate(Strings.uses.fromLabel, { title: TORRENT }).ko)).toBeTruthy();
   expect(screen.getByText(Strings.uses.disclaimer.ko)).toBeTruthy();
+  // Whose words, in one line; which label, a tap away, its title once.
+  const fromLabel = fillTemplate(Strings.uses.fromLabel, { title: TORRENT });
+  expect(screen.queryByText(fromLabel.ko)).toBeNull();
+  press(Strings.uses.sourceDetails.ko);
+  expect(screen.getByText(fromLabel.ko)).toBeTruthy();
+  expect(screen.queryByText(fromLabel.en, { includeHiddenElements: true })).toBeNull();
+  press(Strings.uses.sourceDetailsHide.ko);
+  expect(screen.queryByText(fromLabel.ko)).toBeNull();
   // In that order: the heading, then the caveat, and only then the label's
   // words, so the caveat is read before the uses, not after them.
   const order = visibleText();
@@ -164,8 +177,14 @@ describe('what a medicine is approved to treat', () => {
 
     await screen.findByText(INDICATION);
     expectTheFrame();
-    expect(screen.getByText(fillTemplate(Strings.uses.identifiedAs, { name: 'ergocalciferol' }).ko)).toBeTruthy();
+    // The medicine found, always shown: how the user checks it is theirs.
+    const identified = fillTemplate(Strings.uses.identifiedAs, { name: 'ergocalciferol' }).ko;
+    expect(screen.getByText(identified)).toBeTruthy();
+    // Whose match it was, with the details.
+    expect(screen.queryByText(Strings.guidance.perRxNorm.ko)).toBeNull();
+    press(Strings.uses.sourceDetails.ko);
     expect(screen.getByText(Strings.guidance.perRxNorm.ko)).toBeTruthy();
+    press(Strings.uses.sourceDetailsHide.ko);
     // Strength and directions as before: the strength shown, the damaged directions withheld.
     expect(screen.getByText('1.25 MG (50,000 UNIT)')).toBeTruthy();
     expect(screen.getByText(Strings.result.damaged.instructions.title.ko)).toBeTruthy();
@@ -488,6 +507,43 @@ describe('what a medicine is approved to treat', () => {
     expect(profile.status === 'ok' && profile.value.medications[0].nameIncomplete).toBeUndefined();
     // The new name is the user's.
     expect(profile.status === 'ok' && profile.value.medications[0].nameSource).toBe('typed');
+  });
+});
+
+describe("a label's own words, folded only where they are background", () => {
+  // The FDA's standard paragraphs for blood pressure medicines, opening as
+  // they do, between a use and a limit.
+  const USE = 'This medicine is indicated for the treatment of hypertension, to lower blood pressure.';
+  const BACKGROUND = [
+    'Control of high blood pressure should be part of comprehensive cardiovascular risk management.',
+    'Numerous antihypertensive drugs, from a variety of pharmacologic classes and with different mechanisms of action, have been shown to reduce cardiovascular morbidity and mortality.',
+    'Elevated systolic or diastolic pressure causes increased cardiovascular risk.',
+    'Some antihypertensive drugs have smaller blood pressure effects (as monotherapy) in black patients.',
+  ];
+  const LIMIT = 'These fixed-dose combinations are not indicated for initial therapy.';
+
+  it('the background folds behind a button where it stood; the use before it and the limit after it are shown', async () => {
+    nlm({ indications: [USE, ...BACKGROUND, LIMIT] });
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+    await screen.findByText(USE);
+    expect(screen.getByText(LIMIT)).toBeTruthy();
+    expect(screen.queryByText(BACKGROUND.join('\n'))).toBeNull();
+    // Use, button, limit: in the label's own order.
+    const order = visibleText();
+    expect(order.indexOf(USE)).toBeLessThan(order.indexOf(Strings.uses.explanationShow.ko));
+    expect(order.indexOf(Strings.uses.explanationShow.ko)).toBeLessThan(order.indexOf(LIMIT));
+
+    press(Strings.uses.explanationShow.ko);
+    expect(screen.getByText(BACKGROUND.join('\n'))).toBeTruthy();
+    press(Strings.uses.explanationHide.ko);
+    expect(screen.queryByText(BACKGROUND.join('\n'))).toBeNull();
+  });
+
+  it('a label with none of it is shown whole, as it was, with no button', async () => {
+    nlm();
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+    await screen.findByText(INDICATION);
+    expect(screen.queryByRole('button', { name: Strings.uses.explanationShow.ko })).toBeNull();
   });
 });
 

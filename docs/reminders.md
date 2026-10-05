@@ -114,6 +114,14 @@ through.
   "alarms only", which silence everything but alarms: while either is on, the
   page says reminders cannot sound now, and offers nothing, since letting
   through would not help.
+- **Put away with 확인 (2026-10-05).** A warning that is always there stops
+  being read, so the one that says Do Not Disturb *could* silence them has
+  확인 beside it. Dismissed, it stays away, phone-wide; the times still say
+  "set", not "on". It is back, with nothing to dismiss it, while Do Not
+  Disturb is on now. And the dismissal is forgotten once the reminders are
+  let through, so that if the phone stops letting them through, the warning
+  is shown again (`preferences.ts`, `ReminderStatus`). On an iPhone, 확인 is
+  the only way to put it away.
 - **What is still not seen.** When Do Not Disturb will next turn on, and which
   mode it will be; on Android 15, a mode set to let no apps through, even
   priority ones. Below Android 8, the app-wide override cannot be read: such

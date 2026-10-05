@@ -5,6 +5,8 @@ import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Notice } from '@/components/notice';
 import { Spacing } from '@/constants/theme';
+import { setDndWarningSeen } from '@/features/preferences/preferences';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { useAppLock } from '@/features/security/app-lock-context';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, fillTemplate } from '@/i18n/strings';
@@ -34,6 +36,13 @@ import { timeInBoth } from './time-picker';
  * silence them; and on Android, the way to let them through, explained before
  * the phone's settings open.
  *
+ * Until it is dismissed (확인), or they are let through. A warning that is
+ * always there stops being read. Dismissed, the times still say "set", not
+ * "on", which stays true; and while Do Not Disturb is on now, the warning is
+ * back whatever was dismissed, since then they will not sound. Dismissing is
+ * phone-wide, as Do Not Disturb is, and is forgotten once the reminders are
+ * seen to pass it: if they stop passing, that is new (`RemindersProvider`).
+ *
  * `attentionOnly` shows nothing unless something is wrong — for the home
  * screen, which should not narrate reminders that are fine.
  */
@@ -41,6 +50,7 @@ export function ReminderStatus({ attentionOnly = false }: { attentionOnly?: bool
   const theme = useTheme();
   const { health, resync } = useReminders();
   const { runWithSystemUi } = useAppLock();
+  const { dndWarningSeen } = usePreferences();
   const [explaining, setExplaining] = useState(false);
 
   if (attentionOnly && !needsAttention(health)) return null;
@@ -108,12 +118,16 @@ export function ReminderStatus({ attentionOnly = false }: { attentionOnly?: bool
           </Notice>
         );
       }
+      if (!health.now && dndWarningSeen) return nextLine(false);
       return (
         <View style={{ gap: Spacing.two }}>
           {nextLine(false)}
           {/* Amber, as anything that is not what it looks like: set is not sure to sound. */}
           <Notice tone="warn" title={warning} live>
             {letThrough}
+            {health.now || explaining ? null : (
+              <BigButton label={Strings.camera.done} tone="secondary" onPress={() => setDndWarningSeen(true)} />
+            )}
           </Notice>
         </View>
       );
