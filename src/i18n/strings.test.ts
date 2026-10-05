@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { allCopy, pendingCopy, pendingCopyTable } from './pending.ts';
-import { Strings, untranslated } from './strings.ts';
+import { Strings, fillTemplate, untranslated } from './strings.ts';
 
 const HANGUL = /[가-힣]/;
 
@@ -120,4 +120,12 @@ test("her reviewed Korean is in the app as she wrote it, and the English she rev
     }
   }
   assert.ok(checked > 100, `only ${checked} reviewed strings checked`);
+});
+
+test('a value written differently in each language fills each its own', () => {
+  const filled = fillTemplate(Strings.reminders.statusOn, { time: { ko: '오후 1:00', en: '1:00 PM' } });
+  assert.equal(filled.ko, '알림이 켜져 있어요. 다음 알림 시간: 오후 1:00');
+  assert.equal(filled.en, 'Reminders are on. The next one is at 1:00 PM.');
+  // One value for both, as before.
+  assert.equal(fillTemplate(Strings.uses.identifiedAs, { name: 'lisinopril' }).en, 'Identified from its label as: lisinopril');
 });

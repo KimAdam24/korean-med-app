@@ -482,6 +482,9 @@ describe('Do Not Disturb', () => {
       await sendAppTo('active');
       await screen.findByText(on(at(8, 0)));
       expect(screen.queryByText(R.statusDnd.ko)).toBeNull();
+      // The English line in English, its time too: not "at 오전 8:00".
+      // (Hidden from the screen reader, which reads the pair in Korean.)
+      expect(screen.getByText('Reminders are on. The next one is at 8:00 AM.', { includeHiddenElements: true })).toBeTruthy();
     } finally {
       restore();
     }

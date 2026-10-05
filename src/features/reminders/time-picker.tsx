@@ -9,11 +9,17 @@ import { Strings, fillTemplate, type Bilingual } from '@/i18n/strings';
 import type { ReminderTime } from '../medications/types';
 import { clockHour, formatReminderTime, stepTime, withPeriod, type TimeWords } from './plan';
 
-/** The reviewed words every reminder time is written with. See `TimeWords`. */
-export const timeWords = (): TimeWords => ({
-  template: Strings.reminders.timeFormat.ko,
-  am: Strings.reminders.am.ko,
-  pm: Strings.reminders.pm.ko,
+/** The reviewed words every reminder time is written with, in a language. See `TimeWords`. */
+export const timeWords = (language: 'ko' | 'en' = 'ko'): TimeWords => ({
+  template: Strings.reminders.timeFormat[language],
+  am: Strings.reminders.am[language],
+  pm: Strings.reminders.pm[language],
+});
+
+/** A reminder time in each language, for a bilingual line: "오후 1:00" and "1:00 PM". */
+export const timeInBoth = (time: ReminderTime) => ({
+  ko: formatReminderTime(time, timeWords('ko')),
+  en: formatReminderTime(time, timeWords('en')),
 });
 
 /** Times most people take medicine at, one tap each. */

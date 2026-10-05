@@ -9,7 +9,6 @@ import { useAppLock } from '@/features/security/app-lock-context';
 import { useTheme } from '@/hooks/use-theme';
 import { Strings, fillTemplate } from '@/i18n/strings';
 
-import { formatReminderTime } from './plan';
 import { useReminders } from './reminders-context';
 import {
   needsAttention,
@@ -17,7 +16,7 @@ import {
   openReminderChannelSettings,
   requestReminderPermission,
 } from './scheduler';
-import { timeWords } from './time-picker';
+import { timeInBoth } from './time-picker';
 
 /**
  * What the reminders are actually doing, and the one thing that fixes them
@@ -64,10 +63,8 @@ export function ReminderStatus({ attentionOnly = false }: { attentionOnly?: bool
         text={
           health.next
             ? fillTemplate(on ? Strings.reminders.statusOn : Strings.reminders.statusSet, {
-                time: formatReminderTime(
-                  { hour: health.next.getHours(), minute: health.next.getMinutes() },
-                  timeWords()
-                ),
+                // Each line its own language's time: not "at 오후 1:00".
+                time: timeInBoth({ hour: health.next.getHours(), minute: health.next.getMinutes() }),
               })
             : on
               ? Strings.reminders.statusOnNoNext

@@ -731,12 +731,21 @@ export const Strings = {
 /**
  * Fills `{name}` placeholders in both languages from `values`, keeping the
  * string's placeholder marking. Unknown names are left as written, so a typo
- * shows on screen instead of silently vanishing.
+ * shows on screen instead of silently vanishing. A value written differently
+ * in each language (a time: "오후 1:00", "1:00 PM") is given as both, each
+ * filled into its own; it was once Korean in the English line too.
  */
-export function fillTemplate(template: Bilingual, values: Record<string, string | number>): Bilingual {
-  const fill = (text: string) =>
-    text.replace(/\{([^}]+)\}/g, (match, name: string) => (name in values ? String(values[name]) : match));
-  return { ...template, ko: fill(template.ko), en: fill(template.en) };
+export function fillTemplate(
+  template: Bilingual,
+  values: Record<string, string | number | { readonly ko: string; readonly en: string }>
+): Bilingual {
+  const fill = (text: string, language: 'ko' | 'en') =>
+    text.replace(/\{([^}]+)\}/g, (match, name: string) => {
+      if (!(name in values)) return match;
+      const value = values[name];
+      return typeof value === 'object' ? value[language] : String(value);
+    });
+  return { ...template, ko: fill(template.ko, 'ko'), en: fill(template.en, 'en') };
 }
 
 /**
