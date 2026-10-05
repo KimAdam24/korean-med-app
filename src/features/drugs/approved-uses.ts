@@ -498,33 +498,46 @@ type Proof =
  * prescription or over the counter) refuses rather than guesses, and so does
  * this.
  *
- * Tadalafil 20 mg tablets: CIALIS is for erectile dysfunction and benign
- * prostatic hyperplasia, ADCIRCA and ALYQ for pulmonary arterial
- * hypertension, and both kinds of generic are titled "TADALAFIL TABLET"
- * (2026-10-05: 91 such labels of 183). CIALIS's other strengths (2.5, 5, 10
- * mg) are its own, so the strength chooses there. Looked for and not found:
- * bupropion SR for smoking cessation (ZYBAN) among 40 of its extended-release
- * labels.
+ * Found by reading every label of the ingredient (2026-10-05):
+ *
+ * - Tadalafil 20 mg tablets: CIALIS is for erectile dysfunction and benign
+ *   prostatic hyperplasia, ADCIRCA and ALYQ for pulmonary arterial
+ *   hypertension, and both kinds of generic are titled "TADALAFIL TABLET"
+ *   (91 such labels of 183). CIALIS's other strengths (2.5, 5, 10 mg) are its
+ *   own, so the strength chooses there.
+ * - Bupropion SR 150 mg tablets: 7 of its 368 labels are ZYBAN's generics,
+ *   for smoking cessation; the rest of its SR labels, WELLBUTRIN SR's, for
+ *   depression; both titled "BUPROPION HYDROCHLORIDE SR ... EXTENDED RELEASE".
+ *   Not where the bottle says XL (depression and seasonal affective
+ *   disorder), which no smoking-cessation label is; nor at 100 or 200 mg.
+ *   ZYBAN itself has no label on DailyMed, and is not identified by RxNorm.
  */
 const BY_BRAND: readonly {
   readonly ingredient: string;
   readonly strengths: readonly Strength[];
   readonly brands: readonly string[];
-}[] = [{ ingredient: 'tadalafil', strengths: [{ value: 20, unit: 'mg' }], brands: ['cialis', 'adcirca', 'alyq'] }];
+  /** Release markers that, printed, rule the ambiguous products out. */
+  readonly unlessReleaseToken?: readonly string[];
+}[] = [
+  { ingredient: 'tadalafil', strengths: [{ value: 20, unit: 'mg' }], brands: ['cialis', 'adcirca', 'alyq'] },
+  { ingredient: 'bupropion', strengths: [{ value: 150, unit: 'mg' }], brands: ['wellbutrin', 'zyban'], unlessReleaseToken: ['xl'] },
+];
 
 /**
  * For a medicine told apart only by its brand: the brand whose label alone
  * may be shown; null where none is needed; 'refuse' where one is and none was
  * printed. Needed at the strength the products share, or where no strength
- * was read.
+ * was read; not where a release marker printed rules them out.
  */
 function brandRequired(
   ingredients: readonly string[],
   strengths: readonly Strength[],
-  brand: readonly string[]
+  brand: readonly string[],
+  releaseToken: string | null
 ): string | null | 'refuse' {
   const entry = BY_BRAND.find((one) => ingredients.length === 1 && nameWords(ingredients[0]).join(' ') === one.ingredient);
   if (!entry) return null;
+  if (releaseToken !== null && entry.unlessReleaseToken?.includes(releaseToken)) return null;
   const masses = strengths.filter((strength) => strength.unit === 'mg');
   const shared =
     masses.length === 0 ||
@@ -598,7 +611,12 @@ function likely(
       // form, by name: a barcode's fallback may be "SOLUTION/ DROPS".
       (names.length > 1 ||
         (!words.has('and') && !(formWord !== null && /\//.test(title.replace(/\b(TABLET|CAPSULE)\b.*$/i, ''))))) &&
-      (want.release === null || releaseOf(title) === want.release) &&
+      // The release printed, in the title's words or by the marker itself:
+      // "WELLBUTRIN SR (BUPROPION HYDROCHLORIDE) TABLET, FILM COATED" says
+      // "EXTENDED RELEASE" nowhere.
+      (want.release === null ||
+        releaseOf(title) === want.release ||
+        (want.releaseToken !== null && tokens.has(want.releaseToken))) &&
       // Another product's marker in the title ("(SR)" for an XL bottle).
       (want.releaseToken === null || tokens.size === 0 || tokens.has(want.releaseToken)) &&
       // Only the brand's own label, where only the brand tells them apart.
@@ -800,7 +818,7 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
     releaseToken = null,
     brand = [],
   } = target;
-  const onlyBrand = brandRequired(ingredients, strengths, brand);
+  const onlyBrand = brandRequired(ingredients, strengths, brand, releaseToken);
   if (onlyBrand === 'refuse') return { status: 'productUnknown' };
   return ofKind(labelKind, async (type) => {
     const listed = await labelsAt(

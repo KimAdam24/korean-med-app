@@ -656,7 +656,9 @@ test('a medicine taken by mouth is not shown a tablet put in the vagina', async 
 test("another product's release marker, in the title or the label's own words, is not taken: bupropion XL is not SR", async () => {
   const SR = 'Bupropion hydrochloride extended-release tablets (SR) are indicated for major depressive disorder.';
   const XL = 'Bupropion hydrochloride extended-release tablets (XL) are indicated for MDD and seasonal affective disorder.';
-  const label = (uses: string) => product({ substance: 'BUPROPION HYDROCHLORIDE', moiety: 'BUPROPION', strengths: [['150', 'mg']], route: 'ORAL', uses });
+  // Both given the same strengths, so that only the marker can tell them apart.
+  const label = (uses: string) =>
+    product({ substance: 'BUPROPION HYDROCHLORIDE', moiety: 'BUPROPION', strengths: [['150', 'mg'], ['200', 'mg']], route: 'ORAL', uses });
   twoLabels(
     '42347',
     ['BUPROPION HYDROCHLORIDE TABLET, FILM COATED, EXTENDED RELEASE [A]', label(SR)],
@@ -664,7 +666,10 @@ test("another product's release marker, in the title or the label's own words, i
   );
   const xl = await findApprovedUses(target('42347', 'bupropion', { release: 'extended', releaseToken: 'xl' }));
   assert.equal(xl.status === 'found' && xl.uses.content.text, XL);
-  const sr = await findApprovedUses(target('42347', 'bupropion', { release: 'extended', releaseToken: 'sr' }));
+  // At 200 mg: SR at 150 mg, with no brand, is refused (told apart only by the brand, below).
+  const sr = await findApprovedUses(
+    target('42347', 'bupropion', { release: 'extended', releaseToken: 'sr', strengths: [{ value: 200, unit: 'mg' }] })
+  );
   assert.equal(sr.status === 'found' && sr.uses.content.text, SR);
 });
 
@@ -778,4 +783,57 @@ test("tadalafil with its brand printed, where that brand's label is not listed: 
     return { status: 404 };
   });
   assert.deepEqual(await findApprovedUses(tadalafilTarget([{ value: 20, unit: 'mg' }], ['cialis'])), { status: 'none' });
+});
+
+const SMOKING = 'Bupropion hydrochloride extended-release tablets (SR) are an aminoketone agent indicated as an aid to smoking cessation treatment.';
+const DEPRESSION = 'WELLBUTRIN SR is an aminoketone antidepressant indicated for the treatment of major depressive disorder (MDD).';
+const SEASONAL = 'Bupropion hydrochloride extended-release tablets (XL) are indicated for MDD and seasonal affective disorder.';
+const SR_100 = 'Bupropion hydrochloride extended-release tablets (SR) are indicated for the treatment of major depressive disorder.';
+
+/** Bupropion's extended-release labels: a smoking-cessation generic listed first. */
+function bupropion(): string[] {
+  const label = (uses: string, strengths: [string, string][]) =>
+    product({ substance: 'BUPROPION HYDROCHLORIDE', moiety: 'BUPROPION', strengths, route: 'ORAL', uses });
+  return nlm((url) => {
+    if (url.includes('spls.json?rxcui=42347')) {
+      return url.includes(RX)
+        ? listing(
+            ['smoking', 'BUPROPION HYDROCHLORIDE SR (BUPROPION HYDROCHLORIDE) TABLET, FILM COATED, EXTENDED RELEASE [A]'],
+            ['sr100', 'BUPROPION HYDROCHLORIDE SR (BUPROPION HYDROCHLORIDE) TABLET, FILM COATED, EXTENDED RELEASE [B]'],
+            ['xl', 'BUPROPION HYDROCHLORIDE XL (BUPROPION HYDROCHLORIDE) TABLET, EXTENDED RELEASE [C]'],
+            // As DailyMed titles it: "EXTENDED RELEASE" nowhere, only "SR".
+            ['wellbutrin', 'WELLBUTRIN SR (BUPROPION HYDROCHLORIDE) TABLET, FILM COATED [GLAXOSMITHKLINE LLC]']
+          )
+        : listing();
+    }
+    if (url.endsWith('/spls/smoking.xml')) return { text: label(SMOKING, [['150', 'mg']]) };
+    if (url.endsWith('/spls/sr100.xml')) return { text: label(SR_100, [['100', 'mg'], ['200', 'mg']]) };
+    if (url.endsWith('/spls/xl.xml')) return { text: label(SEASONAL, [['150', 'mg'], ['300', 'mg']]) };
+    if (url.endsWith('/spls/wellbutrin.xml')) return { text: label(DEPRESSION, [['100', 'mg'], ['150', 'mg'], ['200', 'mg']]) };
+    return { status: 404 };
+  });
+}
+const bupropionTarget = (strengths: { value: number; unit: 'mg' }[], releaseToken: string | null, brand: string[] = []) =>
+  target('42347', 'bupropion', { strengths, release: releaseToken ? 'extended' : null, releaseToken, brand });
+
+test('bupropion SR 150 mg with no brand printed is refused: some of its generics are for stopping smoking, titled like the rest', async () => {
+  const asked = bupropion();
+  assert.deepEqual(await findApprovedUses(bupropionTarget([{ value: 150, unit: 'mg' }], 'sr')), { status: 'productUnknown' });
+  // Nor "BUPROPION 150MG" with no release marker, which could be SR.
+  assert.deepEqual(await findApprovedUses(bupropionTarget([{ value: 150, unit: 'mg' }], null)), { status: 'productUnknown' });
+  assert.deepEqual(asked, []);
+});
+
+test('bupropion where no smoking-cessation label can be it: XL, or SR at 100 mg, is chosen as any other medicine', async () => {
+  bupropion();
+  const xl = await findApprovedUses(bupropionTarget([{ value: 150, unit: 'mg' }], 'xl'));
+  assert.equal(xl.status === 'found' && xl.uses.content.text, SEASONAL);
+  const sr100 = await findApprovedUses(bupropionTarget([{ value: 100, unit: 'mg' }], 'sr'));
+  assert.equal(sr100.status === 'found' && sr100.uses.content.text, SR_100);
+});
+
+test("WELLBUTRIN SR 150 mg is shown its own label, not the smoking-cessation generic listed first", async () => {
+  bupropion();
+  const found = await findApprovedUses(bupropionTarget([{ value: 150, unit: 'mg' }], 'sr', ['wellbutrin']));
+  assert.equal(found.status === 'found' && found.uses.content.text, DEPRESSION);
 });

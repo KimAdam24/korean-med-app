@@ -164,7 +164,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   'uses.productUnknown': {
     section: USES,
     where: 'The same box, in place of the text.',
-    when: "When the medicine is sold, at the strength on the bottle, as products approved for different things, and only the brand name tells them apart, and none was read. Today only tadalafil 20 mg: CIALIS for erectile dysfunction and an enlarged prostate, ADCIRCA and ALYQ for pulmonary hypertension.",
+    when: "When the medicine is sold, at the strength on the bottle, as products approved for different things, and only the brand name tells them apart, and none was read. Today two: tadalafil 20 mg (CIALIS for erectile dysfunction and an enlarged prostate, ADCIRCA and ALYQ for pulmonary hypertension) and bupropion SR 150 mg (WELLBUTRIN SR for depression, ZYBAN for stopping smoking).",
     notes: '상표명 for brand name, as on the boxes Korean pharmacies hand out.',
   },
   'uses.unavailable': {

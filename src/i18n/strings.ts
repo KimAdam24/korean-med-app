@@ -512,7 +512,7 @@ export const Strings = {
     kindUnknown: { ko: '이 약은 처방약 허가사항과 일반의약품 허가사항이 따로 있고, 효능이 서로 달라요. 약병에서 읽은 내용으로는 어느 쪽인지 알 수 없어요.', en: 'This medicine has a prescription label and an over-the-counter label, which list different uses, and what was read of the bottle does not show which it is.' },
     productUnknown: untranslated(
       'This medicine is sold as different products approved for different things, which only the brand name tells apart, and no brand name was read on the bottle.',
-      "In place of the label's text, when a medicine's products of one strength are approved for different things and only the brand tells them apart: tadalafil 20 mg is CIALIS (erectile dysfunction, enlarged prostate) or ADCIRCA and ALYQ (pulmonary hypertension)."
+      "In place of the label's text, when a medicine's products of one strength are approved for different things and only the brand tells them apart: tadalafil 20 mg is CIALIS (erectile dysfunction, enlarged prostate) or ADCIRCA and ALYQ (pulmonary hypertension); bupropion SR 150 mg is WELLBUTRIN SR (depression) or ZYBAN (stopping smoking)."
     ),
     unavailable: { ko: '지금은 FDA 허가사항을 불러오지 못했어요. 인터넷 연결을 확인해 주시거나, 잠시 뒤에 다시 시도해 주세요.', en: 'Its FDA label could not be reached just now. Check the connection, or try again in a while.' },
     retry: { ko: 'FDA 허가사항 다시 찾기', en: 'Look up the FDA label again' },

@@ -159,8 +159,11 @@ Sourced and imperfect, knowingly (decided 2026-09-28):
   things, that only the brand tells apart, are refused unless the brand is
   printed, and then shown only that brand's label (`uses.productUnknown`):
   tadalafil 20 mg, CIALIS (erectile dysfunction, enlarged prostate) or
-  ADCIRCA and ALYQ (pulmonary hypertension), whose generics share one title
-  (2026-10-05). Looked for and not found: bupropion SR for smoking cessation.
+  ADCIRCA and ALYQ (pulmonary hypertension), whose generics share one title;
+  and bupropion SR 150 mg, WELLBUTRIN SR (depression) or ZYBAN (smoking
+  cessation), 7 of whose 368 labels are ZYBAN's generics, titled like the
+  rest, unless the bottle says XL, which none of those is (2026-10-05, every
+  label read; a first look at 40 of them had missed these).
   Still not told apart: an over-the-counter strength dispensed by a pharmacy
   where a prescription label gives the same strength.
 - **Looked up once a session.** What a lookup found is kept while the app is
