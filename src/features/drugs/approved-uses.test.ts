@@ -15,6 +15,7 @@ import {
   doseFormOf,
   doseFormOfReading,
   findApprovedUses,
+  notUses,
   productKey,
   readIndications,
   sameIngredients,
@@ -790,6 +791,91 @@ test('a brand of a title of several products is printed when one of them is', as
     return { status: 404 };
   });
   const found = await findApprovedUses(target('1991302', 'semaglutide', { brand: ['rybelsus'], strengths: [{ value: 7, unit: 'mg' }] }));
+  assert.equal(usesOf(found), USES);
+});
+
+// --- Its text, its own uses -----------------------------------------------
+
+test('text that is not uses: a bullet, a fragment, a warning, a guide, directions, pharmacology', () => {
+  for (const bad of [
+    '•',
+    'Losartan potassium and hydrochlorothiazide tablets are combination of losartan, an angiotensin II receptor blocker (ARB) and hydrochlorothiazide, a diuretic indicated for:',
+    'WARNING: RISK OF SERIOUS CARDIOVASCULAR AND GASTROINTESTINAL EVENTS\nCardiovascular Thrombotic Events',
+    'These highlights do not include all the information needed to use VALPROIC ACID CAPSULES safely and effectively.',
+    'Gabapentin Tablets, USP\nRead the Medication Guide before you start taking gabapentin and each time you get a refill.',
+    'drowsines may occur\navoid alcoholic drinks',
+    'Adults and children 6 years and over 1 tablet daily: no more than 1 tablet in 24 hours',
+    'Diazepam is a benzodiazepine that exerts anxiolytic, sedative, muscle-relaxant, anticonvulsant and amnestic effects.',
+  ]) {
+    assert.equal(notUses(bad), true, bad);
+  }
+  for (const good of [
+    'Lisinopril tablet USP is an angiotensin converting enzyme (ACE) inhibitor indicated for:\n• Treatment of hypertension',
+    'temporarily relieves minor aches and pains due to:\n• headache',
+    'treats migraine',
+    'For the relief of symptoms of depression. Endogenous depression is more likely to be alleviated than are other depressive states.',
+    'Carefully consider the potential benefits and risks of naproxen tablets before deciding to use naproxen tablets. Naproxen tablets are indicated for the relief of the signs and symptoms of rheumatoid arthritis.',
+  ]) {
+    assert.equal(notUses(good), false, good);
+  }
+});
+
+test('a label whose text is a bullet, listed first, is passed over for the next', async () => {
+  const USES = 'Levothyroxine sodium tablets are indicated for hypothyroidism.';
+  const label = (uses: string) =>
+    product({ substance: 'LEVOTHYROXINE SODIUM', moiety: 'LEVOTHYROXINE', strengths: [['0.05', 'mg']], route: 'ORAL', uses });
+  twoLabels('10582', ['LEVOTHYROXINE SODIUM TABLET [DIRECTRX]', label('•')], ['LEVOTHYROXINE SODIUM TABLET [X]', label(USES)]);
+  const found = await findApprovedUses(target('10582', 'levothyroxine', { strengths: [{ value: 0.05, unit: 'mg' }] }));
+  assert.equal(usesOf(found), USES);
+});
+
+test('one label of two medicines is not either one\'s: its one text is one product\'s', async () => {
+  /** A label of two products, each its own substance and form. */
+  const two = (uses: string, ...products: [substance: string, form: string][]) => `<document>
+  <code code="34391-3" codeSystem="2.16.840.1.113883.6.1"/>${approval('ANDA')}
+  ${products
+    .map(
+      ([substance, form]) => `<subject><manufacturedProduct><formCode code="C1" displayName="${form}"/>
+    <ingredient classCode="ACTIB"><quantity><numerator unit="mg" value="50"/><denominator unit="1" value="1"/></quantity>
+      <ingredientSubstance><name>${substance}</name><activeMoiety><activeMoiety><name>METOPROLOL</name></activeMoiety></activeMoiety></ingredientSubstance></ingredient>
+  </manufacturedProduct></subject>`
+    )
+    .join('')}
+  <component><section><code code="34067-9"/><title>INDICATIONS AND USAGE</title><text><paragraph>${uses}</paragraph></text></section></component>
+</document>`;
+  const mixed = two(SUCCINATE, ['METOPROLOL SUCCINATE', 'TABLET, EXTENDED RELEASE'], ['METOPROLOL TARTRATE', 'TABLET']);
+  assert.equal(readIndications(mixed).mixed, true);
+  // One medicine as tablets and capsules is one medicine; its water is not another.
+  assert.equal(readIndications(two(SUCCINATE, ['METOPROLOL SUCCINATE', 'TABLET'], ['METOPROLOL SUCCINATE', 'CAPSULE'])).mixed, false);
+  assert.equal(readIndications(two(SUCCINATE, ['METOPROLOL SUCCINATE', 'TABLET'], ['METOPROLOL SUCCINATE MONOHYDRATE', 'TABLET'])).mixed, false);
+
+  metoprolol({ succ: mixed });
+  assert.deepEqual(await findApprovedUses(metoprololTarget(['succinate'], 'extended')), { status: 'none' });
+});
+
+test('a label of a prodrug is not the medicine it becomes, though SPL names that as its moiety', () => {
+  assert.equal(sameIngredients([{ substance: 'VALACYCLOVIR HYDROCHLORIDE', moiety: 'ACYCLOVIR' }], ['acyclovir']), false);
+  assert.equal(sameIngredients([{ substance: 'VALACYCLOVIR HYDROCHLORIDE', moiety: 'ACYCLOVIR' }], ['valacyclovir']), true);
+  assert.equal(sameIngredients([{ substance: 'GABAPENTIN ENACARBIL', moiety: 'GABAPENTIN' }], ['gabapentin']), false);
+  assert.equal(sameIngredients([{ substance: 'DIVALPROEX SODIUM', moiety: 'VALPROIC ACID' }], ['valproic acid']), false);
+  // A salt or an ester of it is the medicine, by its moiety or its own name.
+  assert.equal(sameIngredients([{ substance: 'CODEINE PHOSPHATE', moiety: 'CODEINE ANHYDROUS' }], ['codeine']), true);
+  assert.equal(sameIngredients([{ substance: 'OLMESARTAN MEDOXOMIL', moiety: 'OLMESARTAN' }], ['olmesartan']), true);
+  assert.equal(sameIngredients([{ substance: 'LISDEXAMFETAMINE DIMESYLATE', moiety: 'LISDEXAMFETAMINE' }], ['lisdexamfetamine']), true);
+});
+
+test('a marker in a title is its release: ENTOCORT EC for a budesonide bottle that says EC', async () => {
+  const USES = "ENTOCORT EC is indicated for the treatment of mild to moderate active Crohn's disease.";
+  nlm((url) => {
+    if (url.includes('spls.json?rxcui=19831')) return url.includes(RX) ? listing(['ent', 'ENTOCORT EC (BUDESONIDE) CAPSULE [PERRIGO]']) : listing();
+    if (url.endsWith('/spls/ent.xml')) {
+      return { text: product({ substance: 'BUDESONIDE', moiety: 'BUDESONIDE', strengths: [['3', 'mg']], route: 'ORAL', uses: USES }) };
+    }
+    return { status: 404 };
+  });
+  const found = await findApprovedUses(
+    target('19831', 'budesonide', { form: 'CAPSULE', release: 'delayed', brand: ['entocort'], strengths: [{ value: 3, unit: 'mg' }] })
+  );
   assert.equal(usesOf(found), USES);
 });
 

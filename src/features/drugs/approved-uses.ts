@@ -69,6 +69,17 @@
  * Where nothing of the salt and release printed has a label, the answer is
  * "none", not a label of another salt.
  *
+ * ## Its text, its own uses
+ *
+ * A label can be this medicine's and still not show its uses: 51 of the top
+ * 200 medicines' approved labels did not (docs/label-scan.md). So a label is
+ * passed over where its text is not uses (`notUses`: a bullet, a fragment,
+ * a warning, a guide); where it is of two medicines (`mixed`), its one text
+ * one of theirs; where its title or its own text says it is of another
+ * release than the bottle (`labelRelease`); and its ingredient is the
+ * medicine's by its moiety only where its substance is that moiety's salt
+ * (`carries`), not a prodrug of it.
+ *
  * A barcode whose package DailyMed does not list (discontinued, say) falls
  * back to its RxNorm product's list, held to the ingredient check like a name.
  * Its form, salt and release are the product's, which the RxNorm code already
@@ -135,6 +146,13 @@ export type LabelIndications = {
   readonly strengths: readonly Strength[];
   /** The routes its products are given by, e.g. "ORAL", "VAGINAL". */
   readonly routes: readonly string[];
+  /**
+   * Whether its tablets and capsules are of different medicines: one label
+   * for metoprolol succinate and tartrate, lisinopril and lisinopril with
+   * hydrochlorothiazide, acyclovir and valacyclovir. Its one text is one
+   * product's, and not the other's.
+   */
+  readonly mixed: boolean;
 };
 
 export type ApprovedUses = {
@@ -337,6 +355,21 @@ export function readIndications(xml: string): LabelIndications {
     ...new Set([...xml.matchAll(/<routeCode\b[^>]*displayName="([^"]+)"/g)].map(([, route]) => route.trim().toUpperCase())),
   ];
 
+  // Each tablet's or capsule's active substances, from its own <subject>,
+  // without the water a substance is named with ("HEMIHYDRATE").
+  const medicines = new Set<string>();
+  for (const [, body] of xml.matchAll(/<subject>([\s\S]*?)<\/subject>/g)) {
+    const form = /<formCode\b[^>]*displayName="([^"]+)"/.exec(body)?.[1] ?? '';
+    if (!/\b(?:TABLET|CAPSULE)/i.test(form)) continue;
+    const substances = [...body.matchAll(/<ingredient\s+classCode="ACTI[BMR]"[^>]*>[\s\S]*?<name>([^<]+)<\/name>/g)].map(
+      ([, name]) =>
+        nameWords(name)
+          .filter((word) => !/hydrate$|^anhydrous$/.test(word))
+          .join(' ')
+    );
+    medicines.add([...new Set(substances)].sort().join(' + '));
+  }
+
   const products = new Set<string>();
   for (const [tag] of xml.matchAll(/<code\b[^>]*>/g)) {
     if (!tag.includes(`codeSystem="${NDC_SYSTEM}"`)) continue;
@@ -368,7 +401,26 @@ export function readIndications(xml: string): LabelIndications {
     documentType,
     strengths,
     routes,
+    mixed: medicines.size > 1,
   };
+}
+
+/**
+ * Whether a label's text is not uses at all, though it stands where they
+ * should: nothing but a bullet ("•", on 18 labels of one repackager); a
+ * sentence cut off at "indicated for:"; a boxed warning, the Highlights'
+ * opening lines, a medication guide, warnings, directions or pharmacology
+ * put in the Indications section. Each pattern here was checked against
+ * every approved tablet and capsule label of the top 200 medicines (27,440,
+ * docs/label-scan.md): it matched only labels whose text is not uses.
+ */
+export function notUses(text: string): boolean {
+  if (text.replace(/[^A-Za-z]/g, '').length < 12) return true;
+  if (/(?:indicated|used)\s+(?:for|in|as)\s*:?\s*$/i.test(text.trim())) return true;
+  // At its start, or after a first line naming the product.
+  return /^(?:[^\n]{0,80}\n)?\s*(?:BOXED WARNING|WARNING\b|These highlights do not include|Read (?:this|the) (?:Medication Guide|Patient Information)|What is the most important|Medication Guide\b|Patient Information\b|Keep out of reach|Do not (?:use|take)\b|drowsines?s may occur|Ask a doctor|Stop use|When using this product|Taking more than|Adults and children|Directions\b|Pharmacokinetics|Clinical Pharmacology|Mechanism of Action|\S+ is an? [\w-]+ that exerts)/i.test(
+    text
+  );
 }
 
 /**
@@ -416,8 +468,24 @@ function names(label: string, ingredient: string): boolean {
 export function sameIngredients(actives: readonly ActiveIngredient[], ingredients: readonly string[]): boolean {
   if (ingredients.length === 0 || actives.length !== ingredients.length) return false;
   return ingredients.every((ingredient) =>
-    actives.some((active) => [active.moiety, active.substance].some((name) => name !== null && names(name, ingredient)))
+    actives.some(
+      (active) =>
+        names(active.substance, ingredient) ||
+        (active.moiety !== null && names(active.moiety, ingredient) && carries(active.substance, active.moiety))
+    )
   );
+}
+
+/**
+ * Whether a substance is its moiety with only what carries it: a salt, an
+ * ester, its water ("CODEINE PHOSPHATE" is codeine). Not a prodrug, which
+ * SPL also names by the moiety it becomes: valacyclovir's labels give
+ * acyclovir as their moiety, HORIZANT's gabapentin enacarbil gabapentin, and
+ * each was accepted as the other medicine.
+ */
+function carries(substance: string, moiety: string): boolean {
+  const own = new Set(nameWords(moiety));
+  return nameWords(substance).every((word) => own.has(word) || SALT_WORDS.has(word) || /hydrate$/.test(word));
 }
 
 type Fetched<T> = { readonly ok: true; readonly value: T } | { readonly ok: false };
@@ -490,6 +558,8 @@ type Proof =
       readonly names: readonly string[];
       readonly salts: readonly string[];
       readonly strengths: readonly Strength[];
+      /** The release the bottle printed: required of the label, by its title or its own text. */
+      readonly release: Release | null;
       readonly releaseToken: string | null;
       /** By name: the label must be of a medicine taken by mouth. */
       readonly byMouth: boolean;
@@ -588,6 +658,28 @@ const releaseOf = (title: string): Release | null =>
     : /\bDELAYED[- ]RELEASE\b/i.test(title)
       ? 'delayed'
       : null;
+
+/**
+ * The release a label is of: its title's, in words or by a marker ("ENTOCORT
+ * EC", "WELLBUTRIN SR"), or else what its own text first says it is. Some
+ * labels titled plain "TABLET" are of an extended-release product, and say so
+ * only in their text: "Verapamil hydrochloride extended-release tablets are
+ * indicated for the treatment of hypertension", for a strength an
+ * immediate-release verapamil also has, approved for angina and arrhythmias
+ * too. Not "DR", which starts names ("DR SIMI").
+ */
+function labelRelease(title: string, text: string): Release | null {
+  const titled = title.replace(/\[.*$/, '');
+  if (releaseOf(titled)) return releaseOf(titled);
+  if (/\b(?:ER|XR|XL|SR|CR|LA|CD)\b/.test(titled)) return 'extended';
+  if (/\bEC\b/.test(titled)) return 'delayed';
+  const first = text.split(/(?<=[.:])\s/, 1)[0].slice(0, 300);
+  return /\b(?:extended|sustained|controlled|prolonged)[- ]release\b/i.test(first)
+    ? 'extended'
+    : /\b(?:delayed[- ]release|enteric[- ]coated)\b/i.test(first)
+      ? 'delayed'
+      : null;
+}
 
 /** The words of a title that say what form its products are, not what they are called. */
 const FORM_WORDS = new Set([
@@ -690,7 +782,7 @@ function likely(
       // "WELLBUTRIN SR (BUPROPION HYDROCHLORIDE) TABLET, FILM COATED" says
       // "EXTENDED RELEASE" nowhere.
       (want.release === null ||
-        releaseOf(title) === want.release ||
+        labelRelease(title, '') === want.release ||
         (want.releaseToken !== null && tokens.has(want.releaseToken))) &&
       // Another product's marker in the title ("(SR)" for an XL bottle).
       (want.releaseToken === null || tokens.size === 0 || tokens.has(want.releaseToken)) &&
@@ -703,7 +795,7 @@ function likely(
       (want.salts.length > 0 && want.salts.every((salt) => words.has(salt)) ? 4 : 0) +
       (want.brand.length > 0 && want.brand.every((word) => words.has(word)) ? 4 : 0) +
       (want.releaseToken !== null && tokens.has(want.releaseToken) ? 2 : 0) +
-      (want.preferAtOnce && want.release === null && releaseOf(title) === null ? 1 : 0);
+      (want.preferAtOnce && want.release === null && labelRelease(title, '') === null ? 1 : 0);
     const named = titledNames(title, names);
     return [
       {
@@ -817,10 +909,18 @@ async function firstProven(
           (proof.releaseToken === null ||
             ((tokens) => tokens.size === 0 || tokens.has(proof.releaseToken!))(
               releaseTokensIn(`${label.title} ${text ?? ''}`)
-            ));
+            )) &&
+          // The release printed, as the label's title or its own text says
+          // it is: not a title naming none over an extended-release text.
+          (proof.release === null ||
+            labelRelease(label.title, text ?? '') === proof.release ||
+            (proof.releaseToken !== null && releaseTokensIn(label.title.toUpperCase()).has(proof.releaseToken))) &&
+          // One medicine's label: not one text for two.
+          !read.mixed;
     // Listed by DailyMed as this kind; and not saying otherwise itself.
     const ofKind = type === null || read.documentType === null || read.documentType === type;
-    if (!approved || !thisMedicine || !ofKind || !text) continue;
+    // Its text its uses: not a bullet, a fragment, a warning or a guide.
+    if (!approved || !thisMedicine || !ofKind || !text || notUses(text)) continue;
 
     return {
       status: 'found',
@@ -894,6 +994,7 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
         names: ingredients.value,
         salts: [],
         strengths: [],
+        release: null,
         releaseToken: null,
         byMouth: false,
       };
@@ -932,7 +1033,15 @@ export async function findApprovedUses(target: UsesTarget): Promise<ApprovedUses
       }),
       strengths
     );
-    const proof: Proof = { kind: 'ingredients', names: ingredients, salts, strengths, releaseToken, byMouth: true };
+    const proof: Proof = {
+      kind: 'ingredients',
+      names: ingredients,
+      salts,
+      strengths,
+      release,
+      releaseToken,
+      byMouth: true,
+    };
     return firstProven(labels, proof, type);
   });
 }
