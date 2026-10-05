@@ -201,7 +201,9 @@ export function ApprovedUsesCard({
           <Text
             style={[styles.text, { color: theme.text }]}
             maxFontSizeMultiplier={TypeMaxScale.body}
-            // The label's own words, in English, read in an English voice.
+            // The label's own words, in English, read in an English voice on
+            // an iPhone; Android's TalkBack takes no language from the app, and
+            // reads in the phone's own.
             accessibilityLanguage="en-US">
             {state.uses.content.text}
           </Text>

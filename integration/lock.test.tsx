@@ -85,6 +85,9 @@ describe('unlocking', () => {
     // is matched on its fixed opening.
     pressDigits('0000');
     await screen.findByText(/여러 번 틀렸어요/);
+    // With its minutes, not the placeholder.
+    expect(screen.getByText(/여러 번 틀렸어요\. \d+분 뒤에 다시 시도해 주세요\./)).toBeTruthy();
+    expect(screen.queryByText(/\{분\}/)).toBeNull();
     expect(screen.getByRole('button', { name: '1' })).toBeDisabled();
 
     await act(async () => {
@@ -230,6 +233,20 @@ describe('leaving the app', () => {
 });
 
 describe('app-switcher privacy', () => {
+  it('on Android, blocks screenshots and the switcher preview at launch', async () => {
+    const original = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, get: () => 'android' });
+    try {
+      const screenCapture = require('expo-screen-capture');
+      screenCapture.preventScreenCaptureAsync.mockClear();
+      launchApp();
+      await home();
+      expect(screenCapture.preventScreenCaptureAsync).toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(Platform, 'OS', { configurable: true, get: () => original });
+    }
+  });
+
   it('is switched on at launch', async () => {
     const screenCapture = require('expo-screen-capture');
     launchApp();

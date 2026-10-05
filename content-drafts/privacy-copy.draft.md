@@ -1,10 +1,10 @@
-# Privacy copy — DRAFT, UNREVIEWED
+# Privacy copy — the drafts she reviewed
 
-**In the app in English (2026-09-28), until signed off.** The gallery ships in
-release, so these strings are wired now with their English standing in, the
-same rule as every other pending string; two more joined them for the
-introduction (`privacy.onboardingPhotos`, `privacy.lookup`). Signing off is now
-only replacing each `untranslated()` call with her Korean.
+**Reviewed and wired 2026-10-04** (`docs/reviews/copy-batch-followup-v4-2026-10-02-reviewed.csv`):
+the strings below are in the app in her Korean, which differs from these
+drafts where she corrected them. Kept as the record of why each was written.
+`settings.storageNotice`, whose "never sent anywhere" stopped being true, is
+pending again (2026-10-05), with its draft in `copy-batch.draft.json`.
 
 **Moved into the copy batch (2026-09-28).** Sections 1-3 are now the
 `privacy.*` strings in `src/i18n/strings.ts`, drafted as below and reviewed in

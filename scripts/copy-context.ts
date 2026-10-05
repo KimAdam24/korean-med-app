@@ -80,6 +80,12 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     notes:
       "Written in 합니다체, not the app's 해요체, because it sits among the phone's own formal wording. Is that right, or should it match the app? The current wording is 약병의 글씨를 읽기 위해 카메라를 사용합니다. 사진은 저장하지 않습니다.; only the second sentence changes.",
   },
+  'settings.storageNotice': {
+    section: PRIVACY,
+    where: 'The Settings screen, under where the list is kept.',
+    when: 'Always.',
+    notes: "Her current line says the medicines are never sent anywhere. That stopped being true when the app began looking medicines up by name: the name (or the barcode number) goes to the U.S. National Library of Medicine, as her introduction line (어떤 약인지 확인하고 FDA 허가사항을 찾을 때는...) already says. The list itself is never sent. The last sentence is hers, unchanged.",
+  },
   'privacy.choosePhoto': {
     section: PRIVACY,
     where: 'The home screen: a row in the list under the 약 사진 찍기 (Take a photo of your medicine) button, between 내 약 보기 (See my medicines) and 설정 (Settings).',

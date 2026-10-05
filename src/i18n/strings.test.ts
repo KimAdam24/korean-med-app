@@ -56,3 +56,68 @@ test("the iPhone's camera question in app.json is the privacy string, as it stan
   assert.ok(Array.isArray(camera), 'expo-camera is configured in app.json');
   assert.equal(camera[1].cameraPermission, Strings.privacy.cameraPermission.ko);
 });
+
+test("her reviewed Korean is in the app as she wrote it, and the English she reviewed beside it", async () => {
+  // The returned sheets are the record (docs/reviews). A reviewed string that
+  // has drifted from hers, by a slip or a rewording, would show words she
+  // never approved; one changed on purpose goes back to her as pending
+  // (`untranslated`), and is not checked here until she has seen it again.
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const dir = new URL('../../docs/reviews/', import.meta.url);
+  const parse = (text: string) => {
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let field = '';
+    let quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (quoted) {
+        if (c === '"' && text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else if (c === '"') {
+          quoted = false;
+        } else {
+          field += c;
+        }
+      } else if (c === '"') {
+        quoted = true;
+      } else if (c === ',') {
+        row.push(field);
+        field = '';
+      } else if (c === '\n') {
+        row.push(field.replace(/\r$/, ''));
+        rows.push(row);
+        row = [];
+        field = '';
+      } else {
+        field += c;
+      }
+    }
+    if (field || row.length) {
+      row.push(field);
+      rows.push(row);
+    }
+    return rows;
+  };
+  type Text = { ko: string; en: string; pendingKo?: boolean };
+  const at = (key: string) =>
+    key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], Strings) as
+      | Text
+      | undefined;
+  let checked = 0;
+  for (const file of readdirSync(dir).filter((name) => name.endsWith('-reviewed.csv'))) {
+    const [header, ...rows] = parse(readFileSync(new URL(file, dir), 'utf8').replace(/^﻿/, ''));
+    const K = header.findIndex((name) => name.startsWith('Key'));
+    const E = header.indexOf('English');
+    const F = header.indexOf('Her final Korean');
+    for (const row of rows.filter((r) => r.length > K && r[K])) {
+      const text = at(row[K]);
+      if (!text || typeof text.ko !== 'string' || text.pendingKo) continue;
+      assert.equal(text.ko, row[F], `${file}: ${row[K]} Korean`);
+      assert.equal(text.en, row[E], `${file}: ${row[K]} English`);
+      checked++;
+    }
+  }
+  assert.ok(checked > 100, `only ${checked} reviewed strings checked`);
+});

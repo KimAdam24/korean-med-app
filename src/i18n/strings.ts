@@ -488,10 +488,10 @@ export const Strings = {
     eraseDone: { ko: '모두 지웠어요', en: 'Everything has been erased' },
 
     /** Why the medicines live only on this phone, said plainly rather than buried. */
-    storageNotice: {
-      ko: '약 정보는 이 휴대폰 안에만 저장돼요. 다른 곳으로 보내지 않아요. 휴대폰을 바꾸면 다시 등록해야 해요.',
-      en: 'Your medicines are kept on this phone only, and never sent anywhere. Changing phones means adding them again.',
-    },
+    storageNotice: untranslated(
+      'Your medicines are kept on this phone only. To look a medicine up, only its name or barcode number is sent, to the U.S. National Library of Medicine; your list never is. Changing phones means adding them again.',
+      "Settings screen, under the storage heading. Replaces 약 정보는 이 휴대폰 안에만 저장돼요. 다른 곳으로 보내지 않아요. 휴대폰을 바꾸면 다시 등록해야 해요., whose middle sentence is no longer true: a medicine's name is sent to look it up."
+    ),
   },
 
   /**

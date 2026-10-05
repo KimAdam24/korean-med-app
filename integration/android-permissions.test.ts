@@ -133,6 +133,8 @@ test('the scan sees the native code that ships', () => {
   for (const pkg of ['expo-screen-capture', 'expo-camera', 'expo-local-authentication', 'label-ocr']) {
     expect(scanned).toContain(pkg);
   }
+  // And the manifest's removals were read: with none, the rules below check nothing.
+  expect(removed.length).toBeGreaterThan(0);
 });
 
 test('every removed permission has been reviewed', () => {

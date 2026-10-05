@@ -84,8 +84,11 @@ Then, in order:
    could not read the writing", or a reading, both mean the module loaded and
    ran. "Label reading is not connected yet", or a crash, would mean it did
    not.
-5. **A reminder**: on a medicine's page, add a time two minutes ahead. "Reminders
-   are on" means the reminder module answered; then wait for it to ring.
+5. **A reminder**: on a medicine's page, add a time two minutes ahead. On a
+   fresh install the page will not say "Reminders are on": Android 14 and
+   later start without "Alarms & reminders" ("may arrive late"), and no app
+   starts let through Do Not Disturb ("Reminders are set" with the warning).
+   Either means the reminder module answered; then wait for it to ring.
 6. **The log**, afterwards:
 
         adb logcat -d | grep -E "label-ocr|sweep-replay|Couldn't get expo package list"
