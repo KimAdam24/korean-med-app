@@ -56,8 +56,8 @@ export default function MedicationsScreen() {
   if (medications.length === 0) {
     return (
       <Screen centered>
-        <View style={[styles.emptyIcon, { backgroundColor: theme.primaryWash }]}>
-          <Icon name="medicines" color={theme.primaryIcon} size={IconSize.hero} />
+        <View style={[styles.emptyIcon, { backgroundColor: theme.primary }]}>
+          <Icon name="medicines" color={theme.onPrimary} size={IconSize.hero} />
         </View>
         <BilingualText text={Strings.medications.emptyTitle} variant="heading" align="center" />
         <BilingualText text={Strings.medications.emptyBody} align="center" />
@@ -75,7 +75,7 @@ export default function MedicationsScreen() {
       <Card flush>
         {medications.map((record, index) => (
           <Fragment key={record.id}>
-            {index > 0 ? <CardDivider inset /> : null}
+            {index > 0 ? <CardDivider /> : null}
             <MedicationRow
               record={record}
               onPress={() => router.push(`/medication/${record.id}`)}

@@ -4,6 +4,7 @@ import { disk } from './fakes/file-system';
 import { biometrics } from './fakes/local-authentication';
 import { notifications } from './fakes/notifications';
 import { sweep } from './fakes/label-sweep';
+import { textWeight } from './fakes/text-weight';
 import { keychain } from './fakes/secure-store';
 
 /**
@@ -22,6 +23,7 @@ beforeEach(() => {
   ocr.reset();
   notifications.reset();
   sweep.reset();
+  textWeight.reset();
   disk.write(ONBOARDED, '');
 });
 

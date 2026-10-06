@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
+import { Text, TextInput } from '@/components/app-text';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card } from '@/components/card';

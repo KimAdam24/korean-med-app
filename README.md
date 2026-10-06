@@ -147,6 +147,19 @@ blocked, the channel muted, exact alarms refused, Do Not Disturb that could
 silence them. Each comes with its fix beside it. See
 [`docs/reminders.md`](docs/reminders.md).
 
+### Type, and the phone's Bold text
+
+Every word is drawn in Pretendard, a typeface designed for Korean, bundled
+with the app in five weights (SIL Open Font License 1.1). Sizes start well
+above the platforms' defaults, and nothing is drawn lighter than weight 500.
+
+The phone's Bold text setting is honoured, on Android and iPhone. React
+Native does not apply it: it draws each run of text at exactly the weight its
+style names. So the app does, the way Android does for its own text: every
+weight plus what the setting adds (300), to the nearest bundled face. Android
+reports the amount through a few lines of native code (`modules/text-weight`);
+iOS says only on or off, and takes the same step.
+
 ## Testing
 
 - **Unit tests** (`npm run test:unit`, Node's test runner, about 400): the label
@@ -228,6 +241,8 @@ src/i18n/                every word the app shows, Korean first
 modules/label-ocr/       on-device recognition (Swift, Kotlin)
 modules/label-sweep/     the turning-bottle reader (Kotlin; Swift written, not linked)
 modules/dose-alarms/     Android exact alarms and Do Not Disturb
+modules/text-weight/     Android's Bold text setting
+assets/fonts/            Pretendard, with its licence
 tools/label-scan/        the DailyMed scan and replay
 content-drafts/          Korean drafts awaiting review, never imported by the app
 integration/             end-to-end tests, and the platform fakes

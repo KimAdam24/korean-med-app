@@ -10,11 +10,11 @@ import {
   ScrollView,
   Image,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Text } from '@/components/app-text';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card, CardDivider } from '@/components/card';

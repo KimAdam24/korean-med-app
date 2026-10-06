@@ -1,5 +1,6 @@
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 
+import { Text } from '@/components/app-text';
 import { Fonts } from '@/constants/theme';
 
 import { redactForLog } from './log-redaction';

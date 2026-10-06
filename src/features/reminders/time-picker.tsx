@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Text } from '@/components/app-text';
 import { BilingualText } from '@/components/bilingual-text';
 import { shownKorean } from '@/components/shown-korean';
 import { Radius, Spacing, Type, TypeMaxScale } from '@/constants/theme';

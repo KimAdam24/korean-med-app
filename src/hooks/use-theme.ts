@@ -13,7 +13,7 @@ export function useTheme() {
   return Colors[theme];
 }
 
-/** Shadows for the current scheme; empty in dark mode. See `Elevation`. */
+/** Shadows for the current scheme: empty in both since the design pass. See `Elevation`. */
 export function useElevation() {
   const scheme = useColorScheme();
   return Elevation[scheme === 'dark' ? 'dark' : 'light'];

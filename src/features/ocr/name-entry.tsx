@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { StyleSheet, TextInput } from 'react-native';
+import { StyleSheet } from 'react-native';
 
+import { TextInput } from '@/components/app-text';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card } from '@/components/card';

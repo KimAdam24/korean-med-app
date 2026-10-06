@@ -1,8 +1,7 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Radius, Spacing } from '@/constants/theme';
-import { useLargeText } from '@/hooks/use-large-text';
-import { useElevation, useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/hooks/use-theme';
 
 /**
  * A surface that groups one thing — a medicine, a set of directions.
@@ -12,21 +11,15 @@ import { useElevation, useTheme } from '@/hooks/use-theme';
  * and the next began. For a reader who scans rather than parses, the edge of a
  * card is the edge of a thought.
  *
- * That edge used to be a contrast-checked grey outline, on the reasoning that
- * these readers often cannot see a shadow. It made every screen read as a form.
- * A card is set apart now by three things at once — white on a warm page, a
- * soft shadow, and a faint hairline — none of them loud, so the text inside is
- * what the eye lands on. Controls keep their contrast-checked edges; a card is
- * not a control.
- *
- * `hero` is the tinted card for the one thing a screen is for — on home, taking
- * a photo. It has no shadow: the tint already sets it apart, and a lifted,
- * tinted card would compete with the button inside it.
+ * Every card is white, edged by a fine line, on the paper-toned page: flat,
+ * like a printed leaflet (design pass of 2026-10-06). None is tinted, not even
+ * the one a screen is for: a warning or an info note is then the only coloured
+ * box on a screen, and nothing competes with it. Controls keep their
+ * contrast-checked edges; a card is not a control.
  */
 export function Card({
   children,
   flush = false,
-  variant = 'plain',
   style,
 }: {
   children: React.ReactNode;
@@ -35,45 +28,28 @@ export function Card({
    * whose pressed highlight should run to the card's edge.
    */
   flush?: boolean;
-  variant?: 'plain' | 'hero';
   style?: StyleProp<ViewStyle>;
 }) {
   const theme = useTheme();
-  const elevation = useElevation();
-  const hero = variant === 'hero';
 
   return (
     <View
       style={[
         styles.card,
         flush && styles.flush,
-        hero
-          ? { backgroundColor: theme.primaryWash, borderColor: theme.primaryWash }
-          : [{ backgroundColor: theme.surface, borderColor: theme.hairline }, elevation.card],
+        { backgroundColor: theme.surface, borderColor: theme.hairline },
         style,
       ]}>
-      {/*
-        A flush card clips its rows to its rounded corners. The clip is an inner
-        view, because clipping the card itself would cut off its own shadow.
-      */}
+      {/* A flush card clips its rows to its rounded corners. */}
       {flush ? <View style={styles.clip}>{children}</View> : children}
     </View>
   );
 }
 
-/**
- * A rule between two parts of one card. `inset` indents it past a list row's
- * icon, the way grouped lists do, so the icons read as one column.
- */
-export function CardDivider({ inset = false }: { inset?: boolean }) {
+/** A rule between two parts of one card, edge to edge. */
+export function CardDivider() {
   const theme = useTheme();
-  // Rows drop their icons at large text sizes, and the indent past them with it.
-  const large = useLargeText();
-  return (
-    <View
-      style={[styles.divider, inset && !large && styles.inset, { backgroundColor: theme.hairline }]}
-    />
-  );
+  return <View style={[styles.divider, { backgroundColor: theme.hairline }]} />;
 }
 
 const styles = StyleSheet.create({
@@ -93,10 +69,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card - 1,
     borderCurve: 'continuous',
     overflow: 'hidden',
-  },
-  inset: {
-    // Row padding, plus the icon well, plus the gap after it.
-    marginLeft: Spacing.four - Spacing.one + 52 + Spacing.three,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

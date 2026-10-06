@@ -1,7 +1,8 @@
 import { File } from 'expo-file-system';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 
+import { Text } from '@/components/app-text';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Fonts, Spacing } from '@/constants/theme';

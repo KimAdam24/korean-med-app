@@ -5,13 +5,16 @@
  * `src/features/drugs/*.test.ts` for the lookups on their own).
  */
 import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
-import { AccessibilityInfo, Platform } from 'react-native';
+import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
 
 import { APP_LOAD_BUDGET_MS, forgetAppStateListeners, launchApp, loadApp, press, visibleText } from './app-harness';
 import { camera } from './fakes/camera';
 import { ocr } from './fakes/devices';
 import { disk } from './fakes/file-system';
 import { notifications } from './fakes/notifications';
+import { textWeight } from './fakes/text-weight';
+
+import { rereadBoldText } from '@/features/accessibility/bold-text';
 
 import * as store from '@/features/medications/medication-store';
 import { addMedication, loadProfile } from '@/features/medications/medication-store';
@@ -544,6 +547,32 @@ describe("a label's own words, folded only where they are background", () => {
     await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
     await screen.findByText(INDICATION);
     expect(screen.queryByRole('button', { name: Strings.uses.explanationShow.ko })).toBeNull();
+  });
+});
+
+describe("the label's words and Bold text", () => {
+  const faceOf = (text: string) => StyleSheet.flatten(screen.getByText(text).props.style).fontFamily;
+
+  it('are drawn at a weight they name, so Bold text thickens them with the rest, measured and drawn alike', async () => {
+    nlm();
+    await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+    await screen.findByText(INDICATION);
+    expect(faceOf(INDICATION)).toBe('Pretendard-Medium');
+
+    const original = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, get: () => 'android' });
+    try {
+      textWeight.adjustment = 300;
+      rereadBoldText();
+      nlm();
+      await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
+      await screen.findByText(INDICATION);
+      expect(faceOf(INDICATION)).toBe('Pretendard-ExtraBold');
+    } finally {
+      Object.defineProperty(Platform, 'OS', { configurable: true, get: () => original });
+      textWeight.reset();
+      rereadBoldText();
+    }
   });
 });
 

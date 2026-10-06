@@ -2,12 +2,12 @@ import { useEffect, useRef } from 'react';
 import {
   AccessibilityInfo,
   StyleSheet,
-  Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
+import { Text } from '@/components/app-text';
 import { shownKorean } from '@/components/shown-korean';
 import { CameraChrome, Type, TypeMaxScale } from '@/constants/theme';
 import { usePreferences } from '@/features/preferences/preferences-context';

@@ -38,7 +38,7 @@ export function ListRow({
 }) {
   const theme = useTheme();
   const caution = tone === 'caution';
-  // At large text sizes the icon well gives its width to the words; the title
+  // At large text sizes the icon gives its width to the words; the title
   // already says what the row is.
   const large = useLargeText();
 
@@ -51,14 +51,9 @@ export function ListRow({
         styles.row,
         pressed && { backgroundColor: theme.backgroundSelected },
       ]}>
+      {/* On its own, without a tinted well: tints are for info notes and warnings. */}
       {icon && !large ? (
-        <View
-          style={[
-            styles.iconWell,
-            {
-              backgroundColor: caution ? theme.warnSurface : theme.primaryWash,
-            },
-          ]}>
+        <View style={styles.icon}>
           <Icon name={icon} color={caution ? theme.warnAccent : theme.primaryIcon} />
         </View>
       ) : null}
@@ -109,7 +104,7 @@ export function SwitchRow({
       accessibilityLabel={title.ko}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.backgroundSelected }]}>
       {icon && !large ? (
-        <View style={[styles.iconWell, { backgroundColor: theme.primaryWash }]}>
+        <View style={styles.icon}>
           <Icon name={icon} color={theme.primaryIcon} />
         </View>
       ) : null}
@@ -138,10 +133,8 @@ const styles = StyleSheet.create({
     // Grows with the system font size rather than clipping at a fixed height.
     minHeight: 80,
   },
-  iconWell: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  icon: {
+    width: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },

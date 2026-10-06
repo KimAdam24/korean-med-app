@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { typeface } from '@/constants/typeface';
+import { useBoldTextAdjustment } from '@/features/accessibility/bold-text';
 import { sweepPhotoCaches } from '@/features/capture/photo-caches';
 import { markOnboarded, needsOnboarding } from '@/features/onboarding/onboarding-marker';
 import { Onboarding } from '@/features/onboarding/onboarding-screen';
@@ -20,13 +22,20 @@ import { Strings } from '@/i18n/strings';
  * The stock themes paint headers plain white or black above screens drawn on
  * the app's grey page, which leaves a seam under every title, and tint back
  * buttons with a blue that is not the app's. The header now shares the page
- * colour, so title and content read as one surface.
+ * colour, so title and content read as one surface. Its fonts are the app's
+ * own faces, raised by Bold text as the app's text is (`typeface`).
  */
-function navigationTheme(scheme: 'light' | 'dark'): Theme {
+function navigationTheme(scheme: 'light' | 'dark', boldText: number): Theme {
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
   const palette = Colors[scheme];
   return {
     ...base,
+    fonts: {
+      regular: typeface('500', boldText),
+      medium: typeface('500', boldText),
+      bold: typeface('600', boldText),
+      heavy: typeface('700', boldText),
+    },
     colors: {
       ...base.colors,
       primary: palette.outline,
@@ -41,6 +50,7 @@ function navigationTheme(scheme: 'light' | 'dark'): Theme {
 
 export default function RootLayout() {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const boldText = useBoldTextAdjustment();
 
   // Anything in the photo caches at launch was left by a run that did not
   // finish reading it. See `photo-caches`. And the app switcher must never
@@ -57,7 +67,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ThemeProvider value={navigationTheme(scheme)}>
+    <ThemeProvider value={navigationTheme(scheme, boldText)}>
       <PreferencesProvider>
         <AppLockProvider>
           <LockGate />
@@ -81,6 +91,7 @@ export default function RootLayout() {
  */
 function LockGate() {
   const { status } = useAppLock();
+  const boldText = useBoldTextAdjustment();
   // Read once: whether this launch starts with the introduction. See
   // `onboarding-marker` for why it is its own marker.
   const [onboarding, setOnboarding] = useState(needsOnboarding);
@@ -109,7 +120,7 @@ function LockGate() {
         // Larger and heavier than the platform default, which is set for a
         // general audience. The header shares the page colour, so its shadow
         // line would only draw a seam.
-        headerTitleStyle: { fontSize: 22, fontWeight: '700' },
+        headerTitleStyle: { fontSize: 22, ...typeface('700', boldText) },
         headerShadowVisible: false,
       }}>
       <Stack.Screen name="index" options={{ title: Strings.home.title.ko }} />

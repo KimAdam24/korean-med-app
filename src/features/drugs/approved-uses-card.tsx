@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
+import { Text } from '@/components/app-text';
 import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card } from '@/components/card';
@@ -444,6 +445,10 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 20,
     lineHeight: 30,
+    // Named, as every weight in the app is: a style without one was the one
+    // text Android's Bold text could thicken after React Native had measured
+    // it, so its last line could be cut off.
+    fontWeight: '500',
   },
   question: {
     gap: Spacing.three,

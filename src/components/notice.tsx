@@ -1,5 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { Text } from '@/components/app-text';
 import { BilingualText } from '@/components/bilingual-text';
 import { useAnnouncement } from '@/hooks/use-announcement';
 import { Radius, Spacing } from '@/constants/theme';

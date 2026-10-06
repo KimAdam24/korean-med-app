@@ -20,8 +20,9 @@ import { Strings, type Bilingual } from '@/i18n/strings';
 /**
  * Home: one thing to do, and two places to go.
  *
- * The capture action leads, inside a tinted card that explains it, because it
- * is the reason the app is opened. The other destinations sit below as one
+ * The capture action leads, in the first card, under the camera in a solid
+ * indigo circle, because it is the reason the app is opened. The card is white,
+ * as every card is: a warning above it is then the only coloured box. The other destinations sit below as one
  * grouped list, so they read as "elsewhere" rather than as three more buttons
  * competing with it for the same attention.
  */
@@ -63,9 +64,9 @@ export default function HomeScreen() {
     <Screen>
       {/* Only when reminders are set and cannot work as set; otherwise nothing. */}
       <ReminderStatus attentionOnly />
-      <Card variant="hero">
-        <View style={[styles.heroIcon, { backgroundColor: theme.surface }]}>
-          <Icon name="camera" color={theme.primaryIcon} size={IconSize.hero} />
+      <Card>
+        <View style={[styles.heroIcon, { backgroundColor: theme.primary }]}>
+          <Icon name="camera" color={theme.onPrimary} size={IconSize.hero} />
         </View>
         <BilingualText text={Strings.home.captureHint} />
         <BigButton
@@ -82,7 +83,7 @@ export default function HomeScreen() {
           detail={countDetail}
           onPress={() => router.push('/medications')}
         />
-        <CardDivider inset />
+        <CardDivider />
 
         {/*
           The gallery: how a caregiver adds bottles. The privacy line below was
@@ -91,7 +92,7 @@ export default function HomeScreen() {
           photo the user already owns, and it could not ship beside this.
         */}
         <ListRow icon="photo" title={Strings.privacy.choosePhoto} onPress={pickAndRead} />
-        <CardDivider inset />
+        <CardDivider />
 
         <ListRow
           icon="settings"

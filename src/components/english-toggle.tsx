@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
+import { Text } from '@/components/app-text';
 import { Radius, Spacing, TypeMaxScale } from '@/constants/theme';
 import { setShowEnglish } from '@/features/preferences/preferences';
 import { usePreferences } from '@/features/preferences/preferences-context';

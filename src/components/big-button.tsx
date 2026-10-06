@@ -17,9 +17,10 @@ import type { Bilingual } from '@/i18n/strings';
  * removing a medicine, erasing everything — and is marked by colour and by the
  * words on it, never colour alone.
  *
- * The primary button sits a little above the page on a shadow of its own blue,
- * and every tone settles slightly when pressed, so a tap is felt as well as
- * seen — useful to a reader who is not sure the press registered.
+ * The primary button is a solid indigo fill, without a shadow (the design pass
+ * of 2026-10-06 dropped them), and every tone settles slightly when pressed, so
+ * a tap is felt as well as seen — useful to a reader who is not sure the press
+ * registered.
  */
 export type BigButtonProps = {
   label: Bilingual;

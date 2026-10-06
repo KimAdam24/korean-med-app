@@ -335,7 +335,7 @@ export default function SettingsScreen() {
                 setStep({ kind: 'change-pin', stage: 'current' });
               }}
             />
-            <CardDivider inset />
+            <CardDivider />
           </>
         ) : null}
 
