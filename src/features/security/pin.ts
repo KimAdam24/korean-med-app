@@ -195,11 +195,21 @@ async function resetAttempts(): Promise<void> {
   await SecureStore.deleteItemAsync(ATTEMPTS_ITEM, OPTIONS);
 }
 
-/** Milliseconds remaining on the current lockout; `0` when entry is allowed. */
+/** The longest a lockout can last. */
+const LONGEST_LOCKOUT_MS = Math.max(...LOCKOUT_LADDER_MS);
+
+/**
+ * Milliseconds remaining on the current lockout; `0` when entry is allowed.
+ *
+ * Never more than the longest step. `lockedUntil` is a time on the phone's
+ * clock, so a clock set back after a lockout began (by hand, or a phone
+ * running fast corrected by the network) would otherwise stretch 30 seconds
+ * into however far it moved: days, for someone whose PIN is the only way in.
+ */
 export async function lockoutRemainingMs(): Promise<number> {
   const { lockedUntil } = await readAttempts();
   if (lockedUntil === null) return 0;
-  return Math.max(0, lockedUntil - Date.now());
+  return Math.min(LONGEST_LOCKOUT_MS, Math.max(0, lockedUntil - Date.now()));
 }
 
 export type PinVerification =

@@ -115,7 +115,9 @@ export function SwitchRow({
         <Switch
           value={value}
           trackColor={{ false: theme.border, true: theme.primary }}
-          thumbColor={theme.surface}
+          // Not the card's colour: on a dark card that thumb vanished where it
+          // stands past the track.
+          thumbColor={value ? theme.onPrimary : theme.textSecondary}
           ios_backgroundColor={theme.border}
         />
       </View>

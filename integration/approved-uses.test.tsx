@@ -567,7 +567,8 @@ describe("the label's words and Bold text", () => {
       nlm();
       await openPickedPhoto(VITAMIN_D2_VIAL_LINES);
       await screen.findByText(INDICATION);
-      expect(faceOf(INDICATION)).toBe('Pretendard-ExtraBold');
+      const style = StyleSheet.flatten(screen.getByText(INDICATION).props.style);
+      expect([style.fontFamily, style.fontWeight]).toEqual(['Pretendard', '800']);
     } finally {
       Object.defineProperty(Platform, 'OS', { configurable: true, get: () => original });
       textWeight.reset();
@@ -748,6 +749,20 @@ describe('typing the name from the bottle, where the reading could not give it',
     await act(async () => {});
     expect(screen.getByText(Strings.uses.nameNotWhole.ko)).toBeTruthy();
     expect(asked.some((url) => url.includes('approximateTerm'))).toBe(false);
+
+    // Nor with punctuation added: each is looked up as "vitamin d", the name
+    // as read.
+    for (const same of ['VITAMIN D.', 'VITAMIN-D', 'Vitamin, D']) {
+      fireEvent.changeText(screen.getByLabelText(Strings.nameEntry.inputLabel.ko), same);
+      expect(submit()).toBeDisabled();
+      fireEvent(screen.getByLabelText(Strings.nameEntry.inputLabel.ko), 'submitEditing');
+    }
+    await act(async () => {});
+    expect(asked.some((url) => url.includes('approximateTerm'))).toBe(false);
+
+    // Korean added is let through, to be told why it is not looked up.
+    fireEvent.changeText(screen.getByLabelText(Strings.nameEntry.inputLabel.ko), 'VITAMIN D 비타민');
+    expect(submit()).toBeEnabled();
 
     fireEvent.changeText(screen.getByLabelText(Strings.nameEntry.inputLabel.ko), 'VITAMIN D2');
     expect(submit()).toBeEnabled();

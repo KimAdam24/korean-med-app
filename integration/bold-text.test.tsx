@@ -22,9 +22,11 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-/** The face a piece of text is drawn in. */
-const face = (text: string) =>
-  StyleSheet.flatten(screen.getByText(text, { includeHiddenElements: true }).props.style).fontFamily;
+/** The face a piece of text is drawn in: on iOS its name, on Android the family and weight. */
+const face = (text: string) => {
+  const style = StyleSheet.flatten(screen.getByText(text, { includeHiddenElements: true }).props.style);
+  return Platform.OS === 'android' ? `${style.fontFamily} ${style.fontWeight}` : style.fontFamily;
+};
 
 /** Every face on screen, and any text drawn in none. */
 function faces(): { used: Set<string>; system: string[] } {
@@ -32,7 +34,8 @@ function faces(): { used: Set<string>; system: string[] } {
   const system: string[] = [];
   for (const node of screen.UNSAFE_getAllByType(NativeText)) {
     const family = StyleSheet.flatten(node.props.style)?.fontFamily;
-    if (typeof family === 'string' && family.startsWith('Pretendard-')) used.add(family);
+    // Android: the one family; iOS: a face's own name.
+    if (typeof family === 'string' && (family === 'Pretendard' || family.startsWith('Pretendard-'))) used.add(family);
     else system.push(String(node.props.children).slice(0, 40));
   }
   return { used, system };
@@ -78,17 +81,18 @@ describe('Bold text', () => {
       rereadBoldText();
       launchApp('/');
       await screen.findByText(Strings.home.capture.ko);
-      // 700 + 300, as far as the heaviest face; 500 + 300.
-      expect(face(Strings.home.capture.ko)).toBe('Pretendard-Black');
-      expect(face(Strings.home.captureHint.ko)).toBe('Pretendard-ExtraBold');
+      // 700 + 300, as far as the heaviest face; 500 + 300. On Android, the one
+      // family, by weight.
+      expect(face(Strings.home.capture.ko)).toBe('Pretendard 900');
+      expect(face(Strings.home.captureHint.ko)).toBe('Pretendard 800');
       expect(faces().system).toEqual([]);
 
       // Turned off in the phone's settings; the user comes back to the app.
       textWeight.adjustment = 0;
       await sendAppTo('background');
       await sendAppTo('active');
-      expect(face(Strings.home.capture.ko)).toBe('Pretendard-Bold');
-      expect(face(Strings.home.captureHint.ko)).toBe('Pretendard-Medium');
+      expect(face(Strings.home.capture.ko)).toBe('Pretendard 700');
+      expect(face(Strings.home.captureHint.ko)).toBe('Pretendard 500');
     } finally {
       restore();
     }
@@ -126,7 +130,7 @@ describe('Bold text', () => {
       rereadBoldText();
       launchApp('/');
       await screen.findByText(Strings.home.capture.ko);
-      expect(face(Strings.home.capture.ko)).toBe('Pretendard-Bold');
+      expect(face(Strings.home.capture.ko)).toBe('Pretendard 700');
     } finally {
       restore();
     }

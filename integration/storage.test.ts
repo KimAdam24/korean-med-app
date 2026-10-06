@@ -217,6 +217,20 @@ describe('the PIN', () => {
     expect(await lockoutRemainingMs()).toBeGreaterThan(0);
   });
 
+  it('never makes the owner wait longer than the longest step, whatever the clock does', async () => {
+    await setPin('4821');
+    for (let attempt = 1; attempt <= 5; attempt += 1) await verifyPin('0000');
+    // A 30-second lockout; then the phone's clock goes back a day.
+    const now = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(now - 24 * 60 * 60_000);
+    try {
+      expect(await lockoutRemainingMs()).toBe(30 * 60_000);
+      expect(await verifyPin('4821')).toEqual({ outcome: 'locked-out', lockedForMs: 30 * 60_000 });
+    } finally {
+      jest.restoreAllMocks();
+    }
+  });
+
   it('counts every failure when checks overlap', async () => {
     await setPin('4821');
     await Promise.all(Array.from({ length: 6 }, () => verifyPin('0000')));

@@ -1,10 +1,17 @@
 /**
  * Which face of Pretendard a piece of text is drawn in.
  *
- * Pretendard is bundled (`assets/fonts`, SIL Open Font License 1.1): one face
- * per weight, each named by its file, which is also its PostScript name, so the
- * same `fontFamily` reaches the same face on Android (where the file name is
- * the family) and on iOS (where the PostScript name is).
+ * Pretendard is bundled (`assets/fonts`, SIL Open Font License 1.1), one file
+ * per weight, embedded by expo-font's plugin differently on each platform:
+ *
+ * - **Android:** as one font family, `Pretendard`, declared with each file's
+ *   weight (the plugin's `android.fonts`, a font XML registered at launch).
+ *   React Native then picks the face by weight. Not as loose asset files: for
+ *   one of those, React Native turns any weight of 700 or more into "bold" and
+ *   looks for a file named `<family>_bold`, which these are not, and falls back
+ *   to the phone's own font. Every heading and button would have been Roboto.
+ * - **iOS:** each face by its PostScript name, which is also its file name
+ *   (`Pretendard-Bold`), with the weight beside it.
  *
  * ## Bold text
  *
@@ -30,6 +37,9 @@ export const FACES = {
 
 export type FaceWeight = keyof typeof FACES;
 
+/** The one family Android knows the five faces by (`android.fonts` in app.json). */
+export const ANDROID_FAMILY = 'Pretendard';
+
 /** What Android's Bold text adds, used for iOS's Bold Text, which says only on or off. */
 export const IOS_BOLD_TEXT_STEP = 300;
 
@@ -47,11 +57,15 @@ export function weightOf(fontWeight: unknown): number {
 
 /**
  * The face, and the weight to name with it, for a style's weight raised by
- * Bold text's adjustment. The weight is the face's own, so nothing synthesises
- * a bolder or lighter version of it.
+ * Bold text's adjustment, on a platform (`Platform.OS`). The weight is the
+ * face's own, so nothing synthesises a bolder or lighter version of it.
  */
-export function typeface(fontWeight: unknown, adjustment = 0): { fontFamily: string; fontWeight: `${FaceWeight}` } {
+export function typeface(
+  fontWeight: unknown,
+  adjustment = 0,
+  platform = 'ios'
+): { fontFamily: string; fontWeight: `${FaceWeight}` } {
   const raised = weightOf(fontWeight) + (Number.isFinite(adjustment) ? adjustment : 0);
   const weight = Math.min(HEAVIEST, Math.max(LIGHTEST, Math.round(raised / 100) * 100)) as FaceWeight;
-  return { fontFamily: FACES[weight], fontWeight: `${weight}` };
+  return { fontFamily: platform === 'android' ? ANDROID_FAMILY : FACES[weight], fontWeight: `${weight}` };
 }

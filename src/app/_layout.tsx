@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import { Platform, useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { typeface } from '@/constants/typeface';
@@ -31,10 +31,10 @@ function navigationTheme(scheme: 'light' | 'dark', boldText: number): Theme {
   return {
     ...base,
     fonts: {
-      regular: typeface('500', boldText),
-      medium: typeface('500', boldText),
-      bold: typeface('600', boldText),
-      heavy: typeface('700', boldText),
+      regular: typeface('500', boldText, Platform.OS),
+      medium: typeface('500', boldText, Platform.OS),
+      bold: typeface('600', boldText, Platform.OS),
+      heavy: typeface('700', boldText, Platform.OS),
     },
     colors: {
       ...base.colors,
@@ -120,7 +120,7 @@ function LockGate() {
         // Larger and heavier than the platform default, which is set for a
         // general audience. The header shares the page colour, so its shadow
         // line would only draw a seam.
-        headerTitleStyle: { fontSize: 22, ...typeface('700', boldText) },
+        headerTitleStyle: { fontSize: 22, ...typeface('700', boldText, Platform.OS) },
         headerShadowVisible: false,
       }}>
       <Stack.Screen name="index" options={{ title: Strings.home.title.ko }} />

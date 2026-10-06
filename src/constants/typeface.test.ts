@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { FACES, IOS_BOLD_TEXT_STEP, typeface, weightOf } from './typeface.ts';
+import { ANDROID_FAMILY, FACES, IOS_BOLD_TEXT_STEP, typeface, weightOf } from './typeface.ts';
 
 test('each weight the app uses is drawn in its own face', () => {
   assert.deepEqual(typeface('500'), { fontFamily: 'Pretendard-Medium', fontWeight: '500' });
@@ -36,6 +36,13 @@ test("Bold text raises every weight as Android raises its own text's: by 300, to
   assert.equal(IOS_BOLD_TEXT_STEP, 300);
 });
 
+test("on Android, every weight is the one family's, named by weight: never a loose file React Native would look for a '_bold' of", () => {
+  assert.deepEqual(typeface('500', 0, 'android'), { fontFamily: 'Pretendard', fontWeight: '500' });
+  assert.deepEqual(typeface('700', 0, 'android'), { fontFamily: 'Pretendard', fontWeight: '700' });
+  assert.deepEqual(typeface('600', 300, 'android'), { fontFamily: 'Pretendard', fontWeight: '900' });
+  assert.deepEqual(typeface('700', 0, 'ios'), { fontFamily: 'Pretendard-Bold', fontWeight: '700' });
+});
+
 test('weights are read as styles write them', () => {
   assert.equal(weightOf('600'), 600);
   assert.equal(weightOf(800), 800);
@@ -44,14 +51,31 @@ test('weights are read as styles write them', () => {
   assert.equal(weightOf(undefined), 500);
 });
 
-test('every face is a bundled file, and every bundled file is embedded by the font plugin', () => {
+test('every face is a bundled file, embedded for each platform the way it is named there', () => {
+  type FontPlugin = {
+    fonts?: string[];
+    ios?: { fonts?: string[] };
+    android?: { fonts?: { fontFamily: string; fontDefinitions: { path: string; weight: number }[] }[] };
+  };
   const app = JSON.parse(readFileSync(new URL('../../app.json', import.meta.url), 'utf8')) as {
-    expo: { plugins: (string | [string, { fonts?: string[] }])[] };
+    expo: { plugins: (string | [string, FontPlugin])[] };
   };
   const plugin = app.expo.plugins.find((entry) => Array.isArray(entry) && entry[0] === 'expo-font');
   assert.ok(Array.isArray(plugin), 'expo-font is configured in app.json');
-  const embedded = (plugin[1].fonts ?? []).map((path) => path.replace(/^\.\/assets\/fonts\//, '').replace(/\.otf$/, ''));
-  assert.deepEqual(embedded.sort(), Object.values(FACES).sort());
+  const options = plugin[1];
+  const face = (path: string) => path.replace(/^\.\/assets\/fonts\//, '').replace(/\.otf$/, '');
+  // Not for both platforms at once: Android would also copy them as loose
+  // asset files, which draw every weight of 700 or more in the phone's font.
+  assert.equal(options.fonts, undefined);
+  // iOS: each file, known by its PostScript name.
+  assert.deepEqual((options.ios?.fonts ?? []).map(face).sort(), Object.values(FACES).sort());
+  // Android: one family, each file at its own weight.
+  assert.deepEqual(options.android?.fonts?.map((family) => family.fontFamily), [ANDROID_FAMILY]);
+  const definitions = options.android?.fonts?.[0].fontDefinitions ?? [];
+  assert.deepEqual(
+    Object.fromEntries(definitions.map((definition) => [definition.weight, face(definition.path)])),
+    Object.fromEntries(Object.entries(FACES))
+  );
   for (const face of Object.values(FACES)) {
     assert.ok(readFileSync(new URL(`../../assets/fonts/${face}.otf`, import.meta.url)).length > 1_000_000, face);
   }

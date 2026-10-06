@@ -6,7 +6,9 @@ import { BigButton } from '@/components/big-button';
 import { BilingualText } from '@/components/bilingual-text';
 import { Card } from '@/components/card';
 import { Radius, Spacing, Type, TypeMaxScale } from '@/constants/theme';
+import { medicineWords } from '@/features/drugs/identify-name';
 import { useTheme } from '@/hooks/use-theme';
+import { hasHangul } from '@/i18n/hangul';
 import { Strings } from '@/i18n/strings';
 
 /**
@@ -43,8 +45,12 @@ export function NameEntry({
   const theme = useTheme();
   const [value, setValue] = useState(typed ?? read ?? '');
   const name = value.trim();
-  const same = (a: string, b: string) => a.replace(/\s+/g, ' ').trim().toLowerCase() === b.replace(/\s+/g, ' ').trim().toLowerCase();
-  const asRead = read !== undefined && same(name, read);
+  // What would be looked up, not the letters typed: "VITAMIN D.", "vitamin-d"
+  // and "VITAMIN D" are all asked as "vitamin d", the cut-off name itself. A
+  // name with Korean in it is let through, to be told why it is not looked up
+  // (`uses.nameHangul`), since the Korean is not among the words compared.
+  const lookedUp = (text: string) => medicineWords(text).join(' ');
+  const asRead = read !== undefined && !hasHangul(name) && lookedUp(name) === lookedUp(read);
   const ready = name.length > 0 && !asRead;
 
   return (

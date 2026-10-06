@@ -80,13 +80,44 @@
       [
         "expo-font",
         {
-          "fonts": [
-            "./assets/fonts/Pretendard-Medium.otf",
-            "./assets/fonts/Pretendard-SemiBold.otf",
-            "./assets/fonts/Pretendard-Bold.otf",
-            "./assets/fonts/Pretendard-ExtraBold.otf",
-            "./assets/fonts/Pretendard-Black.otf"
-          ]
+          "ios": {
+            "fonts": [
+              "./assets/fonts/Pretendard-Medium.otf",
+              "./assets/fonts/Pretendard-SemiBold.otf",
+              "./assets/fonts/Pretendard-Bold.otf",
+              "./assets/fonts/Pretendard-ExtraBold.otf",
+              "./assets/fonts/Pretendard-Black.otf"
+            ]
+          },
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "Pretendard",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/Pretendard-Medium.otf",
+                    "weight": 500
+                  },
+                  {
+                    "path": "./assets/fonts/Pretendard-SemiBold.otf",
+                    "weight": 600
+                  },
+                  {
+                    "path": "./assets/fonts/Pretendard-Bold.otf",
+                    "weight": 700
+                  },
+                  {
+                    "path": "./assets/fonts/Pretendard-ExtraBold.otf",
+                    "weight": 800
+                  },
+                  {
+                    "path": "./assets/fonts/Pretendard-Black.otf",
+                    "weight": 900
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     ],
