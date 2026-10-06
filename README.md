@@ -178,7 +178,7 @@ authoritative source the app is allowed to use.
 | Warnings about medicines that should not be combined | The engine, tested; its rule table is empty | Licensing of the data, and regulatory counsel |
 | "What this medicine is for", in plain words | Instead, the label's own words, shown today | The only patient-language source is licensed |
 | Official Korean ingredient names (식약처) | The importer and the display; the table is empty | Access to the Korean government's dataset |
-| Reading a curved label while the bottle turns | Android: built, and replayed from video on an emulator. iOS: written; its first compile found one error | A real camera to test with; the iOS half not yet linked |
+| Reading a curved label while the bottle turns | Android: built, and replayed from video on an emulator. iOS: written, and compiles | A real camera to test with; the iOS half not yet linked |
 | Reading aloud | Not started | Constraints in [`docs/tts-feasibility.md`](docs/tts-feasibility.md) |
 
 The first three are set out in [`docs/blocked-on-data.md`](docs/blocked-on-data.md):

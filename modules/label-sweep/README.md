@@ -8,26 +8,21 @@ recognised lines. The privacy invariant it keeps is in
 | Platform | State |
 | --- | --- |
 | Android | `android/` — Kotlin, CameraX 1.6.0 and ML Kit. Compiled, and the whole app assembles with it (local Gradle build); linked. **Not yet run on a device.** |
-| iOS | `ios/` — Swift, AVFoundation and Vision. **Written, compiled once with one error, not linked.** |
+| iOS | `ios/` — Swift, AVFoundation and Vision. **Compiles; not linked.** |
 
 ## Why the Swift is not linked
 
-It cannot be compiled on the Windows machine this project is built on. It was
-compiled once, on 2026-10-05, in an EAS iOS simulator build of the branch
-`ios-compile-check`, which autolinks the pod for that build only and registers
-no module. `LabelSweepModule.swift` compiled. `LabelSweepView.swift` has one
-error, at line 215:
+It cannot be compiled on the Windows machine this project is built on, so it
+is compiled on EAS, in an iOS simulator build of the branch
+`ios-compile-check`. That branch autolinks the pod for its build only and
+registers no module. The first such build (2026-10-05) found one error: inside
+the view, a helper named `frame(of:in:)` resolved to the `UIView`'s own
+`frame`. Renamed `pixelFrame(of:in:)`, both files compile, with no warnings,
+and the app around them builds (2026-10-06). The module has never been
+registered or run on iOS.
 
-    error: use of 'frame' refers to instance method rather than global
-    function 'frame(of:in:)' in module 'LabelSweep'
-
-Inside the view, the bare name `frame` is the `UIView`'s own; the file's
-private `frame(of:in:)` helper needs another name, or `LabelSweep.frame(...)`.
-Nothing after compiling (linking, running) has been tried.
-
-A Swift file that does not compile, in a linked module, breaks every iOS build
-of the app. So `expo-module.config.json` lists
-`android` only, and on iOS the app offers the single capture and manual fill-in
+Until it has run on an iPhone, `expo-module.config.json` lists `android`
+only, and on iOS the app offers the single capture and manual fill-in
 instead; `sweepAvailable` in `index.ts` is false there.
 
 ## Enabling it on iOS
