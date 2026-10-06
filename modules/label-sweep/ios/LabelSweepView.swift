@@ -212,7 +212,7 @@ final class LabelSweepView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelega
       return [
         "text": text,
         "confidence": candidate.confidence,
-        "frame": frame(of: observation.boundingBox, in: size),
+        "frame": pixelFrame(of: observation.boundingBox, in: size),
         "corners": [
           observation.topLeft,
           observation.topRight,
@@ -236,7 +236,8 @@ private func pixels(of point: CGPoint, in size: CGSize) -> [String: Double] {
 }
 
 /// A Vision box — normalised, origin bottom left — as a pixel frame from the top left.
-private func frame(of box: CGRect, in size: CGSize) -> [String: Double] {
+/// Not `frame(of:in:)`: inside the view, that name is the UIView's own `frame`.
+private func pixelFrame(of box: CGRect, in size: CGSize) -> [String: Double] {
   [
     "left": Double(box.minX * size.width),
     "top": Double((1 - box.maxY) * size.height),
