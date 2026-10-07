@@ -5,7 +5,7 @@ from nothing, including the parts that went wrong the first time, so they
 don't go wrong for the next person. It ends with the app running on an Android emulator,
 then a release build.
 
-**Windows** is sections 1 to 9. It is how the app has been built so far:
+**Windows** is sections 1 to 10. It is how the app has been built so far:
 tested, every step. **A Mac** is [further down](#on-a-mac-untested): written
 from current documentation, and untested, since no Mac was available to test
 it on.
@@ -14,15 +14,51 @@ On Windows, commands are for PowerShell. The versions are the ones on the
 machine the app has been built on. Where something must be exactly that
 version, it says so.
 
+## Before you start
+
+**Access.** Ask for these before the first day:
+
+- **The GitHub repository.** It is private. Accept the collaborator invitation
+  GitHub sends you by email. Until you do, the clone in section 6 fails.
+- **A Claude account with Claude Code.** Claude Code needs a paid plan: Pro,
+  Max, Team or Enterprise. The free plan doesn't include it. Max is more
+  comfortable for this project: its big tasks, like a review of the whole app
+  or a design pass, use a lot of a plan's limits.
+- **The Expo project,** only for iOS builds in the cloud (section 10). It
+  belongs to the `togurt5` account. Make an Expo account of your own, and ask
+  the project owner to add you. Nothing else needs it.
+
+**The machine.**
+
+- **Memory: about 16 GB.** Android Studio asks for 16 GB to run with the
+  emulator, and recommends 32. The app has been built on a 16 GB laptop:
+  enough, except for a release build with the emulator open (section 9).
+- **On a Windows PC, virtualization switched on** in the BIOS (Intel VT-x or
+  AMD-V). The emulator needs it.
+- **Disk: about 60 GB free for Android,** on an SSD. Measured on the machine
+  the app is built on: the Android SDK 12 GB, the Pixel 7 emulator 17 GB,
+  Android Studio 3 GB, Gradle's cache 6 GB, and the project 18 GB, nearly all
+  of it native code compiled into `node_modules` and `android/`. Android's own
+  figure, 16 GB for Android Studio and an emulator, leaves the project out.
+- **On a Mac, Xcode for iOS on top of that.** The App Store download is
+  3.1 GB. It takes far more once installed, and the iOS simulator runtime
+  comes on top. Apple publishes no total. Allow another 40 GB or so: an
+  estimate, not measured. The current Xcode, 27, needs macOS 26.6 or later
+  and an Apple silicon Mac (M1 or later).
+
 ## 1. Node 22.23.1, through nvm
 
 The project pins Node **22.23.1** (`.nvmrc`, and `eas.json` for cloud builds).
 Use exactly that, so `package-lock.json` is written by the same npm that will
 install from it.
 
-1. Install **nvm for Windows**. The machine this was built on has version
-   2.0.1, installed for one user under
-   `%LOCALAPPDATA%\Author Software\nvm`.
+1. Install **nvm for Windows**, from its releases page on GitHub,
+   github.com/nvm-windows/nvm/releases. Take the latest release not marked
+   *Pre-release*, and from its files the setup program for your processor:
+   `nvm-<version>-x64-setup.exe`, or `-arm64-` on an ARM PC. It installs for
+   your user only, under `%LOCALAPPDATA%\Author Software\nvm`. Its release
+   notes say it removes a Node installed from nodejs.org. The machine this
+   was built on has version 2.0.1.
 2. In a new terminal:
 
        nvm install 22.23.1
@@ -52,9 +88,21 @@ The fix:
 
 (or `nvm doctor --autofix`), then run the command again.
 
-**It comes back every time Claude Code updates itself.** Claude Code is
-installed with npm, so it has a shim of its own, and each automatic update
-changes the script behind it. Expect to run `nvm reshim` again after one.
+## 2. Claude Code
+
+Install it right after Node, with npm, so it belongs to the Node you just
+set up:
+
+    npm install -g @anthropic-ai/claude-code
+    claude --version
+
+You log in the first time you start it, at the end of this file
+([Working with Claude Code](#working-with-claude-code)).
+
+**It brings back the NVM4306 error every time it updates itself.** Claude
+Code is installed with npm, so it has a shim of its own, and each automatic
+update changes the script behind it. Expect to run `nvm reshim` again after
+one.
 
 **Switching Node versions.** Globally installed npm packages belong to one
 Node version. After `nvm use` with a different version, install Claude Code
@@ -62,7 +110,7 @@ again under it, or `claude` is missing or still the old version's:
 
     npm install -g @anthropic-ai/claude-code
 
-## 2. Java: Temurin JDK 21, not Android Studio's
+## 3. Java: Temurin JDK 21, not Android Studio's
 
 Install **Eclipse Temurin JDK 21** from adoptium.net (here:
 `C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot`).
@@ -75,7 +123,7 @@ Deployment › Build Tools › Gradle › Gradle JDK* to the same JDK.
 
     java -version      # openjdk version "21..."
 
-## 3. Android Studio, the SDK, and two environment variables
+## 4. Android Studio, the SDK, and two environment variables
 
 Install **Android Studio**. You need it for the SDK and the emulator; the
 app itself is built from the command line.
@@ -103,7 +151,7 @@ Open a new terminal and check:
     $env:ANDROID_HOME
     adb version
 
-## 4. An emulator: a Pixel 7 on API 37
+## 5. An emulator: a Pixel 7 on API 37
 
 In Android Studio's *Device Manager*, create a **Pixel 7** with an **API 37**
 system image. That is the device the app has been tested on (`Pixel_7`).
@@ -117,7 +165,15 @@ Wait for its home screen, then check:
 
     adb devices        # emulator-5554   device
 
-## 5. The project
+## 6. The project
+
+Install **Git for Windows** from git-scm.com/downloads/win, if
+`git --version` doesn't answer. It includes Git Credential Manager, so the
+first clone asks you to sign in to GitHub in the browser. Claude Code uses
+the Git Bash it brings, too.
+
+Then clone. The repository URL is under the green *Code* button on its
+GitHub page:
 
     git clone <repository URL>
     cd korean-med-app
@@ -131,7 +187,7 @@ you change anything:
     npm run test:unit
     npm run test:integration
 
-## 6. Generate the Android project: prebuild, without `--clean`
+## 7. Generate the Android project: prebuild, without `--clean`
 
 `android/` is not in git. It is generated from `app.json`, the config plugins,
 `assets/fonts` and `modules/`:
@@ -149,7 +205,7 @@ Treat `android/` as disposable either way. Prebuild may also replace it
 wholesale on its own if it thinks the folder is malformed. Never keep
 anything there (`docs/release-build.md` has the story).
 
-## 7. A development build
+## 8. A development build
 
 With the emulator running:
 
@@ -164,7 +220,7 @@ without rebuilding. If you closed the server, start it again with
 Expo Go will not run this app: it has its own native modules, so it needs this
 development build.
 
-## 8. A release build
+## 9. A release build
 
 **Close the emulator first.** A release build compiles every CPU architecture
 and bundles the JavaScript. With the emulator open as well, the machine runs
@@ -173,6 +229,17 @@ out of memory partway through.
     cd android
     .\gradlew.bat app:assembleRelease
     cd ..
+
+**Check the APK before installing it.** `scripts/check-release.py` reads it
+and fails if a development-only screen shipped, backups are on, or one of the
+app's own native modules is missing (`docs/release-build.md`). It needs
+**Python 3**, from python.org; on Windows, its download is now the *Python
+install manager*. Then:
+
+    python --version
+    python scripts/check-release.py android/app/build/outputs/apk/release/app-release.apk
+
+It should end with `0 failed`.
 
 Then start the emulator again and install:
 
@@ -189,7 +256,7 @@ by EAS. Uninstall it, then install again:
 
 That deletes the app's data on the emulator: its PIN and saved medicines.
 
-## 9. iOS
+## 10. iOS
 
 There is no iOS build on Windows: building for iOS locally takes a Mac (see
 [On a Mac](#on-a-mac-untested)). From Windows, the app is compiled for the iOS
@@ -198,16 +265,16 @@ simulator on EAS (Expo's cloud builds), with the profile in `eas.json`:
     npx eas-cli build --platform ios --profile ios-simulator
 
 That needs access to the Expo project, which belongs to the `togurt5`
-account. Ask the project owner to add you. The free plan has a monthly build limit, so
-don't start one casually.
+account ([Before you start](#before-you-start)). The free plan has a monthly
+build limit, so don't start one casually.
 
 ## On a Mac (untested)
 
 **Untested.** No Mac was available to test it on. On 2026-10-07 every command below was
 checked against current documentation: Homebrew's installer, nvm's README,
-Expo's setup guides, Android's emulator docs and Apple's developer docs. None
-of them has been run. Where a step could not be confirmed in docs, it says so.
-If something here turns out wrong, fix it here.
+Expo's setup guides, Android's emulator docs, GitHub's CLI docs and Apple's
+developer docs. None of them has been run. Where a step could not be
+confirmed in docs, it says so. If something here turns out wrong, fix it here.
 
 The steps match the Windows ones above. Commands are for zsh, the Mac's
 default shell.
@@ -233,12 +300,16 @@ In the project folder, a plain `nvm use` reads `.nvmrc`.
 The NVM4306 shim error in section 1 is Windows-only: it comes from nvm for
 Windows, and nvm on a Mac has no shims.
 
-**Switching Node versions** is the same as on Windows: global packages belong
-to one version, so install Claude Code again under the new one,
+### Claude Code
+
+As in section 2, right after Node:
 
     npm install -g @anthropic-ai/claude-code
+    claude --version
 
-or carry every global package over as you install the new version:
+**Switching Node versions** is the same as on Windows: global packages belong
+to one version, so install Claude Code again under the new one, or carry
+every global package over as you install the new version:
 
     nvm install <new version> --reinstall-packages-from=22.23.1
 
@@ -253,10 +324,16 @@ Then, in `~/.zshrc`:
 Expo's guide suggests Zulu 17. The project builds with 21 on Windows, so use
 21 here too.
 
+**Not Android Studio's Java.** Section 3's warning holds here too: Android
+Studio brings its own Java, and the build fails with it at the CMake step.
+`JAVA_HOME` keeps the command-line build on Temurin 21. If you ever build
+from inside Android Studio, set *Android Studio › Settings… › Build,
+Execution, Deployment › Build Tools › Gradle › Gradle JDK* to the same JDK.
+
 ### Android Studio, the SDK, and `ANDROID_HOME`
 
 Install Android Studio. In *SDK Manager*, install the same packages as in
-section 3. Then, in `~/.zshrc`:
+section 4. Then, in `~/.zshrc`:
 
     export ANDROID_HOME=$HOME/Library/Android/sdk
     export PATH=$PATH:$ANDROID_HOME/emulator
@@ -278,9 +355,24 @@ Start it before building:
 
 ### The project, prebuild, and a development build
 
-As in sections 5 to 7:
+Git on a Mac won't open a browser to sign in to GitHub the way Git for
+Windows does. So sign in with GitHub's own command-line tool first. When
+`gh auth login` asks, choose *HTTPS*, answer *Y* to authenticating Git with
+your GitHub credentials, and log in with the browser:
 
+    brew install gh
+    gh auth login
+
+Then clone, and switch to the project's Node. The repository URL is under
+the green *Code* button on its GitHub page:
+
+    git clone <repository URL>
+    cd korean-med-app
+    nvm use
     npm install
+
+Then as in sections 6 to 8: the checks, prebuild, and a development build.
+
     npx expo prebuild --platform android      # without --clean
     npx expo run:android
 
@@ -291,6 +383,11 @@ Close the emulator first, as on Windows: the build needs the memory.
     cd android
     ./gradlew app:assembleRelease
     cd ..
+
+Check the APK as in section 9. On a Mac the command is `python3`, not
+`python`. If `python3 --version` finds none, `brew install python`.
+
+    python3 scripts/check-release.py android/app/build/outputs/apk/release/app-release.apk
 
 Then start the emulator and install:
 
@@ -408,3 +505,29 @@ rules matter from day one:
   `untranslated()` in `src/i18n/strings.ts`, and reaches the reviewer through
   `npm run copy:pending -- --export batch.csv`. Safety warnings are written
   by the reviewer, never drafted.
+
+## Working with Claude Code
+
+Start it in the repository:
+
+    cd korean-med-app
+    claude
+
+The first time, it opens the browser to log in with your Claude account.
+
+**First, a check.** Ask it to read `CLAUDE.md` and `SETUP.md` and summarize
+the project. The summary should get the rules right: the three above, and
+the rest of `CLAUDE.md`'s, such as refusing rather than guessing and never
+fuzzy-matching a drug name. If it gets something wrong, find out why before
+giving it real work.
+
+- **`CLAUDE.md` holds the rules,** and Claude Code reads it by itself at the
+  start of every session: there's no need to paste it in. It also pulls in
+  `AGENTS.md`, which sends Claude Code to the Expo SDK 57 docs before it
+  writes code.
+- **Proposed first:** anything that touches label lookups, safety text or
+  refusals. Claude Code reports the plan and waits for a decision before
+  building it (`CLAUDE.md`, "Propose first").
+- **Check `/usage` before a big task.** It shows how much of your plan's
+  limits is used. A review of the whole app or a design pass takes a lot,
+  and is better started with room to finish than stopped halfway.
