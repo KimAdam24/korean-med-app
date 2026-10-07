@@ -6,7 +6,7 @@ don't go wrong for the next person. It ends with the app running on an Android e
 then a release build.
 
 **Windows** is sections 1 to 10. It is how the app has been built so far:
-tested, every step. **A Mac** is [further down](#on-a-mac-untested): written
+tested, every step but one, which section 2 notes. **A Mac** is [further down](#on-a-mac-untested): written
 from current documentation, and untested, since no Mac was available to test
 it on.
 
@@ -73,7 +73,8 @@ install from it.
    `(Get-Command node -All).Source` lists every `node.exe` Windows can find.
    Remove the others.
 
-**"NVM blocked package-manager execution".** nvm 2 runs `node`, `npm`, `npx`
+**"NVM blocked package-manager execution".** This is what Claude Code
+installed with npm runs into (section 2's fallback). nvm 2 runs `node`, `npm`, `npx`
 and every globally installed command through small stand-in programs
 ("shims"), and it checks that the script behind each one is the one it
 trusted. When that script changes, it refuses to run it:
@@ -90,25 +91,40 @@ The fix:
 
 ## 2. Claude Code
 
-Install it right after Node, with npm, so it belongs to the Node you just
-set up:
+Install it with its own installer, in PowerShell, not as administrator:
 
-    npm install -g @anthropic-ai/claude-code
+    irm https://claude.ai/install.ps1 | iex
+
+Then, in a new terminal:
+
     claude --version
 
-You log in the first time you start it, at the end of this file
+If `claude` isn't recognized, its folder (`%USERPROFILE%\.local\bin`) isn't
+on your `PATH` yet. "Fix your PATH", in Claude Code's install
+troubleshooting, says what to do.
+
+Installed this way, Claude Code doesn't use Node: nvm and its shims don't
+touch it, and it updates itself in the background. You log in the first time
+you start it, at the end of this file
 ([Working with Claude Code](#working-with-claude-code)).
 
-**It brings back the NVM4306 error every time it updates itself.** Claude
-Code is installed with npm, so it has a shim of its own, and each automatic
-update changes the script behind it. Expect to run `nvm reshim` again after
-one.
+This is the one Windows step not tried on the machine the app has been built
+on, which has Claude Code from npm (below). The installer is what Claude
+Code's docs recommend.
 
-**Switching Node versions.** Globally installed npm packages belong to one
-Node version. After `nvm use` with a different version, install Claude Code
-again under it, or `claude` is missing or still the old version's:
+**Fallback: npm.** If the installer doesn't work, install it with npm instead:
 
     npm install -g @anthropic-ai/claude-code
+
+npm is what brings two costs:
+
+- **The NVM4306 error after every update.** Installed with npm, Claude Code
+  has an nvm shim of its own, and each automatic update changes the script
+  behind it. Expect to run `nvm reshim` (section 1) after one.
+- **A reinstall after switching Node versions.** Globally installed npm
+  packages belong to one Node version. After `nvm use` with a different
+  version, run the `npm install -g` above again, or `claude` is missing or
+  still the old version's.
 
 ## 3. Java: Temurin JDK 21, not Android Studio's
 
@@ -302,14 +318,28 @@ Windows, and nvm on a Mac has no shims.
 
 ### Claude Code
 
-As in section 2, right after Node:
+As in section 2, with its own installer:
 
-    npm install -g @anthropic-ai/claude-code
+    curl -fsSL https://claude.ai/install.sh | bash
+
+Then, in a new terminal:
+
     claude --version
 
-**Switching Node versions** is the same as on Windows: global packages belong
-to one version, so install Claude Code again under the new one, or carry
-every global package over as you install the new version:
+It installs to `~/.local/bin`. If `claude` isn't found, that folder isn't on
+your `PATH` yet. "Fix your PATH", in Claude Code's install troubleshooting,
+says what to do. Installed this way, it doesn't use Node, and it updates
+itself.
+
+**Fallback: npm,** as on Windows, where the machine the app has been built on
+has it this way:
+
+    npm install -g @anthropic-ai/claude-code
+
+On a Mac, npm brings no NVM4306 error, but the other cost holds: global
+packages belong to one Node version. After switching, install Claude Code
+again under the new one, or carry every global package over as you install
+it:
 
     nvm install <new version> --reinstall-packages-from=22.23.1
 
