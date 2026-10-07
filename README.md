@@ -203,6 +203,34 @@ measured against one real vial and one stock template. It needs ten to twenty
 real bottles, photographed the way users will photograph them, before its
 scorecard means much.
 
+## Open right now
+
+Work in progress as of 2026-10-07, as opposed to what is parked above:
+
+- **Real bottle photos,** the next real step, are being collected. Each one
+  becomes a reading in the scorecard's corpus, redacted in shape before it is
+  committed (`src/features/ocr/eval/corpus.ts` says how). The photos
+  themselves never enter the repo.
+- **The Korean review batch.** 16 strings are waiting for the reviewer:
+  - 10 shown in English until she writes them. One, a warning that reminders
+    cannot sound, is a safety string she writes from scratch.
+  - 6 shown in Korean completed by AI, with their English beside them.
+
+  Export the sheet with `npm run copy:pending -- --export batch.csv`. Her
+  returned sheet is wired in and kept in `docs/reviews/`.
+- **Checks that need a phone.** The emulator has done what it can. Still to
+  try on real hardware:
+  - reading a bottle through the camera, and scanning a barcode;
+  - a reminder ringing on time;
+  - TalkBack and Bold text;
+  - the setting names in `docs/check-on-a-real-phone.md`, which differ by
+    manufacturer.
+- **The sweep on iOS.** Its Swift compiles (the `ios-compile-check` branch
+  shows how), but it is not linked: that waits for an iPhone to run it on.
+  The Android half waits for a real camera.
+- **The splash screen and app icon** are still Expo's default blue: the design
+  pass did not reach them.
+
 ## Running it
 
 The app uses native modules (camera, keychain, biometrics, on-device

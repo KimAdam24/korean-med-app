@@ -53,6 +53,9 @@ NATIVE = [
     'expo.modules.labelsweep.LabelSweepView',
     'expo.modules.dosealarms.DoseAlarmsModule',
     'expo.modules.dosealarms.ScheduleRestorer',
+    # Android's Bold text setting (2026-10-06). Missing, the app would draw
+    # text at its own weights and say nothing.
+    'expo.modules.textweight.TextWeightModule',
 ]
 
 results = []

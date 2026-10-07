@@ -37,7 +37,7 @@ Without installing anything, from the APK itself (`scripts/check-release.py`):
 | Manifest not debuggable, so the sweep replay refuses to run | pass | pass |
 | Every development-only screen, panel and log compiled out of the bundle ([dev-only-paths.md](dev-only-paths.md)) | pass | pass |
 | Shipped copy found in the bundle, so the search above works | pass | pass |
-| The app's own native classes present: `LabelOcrModule`, `LabelSweepModule`, `LabelSweepView`, `DoseAlarmsModule`, `ScheduleRestorer` (present only: `LabelSweepView`'s `(Context, AppContext)` constructor, which Expo calls by reflection, is not checked) | pass | pass |
+| The app's own native classes present: `LabelOcrModule`, `LabelSweepModule`, `LabelSweepView`, `DoseAlarmsModule`, `ScheduleRestorer`, and since 2026-10-06 `TextWeightModule` (Bold text; not yet run against a release APK, so the passes below predate it). Present only: `LabelSweepView`'s `(Context, AppContext)` constructor, which Expo calls by reflection, is not checked | pass | pass |
 | Expo still finds its generated module list after R8 | n/a | pass |
 
 The last is the one that could have broken everything. Expo looks up

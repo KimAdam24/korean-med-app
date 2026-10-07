@@ -7,7 +7,16 @@ something wrong in a confident voice. If a task seems to need breaking one,
 stop and ask the project owner rather than finding a way round it.
 
 What the app is and why it is built this way: `README.md`. Setting up a
-machine: `SETUP.md`.
+machine: `SETUP.md`. What is in progress now: README, "Open right now".
+
+## Propose first
+
+**Before building anything that touches label-lookup rules, safety text or
+refusals, report the plan and wait for a decision.** Safety text is the
+warnings, the disclaimer, and anything telling the user why something is
+withheld. The plan says what changes, what the app would show or stop
+showing, and, for lookup rules, what the label-scan replay says. Other work
+goes ahead as usual.
 
 ## The rules
 
