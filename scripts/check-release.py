@@ -9,6 +9,10 @@ or the default location on Windows). Exits non-zero if any check fails.
 What it checks, and why (docs/release-build.md, docs/dev-only-paths.md):
 
 - The manifest is not debuggable: the sweep replay refuses to run unless it is.
+- Backups are off: `android:allowBackup` is false, said in so many words, since
+  Android backs up an app whose manifest does not say. A backup holds the
+  vault, unreadable without its key, and restores as a vault that cannot be
+  opened. Decided twice and not applied until 2026-10-07; this keeps it so.
 - Every development-only screen, panel and log line is compiled out of the
   JavaScript bundle: its own strings are absent, while shipped copy is present
   (which shows the search works, whichever way Hermes stored the text).
@@ -77,6 +81,9 @@ def tool(name):
 
 
 def main():
+    # It prints Korean. Piped, Windows would otherwise encode its output in the
+    # console's code page, and stop at the first Hangul with an exception.
+    sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser()
     parser.add_argument('apk')
     parser.add_argument('--mapping')
@@ -89,8 +96,10 @@ def main():
                                   capture_output=True, text=True, encoding='utf-8', errors='replace').stdout
         debuggable = re.search(r'debuggable\(0x0101000f\)=(true|0xffffffff)', manifest)
         check(not debuggable, 'manifest is not debuggable')
-        backup = re.search(r'allowBackup\(0x01010280\)=(\w+)', manifest)
-        print(f'INFO  android:allowBackup={backup.group(1) if backup else "unset (defaults to true)"}')
+        # aapt2 writes a boolean as true/false, or as (type 0x12)0xffffffff/0x0.
+        backup = re.search(r'allowBackup\(0x01010280\)=(?:\(type 0x12\))?(\w+)', manifest)
+        value = backup.group(1) if backup else None
+        check(value in ('false', '0x0'), f'backups are off (android:allowBackup={value or "unset, which means true"})')
     else:
         check(False, 'aapt2 found (set ANDROID_HOME)')
 

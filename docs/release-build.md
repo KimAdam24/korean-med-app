@@ -37,8 +37,9 @@ Without installing anything, from the APK itself (`scripts/check-release.py`):
 | Manifest not debuggable, so the sweep replay refuses to run | pass | pass |
 | Every development-only screen, panel and log compiled out of the bundle ([dev-only-paths.md](dev-only-paths.md)) | pass | pass |
 | Shipped copy found in the bundle, so the search above works | pass | pass |
-| The app's own native classes present: `LabelOcrModule`, `LabelSweepModule`, `LabelSweepView`, `DoseAlarmsModule`, `ScheduleRestorer`, and since 2026-10-06 `TextWeightModule` (Bold text; not yet run against a release APK, so the passes below predate it). Present only: `LabelSweepView`'s `(Context, AppContext)` constructor, which Expo calls by reflection, is not checked | pass | pass |
+| The app's own native classes present: `LabelOcrModule`, `LabelSweepModule`, `LabelSweepView`, `DoseAlarmsModule`, `ScheduleRestorer`, and since 2026-10-06 `TextWeightModule` (Bold text: passed on the release build of 2026-10-07, without R8). Present only: `LabelSweepView`'s `(Context, AppContext)` constructor, which Expo calls by reflection, is not checked | pass | pass |
 | Expo still finds its generated module list after R8 | n/a | pass |
+| Backups off: `android:allowBackup` false, said explicitly, since Android backs up an app whose manifest is silent (added 2026-10-07: the build of that day, made before the fix, fails it, as it should) | from the next build | not run |
 
 The last is the one that could have broken everything. Expo looks up
 `expo.modules.ExpoModulesPackageList` with `Class.forName` and then
@@ -48,14 +49,17 @@ also turned the constant `Class.forName(...)` into a direct reference to the
 renamed class (`const-class`), and kept `getPackageList` by name, both
 confirmed in the disassembly. R8 reported no missing classes.
 
+**Backups are off** (2026-10-07). Android would otherwise copy the app's data
+into the phone's backup. The vault is encrypted and its key never leaves the
+phone, so a backup held unreadable ciphertext, and a restore brought back a
+vault that could not be opened (the README's "profile does not survive a
+change of device"). Turning backups off was decided twice before it was
+applied. `app.json` now sets `"allowBackup": false` under `android`, and two
+checks fail if it is ever true again: `scripts/app-config.test.ts`, on the
+config, and the release check above, on the built APK.
+
 Also found, not changed (decisions):
 
-- **`android:allowBackup="true"`.** Android may copy the app's data into the
-  phone's backup. The vault is encrypted and its key never leaves the phone,
-  so a backup holds unreadable ciphertext, and a restore brings back a vault
-  that cannot be opened (the README's "profile does not survive a change of
-  device"). Setting `"allowBackup": false` under `android` in `app.json` keeps
-  the data on the phone entirely.
 - **The app's name on the phone is 약 도우미** (since 2026-10-05), in every
   language: `app.json`'s `name`, which the reminder notification names ("약
   도우미를 열어서..."). The release check confirms the APK's label. The slug,
