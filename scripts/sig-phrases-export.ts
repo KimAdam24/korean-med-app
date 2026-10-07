@@ -3,10 +3,10 @@ import { cell, changedFormula } from './copy-export.ts';
 /**
  * The dosing-phrase draft (`content-drafts/sig-phrases.draft.md`) as a sheet
  * for review, in the copy batch's shape: English, the draft Korean, a column
- * for her final wording, and whether she changed it. Read from the draft
+ * for the reviewer's final wording, and whether the reviewer changed it. Read from the draft
  * itself, so there is one source and nothing to drift.
  *
- * The same gate as the copy batch: a row reaches the app only once she has
+ * The same gate as the copy batch: a row reaches the app only once the reviewer has
  * signed it off, transcribed into `src/features/directions/approved-phrases.ts`
  * with the review record in the commit.
  *
@@ -29,7 +29,7 @@ const SECTION_NOTES: Readonly<Record<string, string>> = {
   Quantity:
     'Korean counts pills with 알 and capsules with 캡슐. For numbers above three, the draft proposes digits (4알) rather than native numerals, for reading at a glance: please confirm.',
   Route:
-    'Open question: Korean usually leaves "by mouth" unsaid, but she may be holding medicines that are not taken by mouth. R1 says it (입으로); R2 leaves it out. Approve one of the two, not both.',
+    'Open question: Korean usually leaves "by mouth" unsaid, but the user may be holding medicines that are not taken by mouth. R1 says it (입으로); R2 leaves it out. Approve one of the two, not both.',
   Composition:
     'How phrases join: frequency first, then conditions, then the dose, the reverse of the English. The draft split the second example into two sentences because the English did: would one sentence be better?',
 };
@@ -118,7 +118,7 @@ export const HEADER = [
   'Notes for the translation',
   'Draft Korean (UNREVIEWED)',
   'Why no draft',
-  'Her final Korean',
+  "Reviewer's final Korean",
   'Changed?',
   'ID (leave as it is)',
 ] as const;
@@ -154,7 +154,7 @@ export function phrasesCsv(rows: readonly PhraseRow[]): string {
         row.ko || (row.id === 'R2' ? '[leave out]' : ''),
         row.ko || row.id === 'R2' ? '' : 'No draft in the source.',
         '',
-        // Row 1 is the header; draft in H, her final in J.
+        // Row 1 is the header; draft in H, the reviewer's final in J.
         changedFormula(index + 2, 'H', 'J'),
         row.id,
       ]

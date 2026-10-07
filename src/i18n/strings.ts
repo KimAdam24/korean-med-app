@@ -19,7 +19,7 @@ export type Bilingual = {
   readonly en: string;
   /** An English placeholder with no Korean yet. See `untranslated`. */
   readonly pendingKo?: true;
-  /** Korean completed by AI, shown before her review. See `aiKorean`. */
+  /** Korean completed by AI, shown before it is reviewed. See `aiKorean`. */
   readonly koBy?: 'ai';
   /** For the translator: where the text appears and anything that constrains it. */
   readonly note?: string;
@@ -43,10 +43,10 @@ export function untranslated(en: string, note?: string): Bilingual {
  * Korean completed by AI, and on screen before the native reader has seen it,
  * at the owner's direction.
  *
- * Shown like reviewed Korean, but still hers to review: `npm run copy:pending
- * -- --export` puts it in her next batch, this Korean as the draft she
- * corrects. Once she has, her wording replaces the call. Never a safety
- * string: those are hers to write (`copy-export.test.ts`).
+ * Shown like reviewed Korean, but still the reviewer's to review: `npm run copy:pending
+ * -- --export` puts it in the reviewer's next batch, this Korean as the draft the reviewer
+ * corrects. Once corrected, the reviewer's wording replaces the call. Never a safety
+ * string: those are the reviewer's to write (`copy-export.test.ts`).
  */
 export function aiKorean(ko: string, en: string, note?: string): Bilingual {
   return note ? { ko, en, koBy: 'ai', note } : { ko, en, koBy: 'ai' };
@@ -518,7 +518,7 @@ export const Strings = {
    * What a medicine's FDA label says it is approved to treat, shown verbatim in
    * the label's English (`features/drugs/approved-uses`). `title` and
    * `disclaimer` are safety copy: never drafted, written by the reviewer
-   * herself (2026-10-04). A change to either goes back to her undrafted.
+   * (2026-10-04). A change to either goes back to the reviewer undrafted.
    */
   uses: {
     title: { ko: '미국 FDA가 허가한 효능 (허가사항 영어 원문)', en: 'What it is approved to treat, from its U.S. FDA label (in English)' },
@@ -684,7 +684,7 @@ export const Strings = {
    * shown on the lock screen, and stored in the phone's scheduler outside the
    * encrypted vault. The warnings that they will not sound (`statusSilent`,
    * `statusDnd`, `statusDndNow`, `statusFocus`) are safety copy, written by
-   * the reviewer herself; a change to one goes back to her undrafted.
+   * the reviewer; a change to one goes back to the reviewer undrafted.
    */
   reminders: {
     title: { ko: '복용 알림', en: 'Reminders' },

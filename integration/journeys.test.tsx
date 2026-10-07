@@ -65,7 +65,7 @@ describe('reading a chosen photo', () => {
 
     expect(ocr.state.calls).toEqual([PICKED]);
     expect(disk.files.has(PICKED)).toBe(false);
-    // Only the picker's copy was deleted; her own photo is untouched, and the
+    // Only the picker's copy was deleted; the user's own photo is untouched, and the
     // screen says so rather than "the photo has been deleted".
     expect(screen.getByText(Strings.privacy.pickedPhoto.ko)).toBeTruthy();
     expect(screen.queryByText(Strings.camera.discarded.ko)).toBeNull();

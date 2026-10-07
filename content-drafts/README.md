@@ -34,10 +34,10 @@ uncertain and the reviewer should expect to rewrite rather than approve.
    so provenance survives in `git log` rather than in someone's memory.
 
 **Korean completed by AI.** At the owner's direction, a string of the app's
-own wording can go in before she has reviewed it: written with `aiKorean()`
+own wording can go in before the reviewer has reviewed it: written with `aiKorean()`
 rather than `untranslated()` in `src/i18n/strings.ts`, and shown in that
-Korean. It still goes to her. The export puts it in her next batch, with that
-Korean as the draft, and her wording replaces it like any other. Never a
+Korean. It still goes to the reviewer. The export puts it in the reviewer's next batch, with that
+Korean as the draft, and the reviewer's wording replaces it like any other. Never a
 safety string: `scripts/copy-export.test.ts` fails if one is.
 
 ## Files
@@ -46,4 +46,4 @@ safety string: `scripts/copy-export.test.ts` fails if one is.
 | --- | --- | --- |
 | `sig-phrases.draft.md` | Dosing instruction patterns, English → Korean. Reviewed as a sheet: `npm run copy:pending -- --export-phrases`; signed-off rows go into `src/features/directions/approved-phrases.ts` | §3.2(b) |
 | `dailymed-sections.draft.md` | Which FDA label sections to show, and how much | §3.2(b) |
-| `copy-batch.draft.json` | Korean drafts of the app's own wording awaiting translation (the copy batch), for the reviewer to correct rather than write; the safety warnings left blank for her. Exported beside the English by `npm run copy:pending -- --export` | Each string's move from `untranslated()` into `src/i18n/strings.ts` |
+| `copy-batch.draft.json` | Korean drafts of the app's own wording awaiting translation (the copy batch), for the reviewer to correct rather than write; the safety warnings left blank for the reviewer. Exported beside the English by `npm run copy:pending -- --export` | Each string's move from `untranslated()` into `src/i18n/strings.ts` |

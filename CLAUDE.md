@@ -44,15 +44,15 @@ the edge, or with Korean in it, is not looked up at all.
 
 **No Korean without review.**
 - New copy goes in with `untranslated()` in `src/i18n/strings.ts`. It shows
-  English until the reviewer's Korean replaces it, and reaches her through
+  English until the reviewer's Korean replaces it, and reaches the reviewer through
   `npm run copy:pending -- --export batch.csv`.
 - `aiKorean()` (marker `koBy: 'ai'`) puts unreviewed Korean on screen, and is
-  used only when the project owner says so. Its English stays visible until she has
-  reviewed it.
-- Safety strings are never drafted. She writes them: the uses heading and
+  used only when the project owner says so. Its English stays visible until
+  the reviewer has reviewed it.
+- Safety strings are never drafted. The reviewer writes them: the uses heading and
   disclaimer, and the warnings that reminders will not sound.
-- Reviewed Korean is checked against her returned sheets (`docs/reviews/`).
-  Don't edit it. A string whose meaning changes goes back to her as pending.
+- Reviewed Korean is checked against the reviewer's returned sheets (`docs/reviews/`).
+  Don't edit it. A string whose meaning changes goes back to the reviewer as pending.
 - A string that quotes a phone setting's name also goes on
   `docs/check-on-a-real-phone.md`.
 → `content-drafts/README.md`, `scripts/copy-context.ts`

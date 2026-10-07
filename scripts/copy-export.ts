@@ -4,17 +4,17 @@ import { COPY_CONTEXT, SECTIONS, type CopyContext } from './copy-context.ts';
 
 /**
  * The translation batch as a spreadsheet: one row per string awaiting Korean,
- * or awaiting her review of the Korean completed by AI, with where it appears
+ * or awaiting review of the Korean completed by AI, with where it appears
  * and when, in the order `copy-context` gives — the
  * strings on screen today first. For a translator who will not have the app
- * in front of her.
+ * in front of the reviewer.
  *
  * Beside the English, an unreviewed draft of the Korean
  * (`content-drafts/copy-batch.draft.json`, or the AI's Korean already on
- * screen), so her job is reading and
+ * screen), so the reviewer's job is reading and
  * correcting rather than writing; blank, with the reason, for the safety
- * warnings she writes herself. Then a column for her final wording, and one
- * that says, once she has filled it in, whether she changed the draft.
+ * warnings the reviewer writes. Then a column for the reviewer's final wording, and one
+ * that says, once the reviewer has filled it in, whether the reviewer changed the draft.
  *
  * CSV, so it opens in Excel, Numbers or Google Sheets; with a byte-order mark,
  * or Excel shows the Korean as mojibake.
@@ -28,7 +28,7 @@ export const HEADER = [
   'Notes for the translation',
   'Draft Korean (UNREVIEWED)',
   'Why no draft',
-  'Her final Korean',
+  "Reviewer's final Korean",
   'Changed?',
   'Key (leave as it is)',
 ] as const;
@@ -40,7 +40,7 @@ export type CopyDrafts = {
 
 export type ExportRow = { readonly copy: PendingCopy; readonly context: CopyContext };
 
-/** Pending strings with no context: an export would leave her guessing at these. */
+/** Pending strings with no context: an export would leave the reviewer guessing at these. */
 export function missingContext(pending: readonly PendingCopy[]): string[] {
   return pending.filter(({ key }) => !(key in COPY_CONTEXT)).map(({ key }) => key);
 }
@@ -90,17 +90,17 @@ export function heldBack(pending: readonly PendingCopy[], scope: typeof Scope = 
 export const cell = (text: string) => (/[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
 
 /**
- * The "Changed?" formula for one row: blank until her final is filled in,
+ * The "Changed?" formula for one row: blank until the reviewer's final is filled in,
  * then whether it kept the draft, changed it, or was written with no draft.
  */
 export const changedFormula = (row: number, draft: string, final: string) =>
-  `=IF(${final}${row}="","",IF(${draft}${row}="","written by her",IF(EXACT(${final}${row},${draft}${row}),"same as draft","CHANGED")))`;
+  `=IF(${final}${row}="","",IF(${draft}${row}="","written by the reviewer",IF(EXACT(${final}${row},${draft}${row}),"same as draft","CHANGED")))`;
 
 /** Column letters, for the formula: draft G, final I. */
 const changed = (row: number) => changedFormula(row, 'G', 'I');
 
 /** Said of a draft that is the Korean completed by AI. */
-export const AI_DRAFT = 'Completed by AI, and in the app as it is until she has reviewed it.';
+export const AI_DRAFT = 'Completed by AI, and in the app as it is until the reviewer has reviewed it.';
 
 export function exportCsv(rows: readonly ExportRow[], drafts: CopyDrafts): string {
   const lines = [

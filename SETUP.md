@@ -2,12 +2,13 @@
 
 This is everything needed to build and run the app on a machine
 from nothing, including the parts that went wrong the first time, so they
-don't go wrong for you. It ends with the app running on an Android emulator,
+don't go wrong for the next person. It ends with the app running on an Android emulator,
 then a release build.
 
 **Windows** is sections 1 to 9. It is how the app has been built so far:
 tested, every step. **A Mac** is [further down](#on-a-mac-untested): written
-from current documentation, and untested, since neither of us has one.
+from current documentation, and untested, since no Mac was available to test
+it on.
 
 On Windows, commands are for PowerShell. The versions are the ones on the
 machine the app has been built on. Where something must be exactly that
@@ -118,7 +119,7 @@ Wait for its home screen, then check:
 
 ## 5. The project
 
-    git clone https://github.com/KimAdam24/korean-med-app.git
+    git clone <repository URL>
     cd korean-med-app
     npm install
 
@@ -202,7 +203,7 @@ don't start one casually.
 
 ## On a Mac (untested)
 
-**Untested.** Neither of us has a Mac. On 2026-10-07 every command below was
+**Untested.** No Mac was available to test it on. On 2026-10-07 every command below was
 checked against current documentation: Homebrew's installer, nvm's README,
 Expo's setup guides, Android's emulator docs and Apple's developer docs. None
 of them has been run. Where a step could not be confirmed in docs, it says so.

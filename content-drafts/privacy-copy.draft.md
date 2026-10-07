@@ -1,8 +1,8 @@
-# Privacy copy — the drafts she reviewed
+# Privacy copy — the drafts the reviewer reviewed
 
 **Reviewed and wired 2026-10-04** (`docs/reviews/copy-batch-followup-v4-2026-10-02-reviewed.csv`):
-the strings below are in the app in her Korean, which differs from these
-drafts where she corrected them. Kept as the record of why each was written.
+the strings below are in the app in the reviewer's Korean, which differs from these
+drafts where the reviewer corrected them. Kept as the record of why each was written.
 `settings.storageNotice`, whose "never sent anywhere" stopped being true, is
 pending again (2026-10-05), with its draft in `copy-batch.draft.json`.
 
@@ -125,7 +125,7 @@ of `home.privacy`, `privacy.pickedPhoto` in place of "the photo has been
 deleted" under a reading of a chosen photo, `privacy.choosePhoto` on the
 button, and the gallery out of its `__DEV__` gate. What is left:
 
-1. Replace each `untranslated()` call in `src/i18n/strings.ts` with her Korean.
+1. Replace each `untranslated()` call in `src/i18n/strings.ts` with the reviewer's Korean.
 2. Copy `privacy.cameraPermission`'s Korean into the camera permission in
    `app.json` (a test fails until the two match).
 3. Update the README privacy section.

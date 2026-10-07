@@ -4,7 +4,7 @@
  *
  * Rows arrive here one way only: the reviewer signs off a row in the phrase
  * sheet (`npm run copy:pending -- --export-phrases`, drafted from
- * `content-drafts/sig-phrases.draft.md`), and that row, with her final
+ * `content-drafts/sig-phrases.draft.md`), and that row, with the reviewer's final
  * wording, is transcribed here, with the review record (who, when, which
  * sheet) in the commit message. Nothing is drafted here, and a draft row
  * that has not been signed off never is here.
@@ -38,7 +38,7 @@ export type ApprovedPhrase = {
   readonly id: string;
   /** The English exactly as it matches: words in order, any case, commas ignored. */
   readonly en: string;
-  /** Her final wording, verbatim. */
+  /** The reviewer's final wording, verbatim. */
   readonly ko: string;
   readonly category: PhraseCategory;
   readonly reviewed: Review;

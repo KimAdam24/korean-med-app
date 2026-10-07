@@ -45,7 +45,7 @@ test('the batch lists placeholders with their notes, and nothing else', () => {
   assert.match(markdown, /\| `group\.waiting` \| Not now \| Button; keep it short\. \| \|/);
 });
 
-test('Korean completed by AI is shown as written, and goes to her next batch with it as the draft', () => {
+test("Korean completed by AI is shown as written, and goes to the reviewer's next batch with it as the draft", () => {
   const table = {
     done: { ko: '확인', en: 'Done' },
     group: {
@@ -75,11 +75,11 @@ test("the iPhone's camera question in app.json is the privacy string, as it stan
   assert.equal(camera[1].cameraPermission, Strings.privacy.cameraPermission.ko);
 });
 
-test("her reviewed Korean is in the app as she wrote it, and the English she reviewed beside it", async () => {
+test('reviewed Korean is in the app as the reviewer wrote it, with the English that was reviewed beside it', async () => {
   // The returned sheets are the record (docs/reviews). A reviewed string that
-  // has drifted from hers, by a slip or a rewording, would show words she
-  // never approved; one changed on purpose goes back to her as pending
-  // (`untranslated`, or `aiKorean`), and is not checked here until she has
+  // has drifted from the reviewer's, by a slip or a rewording, would show words the reviewer
+  // never approved; one changed on purpose goes back to the reviewer as pending
+  // (`untranslated`, or `aiKorean`), and is not checked here until the reviewer has
   // seen it again.
   const { readFileSync, readdirSync } = await import('node:fs');
   const dir = new URL('../../docs/reviews/', import.meta.url);
@@ -129,7 +129,7 @@ test("her reviewed Korean is in the app as she wrote it, and the English she rev
     const [header, ...rows] = parse(readFileSync(new URL(file, dir), 'utf8').replace(/^﻿/, ''));
     const K = header.findIndex((name) => name.startsWith('Key'));
     const E = header.indexOf('English');
-    const F = header.indexOf('Her final Korean');
+    const F = header.indexOf("Reviewer's final Korean");
     for (const row of rows.filter((r) => r.length > K && r[K])) {
       const text = at(row[K]);
       if (!text || typeof text.ko !== 'string' || text.pendingKo || text.koBy) continue;

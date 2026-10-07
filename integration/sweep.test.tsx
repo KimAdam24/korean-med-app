@@ -197,7 +197,7 @@ describe('reading a curved label while it turns', () => {
 
     await screen.findByText(Strings.result.curved.title.ko);
     expect(sweep.mounted).toBe(false);
-    // The photograph was one she chose: hers is left as it is.
+    // The photograph was one the user chose: theirs is left as it is.
     expect(screen.getByText(Strings.privacy.pickedPhoto.ko)).toBeTruthy();
   });
 

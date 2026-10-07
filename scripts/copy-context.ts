@@ -1,10 +1,10 @@
 /**
  * Where each string awaiting Korean appears, and when — for a translator who
- * will not have the app in front of her. `npm run copy:pending -- --export`
+ * will not have the app in front of the reviewer. `npm run copy:pending -- --export`
  * joins this to the batch.
  *
  * The order here is the export's order: sections as listed in `SECTIONS`,
- * the strings she can see in the app today first, and within a section in
+ * the strings the reviewer can see in the app today first, and within a section in
  * the order a user meets them. Every pending string needs an entry; the test
  * beside this file says which are missing.
  *
@@ -13,7 +13,7 @@
  *
  * A string that belongs to a hidden feature (`src/features/scope.ts`) says so
  * (`hiddenWith`), and is left out of the export until the feature returns:
- * she should not spend a pass on words no one will see.
+ * the reviewer should not spend a pass on words no one will see.
  */
 import type { Scope } from '../src/features/scope.ts';
 
@@ -39,7 +39,7 @@ export type CopyContext = {
   readonly where: string;
   /** What makes it appear. */
   readonly when: string;
-  /** Anything else she needs, beyond the note already on the string. */
+  /** Anything else the reviewer needs, beyond the note already on the string. */
   readonly notes?: string;
   /** The hidden feature it belongs to: not exported while that is hidden. */
   readonly hiddenWith?: keyof typeof Scope;
@@ -64,14 +64,14 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     where: 'The home screen: the small line with a lock beside it, at the bottom.',
     when: 'Always.',
     notes:
-      'The current line promises photos are deleted after reading: true of the camera, untrue of a photo she already has, which the app must never delete. The promise underneath is the same for both: the photo is never kept and never sent; only the words are used. "Nor sent" is new and deliberate. Two sentences, or one?',
+      'The current line promises photos are deleted after reading: true of the camera, untrue of a photo the user already has, which the app must never delete. The promise underneath is the same for both: the photo is never kept and never sent; only the words are used. "Nor sent" is new and deliberate. Two sentences, or one?',
   },
   'privacy.pickedPhoto': {
     section: PRIVACY,
-    where: "The result screen, under a reading of a photo chosen from her gallery: a small line below the medicine's details, above the 내 약으로 등록하기 (Add to my medicines) button.",
-    when: 'After reading a photo she chose, in place of 사진은 지웠어요 (The photo has been deleted).',
+    where: "The result screen, under a reading of a photo chosen from the user's gallery: a small line below the medicine's details, above the 내 약으로 등록하기 (Add to my medicines) button.",
+    when: 'After reading a photo the user chose, in place of 사진은 지웠어요 (The photo has been deleted).',
     notes:
-      'The "not deleted" is the point: someone told the app deletes photos may fear it will delete hers. Does the wording clearly mean "left untouched", and not "left lying around"?',
+      'The "not deleted" is the point: someone told the app deletes photos may fear it will delete theirs. Does the wording clearly mean "left untouched", and not "left lying around"?',
   },
   'privacy.cameraPermission': {
     section: PRIVACY,
@@ -90,13 +90,13 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     section: PRIVACY,
     where: 'The Settings screen, under where the list is kept.',
     when: 'Always.',
-    notes: "Her current line says the medicines are never sent anywhere. That stopped being true when the app began looking medicines up by name: the name (or the barcode number) goes to the U.S. National Library of Medicine, as her introduction line (어떤 약인지 확인하고 FDA 허가사항을 찾을 때는...) already says. The list itself is never sent. The last sentence is hers, unchanged.",
+    notes: "The reviewer's current line says the medicines are never sent anywhere. That stopped being true when the app began looking medicines up by name: the name (or the barcode number) goes to the U.S. National Library of Medicine, as the reviewer's introduction line (어떤 약인지 확인하고 FDA 허가사항을 찾을 때는...) already says. The list itself is never sent. The last sentence is the reviewer's, unchanged.",
   },
   'privacy.choosePhoto': {
     section: PRIVACY,
     where: 'The home screen: a row in the list under the 약 사진 찍기 (Take a photo of your medicine) button, between 내 약 보기 (See my medicines) and 설정 (Settings).',
     when: 'Always.',
-    notes: 'Opens her photos, to read a label from a photo she already took. Her photos are never changed or deleted.',
+    notes: "Opens the user's photos, to read a label from a photo they already took. Their photos are never changed or deleted.",
   },
   'privacy.onboardingPhotos': {
     section: PRIVACY,
@@ -110,7 +110,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     where: 'Introduction, screen 2: the fourth statement, beside a barcode icon.',
     when: 'The first time the app is opened. It replaces 바코드로 약을 찾을 때는 바코드 번호만 보내요. 약 목록이나 사진은 보내지 않아요.',
     notes:
-      'What leaves the phone. It used to be only a barcode number; now a medicine read from a photo is looked up by its name, and its FDA label fetched, from the U.S. National Library of Medicine. Still never her list or her photos.',
+      "What leaves the phone. It used to be only a barcode number; now a medicine read from a photo is looked up by its name, and its FDA label fetched, from the U.S. National Library of Medicine. Still never the user's list or photos.",
   },
 
   // --- What a medicine is approved to treat ---------------------------------
@@ -126,7 +126,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     where: 'The same box: an amber note directly under the heading, before the English text of the label, so it is read first.',
     when: "Always, with the label's text, and above it.",
     notes:
-      'A safety string, so no draft. It must not reassure. Two things, both plainly: a medicine may be prescribed for reasons other than those listed; and the text is what the FDA approved, not the reason their doctor prescribed it. Vitamin D2 is the example: its label lists rickets and hypoparathyroidism.',
+      "A safety string, so no draft. It must not reassure. Two things, both plainly: a medicine may be prescribed for reasons other than those listed; and the text is what the FDA approved, not the reason the user's doctor prescribed it. Vitamin D2 is the example: its label lists rickets and hypoparathyroidism.",
   },
   'uses.identifiedAs': {
     section: USES,
@@ -189,7 +189,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     section: USES,
     where: 'Under uses.releaseQuestion, in smaller type.',
     when: 'With uses.releaseQuestion.',
-    notes: "Why it is asked. Beside it is her 이 약은 처방약 허가사항과 일반의약품 허가사항이 따로 있고, 효능이 서로 달라요. (uses.kindUnknown).",
+    notes: "Why it is asked. Beside it is the reviewer's 이 약은 처방약 허가사항과 일반의약품 허가사항이 따로 있고, 효능이 서로 달라요. (uses.kindUnknown).",
   },
   'uses.releaseNone': {
     section: USES,
@@ -261,7 +261,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     section: USES,
     where: "The same box, in place of the text. On the result screen the box to type the name in (nameEntry.prompt) is just above; on a medicine's page, the 고치기 (Edit) button.",
     when: 'When the name typed has any Korean in it, as it will when someone types the name of their medicine as they know it: nothing is looked up then, not even the English part.',
-    notes: "It should say why, not only refuse: the bottle prints the name in English, and only the English name can be looked up; part of a name can find another medicine. Beside it are her 입력하신 이름과 똑같은 약이 없어요. (uses.typedUnidentified) and 약병에 적힌 대로 약 이름을 입력해 주세요 (nameEntry.prompt).",
+    notes: "It should say why, not only refuse: the bottle prints the name in English, and only the English name can be looked up; part of a name can find another medicine. Beside it are the reviewer's 입력하신 이름과 똑같은 약이 없어요. (uses.typedUnidentified) and 약병에 적힌 대로 약 이름을 입력해 주세요 (nameEntry.prompt).",
   },
   'uses.retry': {
     section: USES,
@@ -325,7 +325,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     section: RESULT,
     where: 'Result screen: a large button just under the curved-label notice.',
     when: 'The curved-label notice is shown, on Android phones.',
-    notes: 'Opens the camera again to read the label while the user slowly turns the bottle in her hand. A short action, like the other buttons.',
+    notes: 'Opens the camera again to read the label while the user slowly turns the bottle in their hand. A short action, like the other buttons.',
   },
   'fillIn.start': {
     section: RESULT,
@@ -416,7 +416,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     section: FILL,
     where: 'Result screen: a small blue notice near the top.',
     when: "After the user's typed words were accepted.",
-    notes: 'A reminder that part of what is shown came from her typing, not from the camera.',
+    notes: "A reminder that part of what is shown came from the user's typing, not from the camera.",
   },
 
   // --- Reading the label while turning the bottle -------------------------
@@ -585,18 +585,18 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     section: REMIND,
     where: "A medicine's page, under its reminder times: an amber warning, with 설정 열기 (Open settings) under it. On the home screen, the body of 지금은 복용 알림이 울릴 수 없어요 (Your medicine reminders cannot sound right now).",
     when: "When the phone's own settings have the reminders' sound turned off: they would still appear, silently.",
-    notes: 'A safety string, so no draft: a reminder that does not sound is a missed dose. Beside it are her 복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요. (notifications off) and 복용 알림이 늦게 울릴 수 있어요... (may be late).',
+    notes: "A safety string, so no draft: a reminder that does not sound is a missed dose. Beside it are the reviewer's 복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요. (notifications off) and 복용 알림이 늦게 울릴 수 있어요... (may be late).",
   },
   'reminders.statusCategoryOff': {
     section: REMIND,
     where: "A medicine's page, under its reminder times: an amber warning, with 설정 열기 (Open settings) under it. On the home screen, the body of 지금은 복용 알림이 울릴 수 없어요 (Your medicine reminders cannot sound right now).",
     when: "When only the reminders' category (복용 알림) is turned off in the phone's settings, while the app's notifications are on.",
-    notes: "A safety string, so no draft. It replaces, for this case, her 복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요., which says the app's notifications are off: they are not, and she would not find the switch there.",
+    notes: "A safety string, so no draft. It replaces, for this case, the reviewer's 복용 알림이 울릴 수 없어요. 이 앱의 알림이 꺼져 있어요., which says the app's notifications are off: they are not, and the reviewer would not find the switch there.",
   },
   'reminders.statusSet': {
     section: REMIND,
     where: "A medicine's page, under its reminder times.",
-    when: "When the reminders are scheduled, but the app cannot tell whether Do Not Disturb will let them sound: in place of her 알림이 켜져 있어요. 다음 알림 시간: {time} (Reminders are on), which says more than the app knows.",
+    when: "When the reminders are scheduled, but the app cannot tell whether Do Not Disturb will let them sound: in place of the reviewer's 알림이 켜져 있어요. 다음 알림 시간: {time} (Reminders are on), which says more than the app knows.",
     notes: '{time} is written as elsewhere, e.g. 오전 8:00. "Set", not "on": they are scheduled, and may still be silenced.',
   },
   'reminders.statusSetNoNext': {
@@ -632,7 +632,7 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
     section: REMIND,
     where: "Under reminders.letThroughDnd, once it is pressed, above 계속하기 (Continue) and 나중에 할게요 (Not now).",
     when: "Before the phone's settings open, at the page for the reminders alone.",
-    notes: "The switch's name depends on the phone: on Google's phones \"Override Do Not Disturb\", on Samsung's \"Ignore Do Not Disturb\". Worth checking the Korean name on a real phone.",
+    notes: "The switch's name depends on the phone: on Google's phones \"Override Do Not Disturb\", on Samsung's \"Ignore Do Not Disturb\". Worth checking the Korean name on the reviewer's own phone.",
   },
   'medications.sourcePhoto': {
     section: REMIND,
@@ -946,8 +946,8 @@ export const COPY_CONTEXT: Readonly<Record<string, CopyContext>> = {
   'guidance.perReviewedPhrases': {
     section: KOREAN,
     where: 'The result screen and a medicine\'s page: a small line under the Korean directions, which sit under the English ones.',
-    when: 'Once she has approved the dosing phrases, for directions made wholly of approved phrases. Not yet.',
-    notes: 'It says the Korean was put together from phrases she reviewed, and that the English is the original.',
+    when: 'Once the reviewer has approved the dosing phrases, for directions made wholly of approved phrases. Not yet.',
+    notes: 'It says the Korean was put together from phrases the reviewer reviewed, and that the English is the original.',
   },
   'nameEntry.inputLabel': {
     section: SPOKEN,

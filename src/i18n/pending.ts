@@ -5,7 +5,7 @@ export type PendingCopy = {
   readonly key: string;
   readonly en: string;
   readonly note?: string;
-  /** The Korean on screen, completed by AI (`aiKorean`): her draft to correct. */
+  /** The Korean on screen, completed by AI (`aiKorean`): the reviewer's draft to correct. */
   readonly ko?: string;
 };
 
@@ -32,14 +32,14 @@ export function pendingCopy(table: object): PendingCopy[] {
     .map(({ key, text }) => (text.note ? { key, en: text.en, note: text.note } : { key, en: text.en }));
 }
 
-/** Every string shown in Korean completed by AI, which she has not reviewed. */
+/** Every string shown in Korean completed by AI, which the reviewer has not reviewed. */
 export function aiCopy(table: object): PendingCopy[] {
   return allCopy(table)
     .filter(({ text }) => text.koBy === 'ai')
     .map(({ key, text }) => (text.note ? { key, en: text.en, note: text.note, ko: text.ko } : { key, en: text.en, ko: text.ko }));
 }
 
-/** Her next batch: the placeholders, and the Korean completed by AI. */
+/** The reviewer's next batch: the placeholders, and the Korean completed by AI. */
 export function reviewBatch(table: object): PendingCopy[] {
   return [...pendingCopy(table), ...aiCopy(table)];
 }

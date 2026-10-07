@@ -19,7 +19,7 @@ deleted.
    label named, and a note that the medicine may be prescribed for other
    reasons and that this is the FDA-approved indication, not the doctor's
    reason. The heading and note are safety copy, never drafted: written by
-   the reviewer herself (2026-10-04).
+   the reviewer (2026-10-04).
 4. **The strength and directions, as read**, with every withholding rule as it
    was: a field damaged or cut off at the label's edge is never shown as if it
    were whole.

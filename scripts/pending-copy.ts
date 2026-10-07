@@ -1,14 +1,14 @@
 /**
  * Prints every English placeholder awaiting Korean, as a Markdown table with a
  * blank Korean column, ready to hand to the translator; then the strings shown
- * in Korean completed by AI, which she has yet to review.
+ * in Korean completed by AI, which the reviewer has yet to review.
  *
  *     npm run copy:pending
  *
  * Or writes the batch as a spreadsheet, with where each string appears and
  * when (see `copy-context.ts`), the unreviewed Korean drafts beside the
  * English (`content-drafts/copy-batch.draft.json`, or the Korean completed by
- * AI, which goes to her too), and columns for her final wording and whether it
+ * AI, which goes to the reviewer too), and columns for the reviewer's final wording and whether it
  * changed the draft:
  *
  *     npm run copy:pending -- --export [file.csv]
@@ -42,7 +42,7 @@ if (phrasesAt !== -1) {
   const ai = aiCopy(Strings);
   if (ai.length > 0) {
     console.log('');
-    console.log(`${ai.length} string(s) shown in Korean completed by AI, for her to review: ${ai.map(({ key }) => key).join(', ')}`);
+    console.log(`${ai.length} string(s) shown in Korean completed by AI, for the reviewer to review: ${ai.map(({ key }) => key).join(', ')}`);
   }
 } else {
   const pending = reviewBatch(Strings);
@@ -62,7 +62,7 @@ if (phrasesAt !== -1) {
   const file = resolve(args[at + 1] ?? `copy-batch-${today}.csv`);
   writeFileSync(file, exportCsv(rows, drafts), 'utf8');
   const blank = rows.filter((row) => !(row.copy.ko ?? drafts.strings[row.copy.key]?.ko)).length;
-  console.log(`${rows.length} string(s) written to ${file}; ${rows.length - blank} drafted, ${blank} left for her to write`);
+  console.log(`${rows.length} string(s) written to ${file}; ${rows.length - blank} drafted, ${blank} left for the reviewer to write`);
   for (const section of SECTIONS) {
     const count = rows.filter((row) => row.context.section === section).length;
     if (count > 0) console.log(`  ${String(count).padStart(3)}  ${section}`);

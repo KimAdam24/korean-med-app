@@ -27,7 +27,7 @@ const SOME_PENDING = ['reminders.statusSet', 'uses.none', 'fillIn.keepStart', 'p
   (key) => ({ key, en: `English of ${key}` })
 );
 
-test('every string awaiting Korean, or her review of it, says where it appears and when', () => {
+test('every string awaiting Korean, or its review, says where it appears and when', () => {
   // The translator does not have the app; a string with no context is a guess.
   assert.deepEqual(missingContext(reviewBatch(Strings)), []);
 });
@@ -40,7 +40,7 @@ test('context is kept only for strings that exist', () => {
   assert.deepEqual(Object.keys(COPY_CONTEXT).filter((key) => !known(key)), []);
 });
 
-test('every string awaiting Korean has a draft, or a reason it was left for her', () => {
+test('every string awaiting Korean has a draft, or a reason it was left for the reviewer', () => {
   // Korean completed by AI is its own draft.
   assert.deepEqual(missingDrafts(reviewBatch(Strings), DRAFTS), []);
   for (const [key, entry] of Object.entries(DRAFTS.strings)) {
@@ -81,7 +81,7 @@ test('the export is every pending string once, grouped by section in order', () 
   assert.equal(exportRows(SOME_PENDING)[0].copy.key, Object.keys(COPY_CONTEXT).find((key) => keys.has(key)));
 });
 
-test('the CSV survives quotes, commas and Korean, opens in Excel, and says what she changed', () => {
+test('the CSV survives quotes, commas and Korean, opens in Excel, and says what the reviewer changed', () => {
   // A section name without a comma, so the expected rows need no quoting of it.
   const section = SECTIONS.find((name) => !name.includes(','))!;
   const context = { section: section, where: 'Here', when: 'Now', notes: '다시 찍기 is beside it' };
@@ -104,7 +104,7 @@ test('the CSV survives quotes, commas and Korean, opens in Excel, and says what 
   assert.equal(
     drafted,
     `1,${section},Here,Now,"Open ""Alarms & reminders"", then return",A note 다시 찍기 is beside it About the draft: Match the phone.,'알람 및 리마인더' 열기,,,` +
-      `"=IF(I2="""","""",IF(G2="""",""written by her"",IF(EXACT(I2,G2),""same as draft"",""CHANGED"")))",x.y`
+      `"=IF(I2="""","""",IF(G2="""",""written by the reviewer"",IF(EXACT(I2,G2),""same as draft"",""CHANGED"")))",x.y`
   );
   // Left blank, with the reason; the formula points at its own row.
   assert.ok(blank.startsWith(`2,${section},Here,Now,Reminders cannot sound,다시 찍기 is beside it,,A safety warning.,,"=IF(I3=`));
@@ -125,11 +125,11 @@ test("a hidden feature's strings are held back from the export, and return with 
   assert.equal(exportRows(pending, shown).length, pending.length);
 });
 
-test('the safety strings go to her undrafted, each with the reason, whenever they are pending, and never in Korean completed by AI', () => {
+test('the safety strings go to the reviewer undrafted, each with the reason, whenever they are pending, and never in Korean completed by AI', () => {
   // The heading and disclaimer over a label's uses, and the warnings that
   // reminders will not sound: unreviewed Korean is worse than English here.
-  // All written by her (2026-09-28 and 2026-10-04); should one change and be
-  // pending again, it goes back to her undrafted.
+  // All written by the reviewer (2026-09-28 and 2026-10-04); should one change and be
+  // pending again, it goes back to the reviewer undrafted.
   const pending = new Set(pendingCopy(Strings).map(({ key }) => key));
   const ai = new Set(aiCopy(Strings).map(({ key }) => key));
   for (const key of [
