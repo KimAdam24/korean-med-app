@@ -208,8 +208,13 @@ scorecard means much.
 The app uses native modules (camera, keychain, biometrics, on-device
 recognition), so **Expo Go will not run it**: it needs a development build.
 
-Node 22.13 or later (React Native 0.86's floor). EAS builds use 22.23.1, pinned
-in `eas.json` and `.nvmrc`.
+**Setting up a Windows machine from scratch:** [SETUP.md](SETUP.md) goes
+step by step, from Node and the JDK to an emulator and a release build,
+including what went wrong the first time.
+
+Node 22.23.1, pinned in `.nvmrc` and `eas.json` (22.13 is React Native 0.86's
+floor, but use the pinned version so the lock file is written by the same npm
+that installs from it).
 
 ```bash
 npm install
