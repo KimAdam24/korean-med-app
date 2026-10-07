@@ -1,12 +1,17 @@
-# Setting up on Windows
+# Setting up
 
-This is everything needed to build and run the app on a Windows
-machine from nothing, including the parts that went wrong the first time, so
-they don't go wrong for you. It ends with the app running on an Android
-emulator, then a release build.
+This is everything needed to build and run the app on a machine
+from nothing, including the parts that went wrong the first time, so they
+don't go wrong for you. It ends with the app running on an Android emulator,
+then a release build.
 
-Commands are for PowerShell. The versions are the ones on the machine the app
-has been built on. Where something must be exactly that version, it says so.
+**Windows** is sections 1 to 9. It is how the app has been built so far:
+tested, every step. **A Mac** is [further down](#on-a-mac-untested): written
+from current documentation, and untested, since neither of us has one.
+
+On Windows, commands are for PowerShell. The versions are the ones on the
+machine the app has been built on. Where something must be exactly that
+version, it says so.
 
 ## 1. Node 22.23.1, through nvm
 
@@ -185,8 +190,9 @@ That deletes the app's data on the emulator: its PIN and saved medicines.
 
 ## 9. iOS
 
-There is no iOS build on Windows. The app is compiled for the iOS simulator on
-EAS (Expo's cloud builds), with the profile in `eas.json`:
+There is no iOS build on Windows: building for iOS locally takes a Mac (see
+[On a Mac](#on-a-mac-untested)). From Windows, the app is compiled for the iOS
+simulator on EAS (Expo's cloud builds), with the profile in `eas.json`:
 
     npx eas-cli build --platform ios --profile ios-simulator
 
@@ -194,11 +200,189 @@ That needs access to the Expo project, which belongs to the `togurt5`
 account. Ask the project owner to add you. The free plan has a monthly build limit, so
 don't start one casually.
 
+## On a Mac (untested)
+
+**Untested.** Neither of us has a Mac. On 2026-10-07 every command below was
+checked against current documentation: Homebrew's installer, nvm's README,
+Expo's setup guides, Android's emulator docs and Apple's developer docs. None
+of them has been run. Where a step could not be confirmed in docs, it says so.
+If something here turns out wrong, fix it here.
+
+The steps match the Windows ones above. Commands are for zsh, the Mac's
+default shell.
+
+### Homebrew
+
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+It ends with a "Next steps" list: run those commands. On Apple Silicon they
+put Homebrew on your `PATH` (a `brew shellenv` line in `~/.zprofile`).
+
+### Node 22.23.1, through nvm
+
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash
+
+The installer adds nvm to your shell profile (`~/.zshrc`). In a new
+terminal:
+
+    nvm install 22.23.1
+
+In the project folder, a plain `nvm use` reads `.nvmrc`.
+
+The NVM4306 shim error in section 1 is Windows-only: it comes from nvm for
+Windows, and nvm on a Mac has no shims.
+
+**Switching Node versions** is the same as on Windows: global packages belong
+to one version, so install Claude Code again under the new one,
+
+    npm install -g @anthropic-ai/claude-code
+
+or carry every global package over as you install the new version:
+
+    nvm install <new version> --reinstall-packages-from=22.23.1
+
+### Java: Temurin JDK 21
+
+    brew install --cask temurin@21
+
+Then, in `~/.zshrc`:
+
+    export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+
+Expo's guide suggests Zulu 17. The project builds with 21 on Windows, so use
+21 here too.
+
+### Android Studio, the SDK, and `ANDROID_HOME`
+
+Install Android Studio. In *SDK Manager*, install the same packages as in
+section 3. Then, in `~/.zshrc`:
+
+    export ANDROID_HOME=$HOME/Library/Android/sdk
+    export PATH=$PATH:$ANDROID_HOME/emulator
+    export PATH=$PATH:$ANDROID_HOME/platform-tools
+
+In a new terminal, `adb version` should answer.
+
+### The emulator
+
+In *Device Manager*, create a Pixel 7 on API 37. **On Apple Silicon (M1 and
+later), choose the ARM64 system image (`arm64-v8a`).** Android's emulator docs
+say ARM Macs need ARM images: an x86 image gets no hardware acceleration
+there. On an Intel Mac, use x86_64.
+
+Start it before building:
+
+    emulator -avd Pixel_7
+    adb devices
+
+### The project, prebuild, and a development build
+
+As in sections 5 to 7:
+
+    npm install
+    npx expo prebuild --platform android      # without --clean
+    npx expo run:android
+
+### A release build
+
+Close the emulator first, as on Windows: the build needs the memory.
+
+    cd android
+    ./gradlew app:assembleRelease
+    cd ..
+
+Then start the emulator and install:
+
+    adb install -r android/app/build/outputs/apk/release/app-release.apk
+
+If the install fails because the signatures don't match, uninstall first. This
+deletes the app's data on the emulator:
+
+    adb uninstall com.togurt5.koreanmedassistant
+
+### iOS in the simulator
+
+- **Xcode,** from the Mac App Store.
+- **Its command-line tools:** in Xcode › Settings… › Locations, choose the
+  latest version in the *Command Line Tools* menu.
+- **A simulator runtime:** in Xcode › Settings… › Components, under
+  *Platform Support*, click *Get* next to iOS.
+- **CocoaPods:** Expo's current guide no longer lists it separately. If the
+  build stops because CocoaPods or `pod install` is missing, install it:
+
+      brew install cocoapods
+
+Then:
+
+    npx expo prebuild --platform ios
+    npx expo run:ios
+
+As with Android, prebuild again after a change to `app.json`, the fonts or a
+native module. `run:ios` prebuilds by itself only when `ios/` doesn't exist
+yet.
+
+The simulator has no camera. To read a label, add a photo to its library, then
+use 휴대폰에 있는 사진 고르기 (Choose a photo from your phone) in the app:
+
+    xcrun simctl addmedia booted label.jpg
+
+Use a synthetic or redacted label only, never a real patient's (see the rules
+at the end).
+
+Screenshots work on iOS:
+
+    xcrun simctl io booted screenshot screen.png
+
+### A real iPhone, with a free Apple ID
+
+Without the paid Apple Developer Program, Xcode can still install the app on
+your own iPhone, under your Apple ID's "Personal Team".
+
+1. **Developer Mode.** Connect the iPhone to the Mac with a cable, and trust
+   the computer. Then, on the phone: Settings › Privacy & Security, the
+   *Developer Mode* switch under *Security*. It only appears once the phone
+   has been paired with a Mac. The phone restarts; then tap *Enable* and enter
+   the passcode.
+2. **Signing.** Open `ios/*.xcworkspace` in Xcode. In the app target's
+   *Signing & Capabilities* pane, turn on *Automatically manage signing*.
+   Choose your Personal Team as the *Team*, after adding your Apple ID under
+   Xcode › Settings… › Accounts. (Apple's current docs confirm the first part;
+   the Personal Team choice is from experience, not docs.)
+3. **Remove the Push Notifications capability** in the same pane.
+   `expo-notifications` adds it at every prebuild (the `aps-environment`
+   entitlement), and a Personal Team cannot sign an app that has it. The app
+   uses only local reminders, which should not need it, but that is untested.
+   Redo this after every prebuild.
+4. **Run it:** `npx expo run:ios --device`, and choose the phone.
+5. **The first launch** may need you to trust your Apple ID as a developer on
+   the phone. On recent iOS that is under Settings › General › VPN & Device
+   Management (not confirmed in current docs).
+
+If Xcode says the bundle identifier (`com.togurt5.koreanmedassistant`) isn't
+available, change it in Xcode for your own builds only. Don't commit that.
+
+**Should work,** untested: the camera and on-device reading (Apple Vision), the
+lock (Face ID or passcode), the encrypted list (Keychain), the gallery, label
+lookups, and reminders, which are local notifications.
+
+**Doesn't, without the paid account:**
+
+- **It stops opening after 7 days.** Free provisioning profiles expire then, so
+  rebuild and reinstall from Xcode every week. Apple also limits a free
+  account to 3 apps per device, and its App IDs and devices expire after 7
+  days.
+- **No TestFlight and no App Store,** and no EAS builds for a phone. Expo's
+  internal distribution needs a paid account. The `ios-simulator` profile
+  doesn't.
+- **No push notifications.** The app doesn't use them.
+
 ## Things that look broken and aren't
 
-- **Screenshots of the app come out black,** on the emulator too. The app
-  blocks screen capture on purpose, so the app switcher never shows a
-  medicine list (`src/features/security/screen-privacy.ts`).
+- **On Android, screenshots of the app come out black,** on the emulator
+  too. The app blocks screen capture there on purpose, because Android can't
+  hide a medicine list from the app switcher any other way
+  (`src/features/security/screen-privacy.ts`). On iOS, screenshots work: the
+  app only blurs itself in the app switcher.
 - **A grey box behind some text** after you've typed on the laptop
   keyboard. That's Android's keyboard-focus highlight: the emulator stops
   being in touch mode when it gets keyboard input. Click the screen once and it

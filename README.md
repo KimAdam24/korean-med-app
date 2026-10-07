@@ -236,9 +236,10 @@ Work in progress as of 2026-10-07, as opposed to what is parked above:
 The app uses native modules (camera, keychain, biometrics, on-device
 recognition), so **Expo Go will not run it**: it needs a development build.
 
-**Setting up a Windows machine from scratch:** [SETUP.md](SETUP.md) goes
-step by step, from Node and the JDK to an emulator and a release build,
-including what went wrong the first time.
+**Setting up a machine from scratch:** [SETUP.md](SETUP.md) goes step by
+step, from Node and the JDK to an emulator and a release build, including what
+went wrong the first time. It covers Windows, tested, and a Mac with the iOS
+simulator and a real iPhone, which is untested.
 
 Node 22.23.1, pinned in `.nvmrc` and `eas.json` (22.13 is React Native 0.86's
 floor, but use the pinned version so the lock file is written by the same npm
