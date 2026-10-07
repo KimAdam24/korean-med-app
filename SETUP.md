@@ -22,30 +22,39 @@ install from it.
        nvm install 22.23.1
        nvm use 22.23.1
 
-3. Check which `node` Windows finds:
+3. Check:
 
-       node -v
-       (Get-Command node -All).Source
+       node -v            # v22.23.1
 
-   You want `v22.23.1`, and the first path listed inside
-   `...\nvm\installs\v22.23.1`.
+   If it shows another version, another Node is probably installed some
+   other way (the installer from nodejs.org, Chocolatey, the Windows Store).
+   `(Get-Command node -All).Source` lists every `node.exe` Windows can find.
+   Remove the others.
 
-**The shim errors.** nvm 2 puts small stand-in programs (`node.exe`, `npm.exe`,
-`npx.exe`) in `...\nvm\.nodejs`, which hand over to whichever version is
-active. Tools that start Node themselves go through those stand-ins: the
-Android build runs `node` from `android/settings.gradle`, and again to bundle
-the JavaScript. That is where we hit shim errors. What fixed it: put the
-version's own folder on your user `PATH`, **above** the nvm folders:
+**"NVM blocked package-manager execution".** nvm 2 runs `node`, `npm`, `npx`
+and every globally installed command through small stand-in programs
+("shims"), and it checks that the script behind each one is the one it
+trusted. When that script changes, it refuses to run it:
 
-    %LOCALAPPDATA%\Author Software\nvm\installs\v22.23.1
+    NVM blocked package-manager execution because a delegated command could
+    not be trusted… Reason: delegated script changed since it was trusted…
+    Event code: NVM4306
 
-Edit `PATH` in *Edit environment variables for your account* rather than
-with `setx`, which cuts long values short. Open a new terminal after changing
-it, then run the two checks above again.
+The fix:
 
-Also remove any Node installed some other way (the installer from
-nodejs.org, Chocolatey, the Windows Store). A second `node.exe` on `PATH`
-wins half the time.
+    nvm reshim
+
+(or `nvm doctor --autofix`), then run the command again.
+
+**It comes back every time Claude Code updates itself.** Claude Code is
+installed with npm, so it has a shim of its own, and each automatic update
+changes the script behind it. Expect to run `nvm reshim` again after one.
+
+**Switching Node versions.** Globally installed npm packages belong to one
+Node version. After `nvm use` with a different version, install Claude Code
+again under it, or `claude` is missing or still the old version's:
+
+    npm install -g @anthropic-ai/claude-code
 
 ## 2. Java: Temurin JDK 21, not Android Studio's
 
